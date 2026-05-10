@@ -1000,3 +1000,61 @@ function showPage(pageId) {
         loadPurchaseOrders();
     }
 }
+let html5QrCode = null;
+
+function startPOSScanner() {
+    stopScanner();
+
+    html5QrCode = new Html5Qrcode("reader");
+
+    html5QrCode.start(
+        { facingMode: "environment" },
+        {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+        },
+        decodedText => {
+            document.getElementById("posBarcode").value = decodedText;
+            stopScanner();
+            addToCart();
+        },
+        errorMessage => {}
+    ).catch(err => {
+        alert("Camera error: " + err);
+    });
+}
+
+function startReceivingScanner() {
+    stopScanner();
+
+    html5QrCode = new Html5Qrcode("receivingReader");
+
+    html5QrCode.start(
+        { facingMode: "environment" },
+        {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+        },
+        decodedText => {
+            document.getElementById("receiveBarcode").value = decodedText;
+            stopScanner();
+            document.getElementById("receiveQty").focus();
+        },
+        errorMessage => {}
+    ).catch(err => {
+        alert("Camera error: " + err);
+    });
+}
+
+function stopScanner() {
+    if (html5QrCode) {
+        html5QrCode.stop()
+            .then(() => {
+                html5QrCode.clear();
+                html5QrCode = null;
+            })
+            .catch(() => {
+                html5QrCode = null;
+            });
+    }
+}

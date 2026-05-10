@@ -3,6 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <title>POS Inventory System</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -137,6 +138,7 @@
         <input id="posBarcode" placeholder="Scan / Enter Barcode">
         <input id="posQty" type="number" value="1" min="1" placeholder="Qty">
         <button onclick="addToCart()">Add to Cart</button>
+       
     </div>
 
     <div class="box">
@@ -170,6 +172,9 @@
                     <input id="posBarcode" placeholder="Scan / Enter Barcode">
                     <input id="posQty" type="number" value="1" min="1" placeholder="Qty">
                     <button onclick="sellByBarcode()">Sell Item</button>
+                     <button onclick="startPOSScanner()">Start Camera Scanner</button>
+                     <button onclick="stopScanner()">Stop Scanner</button>
+                     <div id="reader" style="width:300px; margin-top:15px;"></div>
                 </div>
             </section>
 
@@ -181,6 +186,10 @@
                     <input id="receiveQty" type="number" placeholder="Receiving Qty">
                     <button onclick="receiveByBarcode()">Receive Stock</button>
                     <button onclick="printReceivingReport()">View Receiving Report</button>
+                    <button onclick="startReceivingScanner()">Start Camera Scanner</button>
+                    <button onclick="stopScanner()">Stop Scanner</button>
+
+                    <div id="receivingReader" style="width:300px; margin-top:15px;"></div>
                 </div>
             </section>
 
