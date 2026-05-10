@@ -1,0 +1,1002 @@
+const API = "";
+let token = "";
+let currentRole = "";
+let cart = [];
+async function createUser() {
+    const username = document.getElementById("newUsername").value.trim();
+    const password = document.getElementById("newPassword").value.trim();
+    const role = document.getElementById("newRole").value;
+
+    const res = await fetch(API + "/create-user", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ username, password, role })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+}
+// LOGIN
+async function login() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    const res = await fetch(API + "/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+
+if (data.token) {
+    token = data.token;
+    currentRole = data.role;   // ✅ MUST be before using it
+
+    document.getElementById("loginSection").style.display = "none";
+    document.getElementById("mainSection").style.display = "block";
+    document.getElementById("adminSection").style.display = currentRole === "admin" ? "block" : "none";
+    document.getElementById("usersMenuBtn").style.display = currentRole === "admin" ? "block" : "none";
+
+showPage("dashboardPage");
+loadProducts();
+loadDashboard();
+
+if (currentRole !== "admin") {
+    document.getElementById("userManagementSection").style.display = "none";
+}
+    loadProducts();
+    loadDashboard();
+    } else {
+        alert(data.error || "Login failed");
+    }
+}
+// ADD PRODUCT
+async function addProduct() {
+    if (!token) {
+        alert("Please login first");
+        return;
+    }
+
+    const name = document.getElementById("pname").value.trim();
+    const barcode = document.getElementById("barcode").value.trim();
+    const price = document.getElementById("price").value.trim();
+
+    const res = await fetch(API + "/products", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ name, barcode, price })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    loadProducts();
+    loadDashboard();
+}
+
+// LOAD PRODUCTS
+async function loadProducts() {
+    const res = await fetch(API + "/products");
+    const products = await res.json();
+    displayProducts(products);
+}
+
+function displayProducts(products) {
+    const table = document.getElementById("productTable");
+    table.innerHTML = "";
+
+    products.forEach(p => {
+        table.innerHTML += `
+            <tr>
+                <td>${p.id}</td>
+                <td>${p.name}</td>
+                <td>${p.barcode}</td>
+                <td>${p.price}</td>
+                <td>${p.stock}</td>
+                <td><button onclick="receive(${p.id})">+</button></td>
+                <td><button onclick="sell(${p.id})">-</button></td>
+                <td>
+                    ${currentRole === "admin" ? `<button onclick="deleteProduct(${p.id})">Delete</button>` : ""}
+                </td>
+            </tr>
+        `;
+    });
+}
+
+// SEARCH PRODUCT
+async function searchProduct() {
+    const barcode = document.getElementById("searchBarcode").value;
+
+    const res = await fetch(API + "/products");
+    const products = await res.json();
+
+    const filtered = products.filter(p => p.barcode == barcode);
+
+    displayProducts(filtered);
+}
+// DELETE PRODUCT
+async function deleteProduct(id) {
+    if (!confirm("Delete this product?")) return;
+
+    await fetch(API + "/products/" + id, {
+        method: "DELETE"
+    });
+
+    loadProducts();
+    loadDashboard();;
+}
+// RECEIVING
+async function receive(id) {
+    const qty = prompt("Enter quantity to receive:");
+    if (!qty) return;
+
+    await fetch(API + "/receiving", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ product_id: id, qty: Number(qty) })
+    });
+
+    loadProducts();
+    loadDashboard();
+}
+
+// SALES
+async function sell(id) {
+    const qty = prompt("Enter quantity to sell:");
+    if (!qty) return;
+
+    const res = await fetch(API + "/sales", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ product_id: id, qty: Number(qty) })
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    alert(data.message);
+
+    printReceipt(id, qty);
+
+    loadProducts();
+    loadDashboard();
+}
+async function loadDashboard() {
+    const res = await fetch(API + "/dashboard");
+    const data = await res.json();
+
+    document.getElementById("totalProducts").innerText = data.totalProducts;
+    document.getElementById("totalStock").innerText = data.totalStock;
+    document.getElementById("totalSales").innerText = data.totalSales.toFixed(2);
+    document.getElementById("lowStock").innerText = data.lowStock;
+}
+async function printInventoryReport() {
+    const res = await fetch(API + "/products");
+    const products = await res.json();
+
+    let reportWindow = window.open("", "_blank");
+
+    let html = `
+        <html>
+        <head>
+            <title>Inventory Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Inventory Report</h1>
+            <p>Date: ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    products.forEach(p => {
+        html += `
+            <tr>
+                <td>${p.id}</td>
+                <td>${p.name}</td>
+                <td>${p.barcode}</td>
+                <td>${p.price}</td>
+                <td>${p.stock}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+
+            <script>
+                window.print();
+            </script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+}
+async function exportInventoryExcel() {
+    const res = await fetch(API + "/products");
+    const products = await res.json();
+
+    let csv = "ID,Product,Barcode,Price,Stock\n";
+
+    products.forEach(p => {
+        csv += `${p.id},${p.name},${p.barcode},${p.price},${p.stock}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "inventory_report.csv";
+    link.click();
+}
+async function printSalesReport() {
+    const res = await fetch(API + "/sales-report");
+    const sales = await res.json();
+
+    let reportWindow = window.open("", "_blank");
+
+    let html = `
+        <html>
+        <head>
+            <title>Sales Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Sales Report</h1>
+            <p>Date: ${new Date().toLocaleString()}</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    sales.forEach(s => {
+        html += `
+            <tr>
+                <td>${s.id}</td>
+                <td>${s.product_name}</td>
+                <td>${s.barcode}</td>
+                <td>${s.qty}</td>
+                <td>${s.price}</td>
+                <td>${s.total}</td>
+                <td>${s.date}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+}
+
+async function exportSalesExcel() {
+    const res = await fetch(API + "/sales-report");
+    const sales = await res.json();
+
+    let csv = "ID,Product,Barcode,Qty,Price,Total,Date\n";
+
+    sales.forEach(s => {
+        csv += `${s.id},${s.product_name},${s.barcode},${s.qty},${s.price},${s.total},${s.date}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "sales_report.csv";
+    link.click();
+}
+
+async function printReceivingReport() {
+    const res = await fetch(API + "/receiving-report");
+    const receiving = await res.json();
+
+    let reportWindow = window.open("", "_blank");
+
+    let html = `
+        <html>
+        <head>
+            <title>Receiving Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Receiving Report</h1>
+            <p>Date: ${new Date().toLocaleString()}</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Qty</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    receiving.forEach(r => {
+        html += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.qty}</td>
+                <td>${r.date}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+}
+
+async function exportReceivingExcel() {
+    const res = await fetch(API + "/receiving-report");
+    const receiving = await res.json();
+
+    let csv = "ID,Product,Barcode,Qty,Date\n";
+
+    receiving.forEach(r => {
+        csv += `${r.id},${r.product_name},${r.barcode},${r.qty},${r.date}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "receiving_report.csv";
+    link.click();
+}
+async function searchByBarcode() {
+    const barcode = document.getElementById("barcodeSearchInput").value.trim();
+
+    if (!barcode) {
+        alert("Please enter or scan barcode");
+        return;
+    }
+
+    const res = await fetch(API + "/products");
+    const products = await res.json();
+
+    const filtered = products.filter(p => p.barcode === barcode);
+
+    if (filtered.length === 0) {
+        alert("Product not found");
+        return;
+    }
+
+    displayProducts(filtered);
+}
+document.addEventListener("DOMContentLoaded", function () {
+    const barcodeInput = document.getElementById("barcodeSearchInput");
+
+    if (barcodeInput) {
+        barcodeInput.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                searchByBarcode();
+            }
+        });
+    }
+});
+async function printReceipt(productId, qty) {
+    const res = await fetch(API + "/products");
+    const products = await res.json();
+
+    const product = products.find(p => p.id == productId);
+    if (!product) return;
+
+    const total = Number(product.price) * Number(qty);
+
+    let receiptWindow = window.open("", "_blank");
+
+    let html = `
+        <html>
+        <head>
+            <title>Sales Receipt</title>
+            <style>
+                body { font-family: Arial; padding: 20px; width: 300px; }
+                h2 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; }
+                td { padding: 6px; border-bottom: 1px dashed #ccc; }
+                .total { font-weight: bold; font-size: 18px; }
+            </style>
+        </head>
+        <body>
+            <h2>POS Receipt</h2>
+            <p>Date: ${new Date().toLocaleString()}</p>
+
+            <table>
+                <tr><td>Product</td><td>${product.name}</td></tr>
+                <tr><td>Barcode</td><td>${product.barcode}</td></tr>
+                <tr><td>Qty</td><td>${qty}</td></tr>
+                <tr><td>Price</td><td>${product.price}</td></tr>
+                <tr class="total"><td>Total</td><td>${total.toFixed(2)}</td></tr>
+            </table>
+
+            <p style="text-align:center;">Thank you</p>
+
+            <script>
+                window.print();
+            </script>
+        </body>
+        </html>
+    `;
+
+    receiptWindow.document.write(html);
+    receiptWindow.document.close();
+}
+async function loadUsers() {
+    const res = await fetch(API + "/users", {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    const users = await res.json();
+
+    const table = document.getElementById("usersTable");
+    table.innerHTML = "";
+
+    users.forEach(u => {
+        table.innerHTML += `
+            <tr>
+                <td>${u.id}</td>
+                <td>${u.username}</td>
+                <td>${u.role}</td>
+                <td><button onclick="changeUserPassword(${u.id})">Change Password</button></td>
+                <td><button onclick="deleteUser(${u.id})">Delete</button></td>
+            </tr>
+        `;
+    });
+}
+
+async function changeUserPassword(id) {
+    const password = prompt("Enter new password:");
+    if (!password) return;
+
+    const res = await fetch(API + "/users/" + id + "/password", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ password })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+}
+
+async function deleteUser(id) {
+    if (!confirm("Delete this user?")) return;
+
+    const res = await fetch(API + "/users/" + id, {
+        method: "DELETE",
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    const data = await res.json();
+    alert(`${product.name} → Received ${qty} units`);
+    loadUsers();
+}
+async function receiveByBarcode() {
+    const barcode = document.getElementById("receiveBarcode").value.trim();
+    const qty = Number(document.getElementById("receiveQty").value);
+
+    if (!barcode || qty <= 0) {
+        alert("Please enter barcode and valid quantity");
+        return;
+    }
+
+    const resProducts = await fetch(API + "/products");
+    const products = await resProducts.json();
+
+    const product = products.find(p => p.barcode === barcode);
+
+    if (!product) {
+        alert("Product not found");
+        return;
+    }
+
+    const res = await fetch(API + "/receiving", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            product_id: product.id,
+            qty: qty
+        })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    document.getElementById("receiveBarcode").value = "";
+    document.getElementById("receiveQty").value = "";
+
+    loadProducts();
+    loadDashboard();
+}
+document.addEventListener("DOMContentLoaded", function () {
+    const receiveBarcode = document.getElementById("receiveBarcode");
+
+    if (receiveBarcode) {
+        receiveBarcode.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                document.getElementById("receiveQty").focus();
+            }
+        });
+    }
+
+    const receiveQty = document.getElementById("receiveQty");
+
+    if (receiveQty) {
+        receiveQty.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                receiveByBarcode();
+            }
+        });
+    }
+});
+window.onload = () => {
+    const barcodeInput = document.getElementById("receiveBarcode");
+    if (barcodeInput) barcodeInput.focus();
+};
+function showPage(pageId) {
+    document.querySelectorAll(".page").forEach(page => {
+        page.style.display = "none";
+    });
+if (pageId === "suppliersPage") {
+    loadSupplierOptions();
+    loadPurchaseOrders();
+}
+    document.getElementById(pageId).style.display = "block";
+
+    if (pageId === "dashboardPage") loadDashboard();
+    if (pageId === "productsPage") loadProducts();
+    if (pageId === "usersPage") loadUsers();
+}
+
+function logout() {
+    token = "";
+    currentRole = "";
+
+    document.getElementById("mainSection").style.display = "none";
+    document.getElementById("loginSection").style.display = "block";
+}
+
+async function sellByBarcode() {
+    const barcode = document.getElementById("posBarcode").value.trim();
+    const qty = Number(document.getElementById("posQty").value);
+
+    if (!barcode || qty <= 0) {
+        alert("Please enter barcode and valid quantity");
+        return;
+    }
+
+    const resProducts = await fetch(API + "/products");
+    const products = await resProducts.json();
+
+    const product = products.find(p => p.barcode === barcode);
+
+    if (!product) {
+        alert("Product not found");
+        return;
+    }
+
+    const res = await fetch(API + "/sales", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            product_id: product.id,
+            qty: qty
+        })
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    alert(`${product.name} sold successfully`);
+
+    document.getElementById("posBarcode").value = "";
+    document.getElementById("posQty").value = 1;
+
+    printReceipt(product.id, qty);
+    loadProducts();
+    loadDashboard();
+}
+async function addToCart() {
+    const barcode = document.getElementById("posBarcode").value.trim();
+    const qty = Number(document.getElementById("posQty").value);
+
+    if (!barcode || qty <= 0) {
+        alert("Please enter barcode and valid quantity");
+        return;
+    }
+
+    const res = await fetch(API + "/products");
+    const products = await res.json();
+
+    const product = products.find(p => p.barcode === barcode);
+
+    if (!product) {
+        alert("Product not found");
+        return;
+    }
+
+    if (product.stock < qty) {
+        alert("Not enough stock");
+        return;
+    }
+
+    const existing = cart.find(item => item.id === product.id);
+
+    if (existing) {
+        if (product.stock < existing.qty + qty) {
+            alert("Not enough stock for total cart quantity");
+            return;
+        }
+
+        existing.qty += qty;
+    } else {
+        cart.push({
+            id: product.id,
+            name: product.name,
+            barcode: product.barcode,
+            price: Number(product.price),
+            qty: qty
+        });
+    }
+
+    document.getElementById("posBarcode").value = "";
+    document.getElementById("posQty").value = 1;
+
+    displayCart();
+}
+
+function displayCart() {
+    const table = document.getElementById("cartTable");
+    const totalBox = document.getElementById("cartTotal");
+
+    table.innerHTML = "";
+
+    let total = 0;
+
+    cart.forEach((item, index) => {
+        const lineTotal = item.price * item.qty;
+        total += lineTotal;
+
+        table.innerHTML += `
+            <tr>
+                <td>${item.name}</td>
+                <td>${item.barcode}</td>
+                <td>${item.qty}</td>
+                <td>${item.price.toFixed(2)}</td>
+                <td>${lineTotal.toFixed(2)}</td>
+                <td><button onclick="removeFromCart(${index})">Remove</button></td>
+            </tr>
+        `;
+    });
+
+    totalBox.innerText = total.toFixed(2);
+}
+
+function removeFromCart(index) {
+    cart.splice(index, 1);
+    displayCart();
+}
+
+function clearCart() {
+    cart = [];
+    displayCart();
+}
+
+async function checkoutCart() {
+    if (cart.length === 0) {
+        alert("Cart is empty");
+        return;
+    }
+
+    for (const item of cart) {
+        const res = await fetch(API + "/sales", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                product_id: item.id,
+                qty: item.qty
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+    }
+
+    printCartReceipt();
+
+    alert("Sale completed successfully");
+
+    cart = [];
+    displayCart();
+    loadProducts();
+    loadDashboard();
+}
+
+function printCartReceipt() {
+    let receiptWindow = window.open("", "_blank");
+
+    let total = 0;
+
+    let rows = "";
+
+    cart.forEach(item => {
+        const lineTotal = item.price * item.qty;
+        total += lineTotal;
+
+        rows += `
+            <tr>
+                <td>${item.name}</td>
+                <td>${item.qty}</td>
+                <td>${item.price.toFixed(2)}</td>
+                <td>${lineTotal.toFixed(2)}</td>
+            </tr>
+        `;
+    });
+
+    const html = `
+        <html>
+        <head>
+            <title>Sales Receipt</title>
+            <style>
+                body { font-family: Arial; padding: 20px; width: 360px; }
+                h2 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { padding: 6px; border-bottom: 1px dashed #ccc; text-align: center; }
+                .total { font-weight: bold; font-size: 18px; text-align: right; margin-top: 15px; }
+            </style>
+        </head>
+        <body>
+            <h2>POS Receipt</h2>
+            <p>Date: ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+
+            <p class="total">Grand Total: $${total.toFixed(2)}</p>
+            <p style="text-align:center;">Thank you</p>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    receiptWindow.document.write(html);
+    receiptWindow.document.close();
+}
+document.addEventListener("DOMContentLoaded", function () {
+    const posBarcode = document.getElementById("posBarcode");
+
+    if (posBarcode) {
+        posBarcode.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                addToCart();
+            }
+        });
+    }
+});
+async function addSupplier() {
+    const name = document.getElementById("supplierName").value.trim();
+    const phone = document.getElementById("supplierPhone").value.trim();
+    const email = document.getElementById("supplierEmail").value.trim();
+    const address = document.getElementById("supplierAddress").value.trim();
+
+    const res = await fetch(API + "/suppliers", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ name, phone, email, address })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    loadSupplierOptions();
+}
+
+async function loadSupplierOptions() {
+    const suppliersRes = await fetch(API + "/suppliers");
+    const suppliers = await suppliersRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const supplierSelect = document.getElementById("poSupplier");
+    const productSelect = document.getElementById("poProduct");
+
+    supplierSelect.innerHTML = "";
+    productSelect.innerHTML = "";
+
+    suppliers.forEach(s => {
+        supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+    });
+
+    products.forEach(p => {
+        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+    });
+}
+
+async function createPurchaseOrder() {
+    const supplier_id = document.getElementById("poSupplier").value;
+    const product_id = document.getElementById("poProduct").value;
+    const qty = Number(document.getElementById("poQty").value);
+
+    if (!supplier_id || !product_id || qty <= 0) {
+        alert("Please select supplier/product and enter valid qty");
+        return;
+    }
+
+    const res = await fetch(API + "/purchase-orders", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ supplier_id, product_id, qty })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    document.getElementById("poQty").value = "";
+    loadPurchaseOrders();
+}
+
+async function loadPurchaseOrders() {
+    const res = await fetch(API + "/purchase-orders");
+    const orders = await res.json();
+
+    const table = document.getElementById("purchaseOrdersTable");
+    table.innerHTML = "";
+
+    orders.forEach(o => {
+        table.innerHTML += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${o.supplier_name}</td>
+                <td>${o.product_name}</td>
+                <td>${o.barcode}</td>
+                <td>${o.qty}</td>
+                <td>${o.status}</td>
+                <td>${o.date}</td>
+                <td>
+                    ${
+                        o.status === "Received"
+                        ? "Received"
+                        : `<button onclick="receivePurchaseOrder(${o.id})">Receive</button>`
+                    }
+                </td>
+            </tr>
+        `;
+    });
+}
+async function receivePurchaseOrder(id) {
+    if (!confirm("Receive this purchase order and update stock?")) return;
+
+    const res = await fetch(API + "/purchase-orders/" + id + "/receive", {
+        method: "PUT",
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    loadPurchaseOrders();
+    loadProducts();
+    loadDashboard();
+}
+function showPage(pageId) {
+    document.querySelectorAll(".page").forEach(page => {
+        page.style.display = "none";
+    });
+
+    document.getElementById(pageId).style.display = "block";
+
+    if (pageId === "posPage") {
+        setTimeout(() => {
+            document.getElementById("posBarcode").focus();
+        }, 100);
+    }
+
+    if (pageId === "dashboardPage") loadDashboard();
+    if (pageId === "productsPage") loadProducts();
+    if (pageId === "usersPage") loadUsers();
+    if (pageId === "suppliersPage") {
+        loadSupplierOptions();
+        loadPurchaseOrders();
+    }
+}
