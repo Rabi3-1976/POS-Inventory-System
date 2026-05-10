@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <title>POS Inventory System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="loginSection" class="login-box">
+    <h1>POS Inventory System</h1>
+    <h2>Login</h2>
+
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+
+    <hr>
+
+    <h3>Create User</h3>
+    <input id="newUsername" placeholder="New Username">
+    <input id="newPassword" type="password" placeholder="New Password">
+    <select id="newRole">
+        <option value="admin">Admin</option>
+        <option value="user">User</option>
+    </select>
+    <button onclick="createUser()">Create User</button>
+</div>
+
+<div id="mainSection" style="display:none;">
+
+    <div class="layout">
+
+        <aside class="sidebar">
+            <h2>POS System</h2>
+            <button onclick="showPage('dashboardPage')">Dashboard</button>
+            <button onclick="showPage('productsPage')">Products</button>
+            <button onclick="showPage('posPage')">POS</button>
+            <button onclick="showPage('receivingPage')">Receiving</button>
+            <button onclick="showPage('reportsPage')">Reports</button>
+            <button id="suppliersMenuBtn" onclick="showPage('suppliersPage')">Suppliers</button>
+            <button id="usersMenuBtn" onclick="showPage('usersPage')">Users</button>
+            <button onclick="logout()">Logout</button>
+        </aside>
+
+        <main class="content">
+
+            <section id="dashboardPage" class="page">
+                <h1>Dashboard</h1>
+                <div class="dashboard">
+                    <div class="card">Total Products<br><span id="totalProducts">0</span></div>
+                    <div class="card">Total Stock<br><span id="totalStock">0</span></div>
+                    <div class="card">Total Sales<br>$<span id="totalSales">0</span></div>
+                    <div class="card">Low Stock Items<br><span id="lowStock">0</span></div>
+                </div>
+            </section>
+<section id="suppliersPage" class="page" style="display:none;">
+    <h1>Suppliers & Purchase Orders</h1>
+
+    <div class="box">
+        <h2>Add Supplier</h2>
+        <input id="supplierName" placeholder="Supplier Name">
+        <input id="supplierPhone" placeholder="Phone">
+        <input id="supplierEmail" placeholder="Email">
+        <input id="supplierAddress" placeholder="Address">
+        <button onclick="addSupplier()">Add Supplier</button>
+    </div>
+
+    <div class="box">
+        <h2>Create Purchase Order</h2>
+        <select id="poSupplier"></select>
+        <select id="poProduct"></select>
+        <input id="poQty" type="number" placeholder="Qty">
+        <button onclick="createPurchaseOrder()">Create PO</button>
+    </div>
+
+    <div class="box">
+        <h2>Purchase Orders</h2>
+        <button onclick="loadPurchaseOrders()">Load Purchase Orders</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Supplier</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Qty</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Receive</th>
+                </tr>
+            </thead>
+            <tbody id="purchaseOrdersTable"></tbody>
+        </table>
+    </div>
+</section>
+            <section id="productsPage" class="page" style="display:none;">
+                <h1>Products</h1>
+
+                <div id="adminSection" class="box">
+                    <h2>Add Product</h2>
+                    <input id="pname" placeholder="Product Name">
+                    <input id="barcode" placeholder="Barcode">
+                    <input id="price" type="number" placeholder="Price">
+                    <button onclick="addProduct()">Add Product</button>
+                </div>
+
+                <div class="box">
+                    <h2>Product List</h2>
+                    <input id="barcodeSearchInput" placeholder="Scan or type barcode">
+                    <button onclick="searchByBarcode()">Search Barcode</button>
+                    <button onclick="loadProducts()">Show All</button>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Barcode</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Receive</th>
+                                <th>Sell</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTable"></tbody>
+                    </table>
+                </div>
+            </section>
+            <section id="posPage" class="page" style="display:none;">
+    <h1>POS Cashier</h1>
+
+    <div class="box">
+        <input id="posBarcode" placeholder="Scan / Enter Barcode">
+        <input id="posQty" type="number" value="1" min="1" placeholder="Qty">
+        <button onclick="addToCart()">Add to Cart</button>
+    </div>
+
+    <div class="box">
+        <h2>Cart</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                    <th>Remove</th>
+                </tr>
+            </thead>
+            <tbody id="cartTable"></tbody>
+        </table>
+
+        <h2>Total: $<span id="cartTotal">0.00</span></h2>
+
+        <button onclick="checkoutCart()">Checkout</button>
+        <button onclick="clearCart()">Clear Cart</button>
+    </div>
+</section>
+
+            <section id="posPage" class="page" style="display:none;">
+                <h1>POS Cashier</h1>
+
+                <div class="box">
+                    <input id="posBarcode" placeholder="Scan / Enter Barcode">
+                    <input id="posQty" type="number" value="1" min="1" placeholder="Qty">
+                    <button onclick="sellByBarcode()">Sell Item</button>
+                </div>
+            </section>
+
+            <section id="receivingPage" class="page" style="display:none;">
+                <h1>Receiving Module</h1>
+
+                <div class="box">
+                    <input id="receiveBarcode" placeholder="Scan / Enter Barcode">
+                    <input id="receiveQty" type="number" placeholder="Receiving Qty">
+                    <button onclick="receiveByBarcode()">Receive Stock</button>
+                    <button onclick="printReceivingReport()">View Receiving Report</button>
+                </div>
+            </section>
+
+            <section id="reportsPage" class="page" style="display:none;">
+                <h1>Reports</h1>
+
+                <div class="box">
+                    <button onclick="printInventoryReport()">Print Inventory PDF</button>
+                    <button onclick="exportInventoryExcel()">Export Inventory Excel</button>
+                    <button onclick="printSalesReport()">Print Sales Report</button>
+                    <button onclick="exportSalesExcel()">Export Sales Excel</button>
+                    <button onclick="printReceivingReport()">Print Receiving Report</button>
+                    <button onclick="exportReceivingExcel()">Export Receiving Excel</button>
+                </div>
+            </section>
+
+            <section id="usersPage" class="page" style="display:none;">
+                <h1>User Management</h1>
+
+                <div class="box">
+                    <button onclick="loadUsers()">Load Users</button>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Change Password</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTable"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
