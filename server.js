@@ -65,11 +65,11 @@ app.post('/create-user', async (req, res) => {
 
 // ================= ADD PRODUCT =================
 app.post('/products', verifyToken, adminOnly, (req, res) => {
-    const { name, barcode, price } = req.body;
+    const { name, barcode, price, cost } = req.body;
 
     db.run(
-        "INSERT INTO products (name, barcode, price) VALUES (?, ?, ?)",
-        [name, barcode, price],
+        "INSERT INTO products (name, barcode, price, cost) VALUES (?, ?, ?, ?)",
+        [name, barcode, price, cost],
         function (err) {
             if (err) return res.status(400).json({ error: "Duplicate product or barcode" });
             res.json({ message: "Product added" });
@@ -109,14 +109,20 @@ app.post('/receiving', (req, res) => {
 app.post('/sales', (req, res) => {
     const { product_id, qty } = req.body;
 
-    db.get("SELECT stock FROM products WHERE id = ?", [product_id], (err, row) => {
-        if (row.stock < qty) {
+    db.get("SELECT * FROM products WHERE id = ?", [product_id], (err, p) => {
+        if (!p) return res.status(400).json({ error: "Product not found" });
+
+        if (p.stock < qty) {
             return res.status(400).json({ error: "Not enough stock" });
         }
 
+        const totalPrice = p.price * qty;
+        const totalCost = p.cost * qty;
+        const profit = totalPrice - totalCost;
+
         db.run(
-            "INSERT INTO sales (product_id, qty, date) VALUES (?, ?, datetime('now'))",
-            [product_id, qty]
+            "INSERT INTO sales (product_id, qty, price, cost, profit, date) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            [product_id, qty, totalPrice, totalCost, profit]
         );
 
         db.run(
@@ -124,7 +130,7 @@ app.post('/sales', (req, res) => {
             [qty, product_id]
         );
 
-        res.json({ message: "Sale recorded" });
+        res.json({ message: "Sale recorded", profit });
     });
 });
 //================= DELETE PRODUCT =================
@@ -150,6 +156,9 @@ app.get('/dashboard', (req, res) => {
             db.get("SELECT SUM(s.qty * p.price) AS totalSales FROM sales s JOIN products p ON s.product_id = p.id", [], (err, row) => {
                 data.totalSales = row.totalSales || 0;
 
+                db.get("SELECT SUM(profit) AS totalProfit FROM sales", [], (err, row) => {
+                data.totalProfit = row.totalProfit || 0;
+
                 db.get("SELECT COUNT(*) AS lowStock FROM products WHERE stock <= 5", [], (err, row) => {
                     data.lowStock = row.lowStock;
                     res.json(data);
@@ -157,6 +166,7 @@ app.get('/dashboard', (req, res) => {
             });
         });
     });
+});
 });
 app.get('/sales-report', (req, res) => {
     db.all(`
@@ -316,6 +326,33 @@ app.put('/purchase-orders/:id/receive', verifyToken, adminOnly, (req, res) => {
         );
 
         res.json({ message: "Purchase order received and stock updated" });
+    });
+});
+app.get('/charts/sales-profit', (req, res) => {
+    db.all(`
+        SELECT 
+            date(date) AS sale_date,
+            SUM(price) AS total_sales,
+            SUM(profit) AS total_profit
+        FROM sales
+        GROUP BY date(date)
+        ORDER BY sale_date ASC
+    `, [], (err, rows) => {
+        if (err) return res.status(400).json({ error: "Chart data failed" });
+        res.json(rows);
+    });
+});
+
+app.get('/charts/stock', (req, res) => {
+    db.all(`
+        SELECT 
+            name,
+            stock
+        FROM products
+        ORDER BY stock ASC
+    `, [], (err, rows) => {
+        if (err) return res.status(400).json({ error: "Stock chart failed" });
+        res.json(rows);
     });
 });
 // ================= START SERVER =================
