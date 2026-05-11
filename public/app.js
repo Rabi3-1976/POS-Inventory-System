@@ -2,6 +2,8 @@ const API = "";
 let token = "";
 let currentRole = "";
 let cart = [];
+let salesProfitChart = null;
+let stockChart = null;
 async function createUser() {
     const username = document.getElementById("newUsername").value.trim();
     const password = document.getElementById("newPassword").value.trim();
@@ -61,14 +63,14 @@ async function addProduct() {
     const name = document.getElementById("pname").value.trim();
     const barcode = document.getElementById("barcode").value.trim();
     const price = document.getElementById("price").value.trim();
-
+    const cost = document.getElementById("cost").value.trim();
     const res = await fetch(API + "/products", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + token
         },
-        body: JSON.stringify({ name, barcode, price })
+        body: JSON.stringify({ name, barcode, price, cost })
     });
 
     const data = await res.json();
@@ -177,6 +179,7 @@ async function loadDashboard() {
     document.getElementById("totalStock").innerText = data.totalStock;
     document.getElementById("totalSales").innerText = data.totalSales.toFixed(2);
     document.getElementById("lowStock").innerText = data.lowStock;
+    document.getElementById("totalProfit").innerText = data.totalProfit.toFixed(2);
 }
 async function printInventoryReport() {
     const res = await fetch(API + "/products");
@@ -579,6 +582,7 @@ async function receiveByBarcode() {
 
     loadProducts();
     loadDashboard();
+    loadCharts();
 }
 document.addEventListener("DOMContentLoaded", function () {
     const receiveBarcode = document.getElementById("receiveBarcode");
@@ -790,6 +794,7 @@ async function checkoutCart() {
     displayCart();
     loadProducts();
     loadDashboard();
+    loadCharts();
 }
 
 function printCartReceipt() {
@@ -978,6 +983,7 @@ async function receivePurchaseOrder(id) {
     loadPurchaseOrders();
     loadProducts();
     loadDashboard();
+    loadCharts();
 }
 function showPage(pageId) {
     document.querySelectorAll(".page").forEach(page => {
@@ -992,7 +998,10 @@ function showPage(pageId) {
         }, 100);
     }
 
-    if (pageId === "dashboardPage") loadDashboard();
+    if (pageId === "dashboardPage") {
+    loadDashboard();
+    loadCharts();
+}
     if (pageId === "productsPage") loadProducts();
     if (pageId === "usersPage") loadUsers();
     if (pageId === "suppliersPage") {
@@ -1057,4 +1066,73 @@ function stopScanner() {
                 html5QrCode = null;
             });
     }
+}
+async function loadCharts() {
+    await loadSalesProfitChart();
+    await loadStockChart();
+}
+
+async function loadSalesProfitChart() {
+    const res = await fetch(API + "/charts/sales-profit");
+    const data = await res.json();
+
+    const labels = data.map(x => x.sale_date);
+    const sales = data.map(x => x.total_sales || 0);
+    const profit = data.map(x => x.total_profit || 0);
+
+    const ctx = document.getElementById("salesProfitChart");
+
+    if (salesProfitChart) {
+        salesProfitChart.destroy();
+    }
+
+    salesProfitChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: "Sales",
+                    data: sales
+                },
+                {
+                    label: "Profit",
+                    data: profit
+                }
+            ]
+        },
+        options: {
+            responsive: true
+        }
+    });
+}
+
+async function loadStockChart() {
+    const res = await fetch(API + "/charts/stock");
+    const data = await res.json();
+
+    const labels = data.map(x => x.name);
+    const stock = data.map(x => x.stock || 0);
+
+    const ctx = document.getElementById("stockChart");
+
+    if (stockChart) {
+        stockChart.destroy();
+    }
+
+    stockChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: "Current Stock",
+                    data: stock
+                }
+            ]
+        },
+        options: {
+            responsive: true
+        }
+    });
 }

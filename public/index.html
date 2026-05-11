@@ -4,6 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <title>POS Inventory System</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -54,6 +55,16 @@
                     <div class="card">Total Stock<br><span id="totalStock">0</span></div>
                     <div class="card">Total Sales<br>$<span id="totalSales">0</span></div>
                     <div class="card">Low Stock Items<br><span id="lowStock">0</span></div>
+                    <div class="card">Total Profit<br>$<span id="totalProfit">0</span></div>
+                    <div class="box">
+                    <h2>Sales & Profit Chart</h2>
+                    <canvas id="salesProfitChart"></canvas>
+                    </div>
+
+                    <div class="box">
+                    <h2>Stock Chart</h2>
+                    <canvas id="stockChart"></canvas>
+                    </div>
                 </div>
             </section>
 <section id="suppliersPage" class="page" style="display:none;">
@@ -105,6 +116,7 @@
                     <input id="pname" placeholder="Product Name">
                     <input id="barcode" placeholder="Barcode">
                     <input id="price" type="number" placeholder="Price">
+                    <input id="cost" type="number" placeholder="Cost Price">
                     <button onclick="addProduct()">Add Product</button>
                 </div>
 
