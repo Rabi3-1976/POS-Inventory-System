@@ -786,13 +786,13 @@ async function checkoutCart() {
         }
     }
 
-    printCartReceipt();
+    tReceipt();
 
     alert("Sale completed successfully");
 
     cart = [];
     displayCart();
-    loadProducts();
+    loadProducts();printCar
     loadDashboard();
     loadCharts();
 }
@@ -801,7 +801,6 @@ function printCartReceipt() {
     let receiptWindow = window.open("", "_blank");
 
     let total = 0;
-
     let rows = "";
 
     cart.forEach(item => {
@@ -818,21 +817,94 @@ function printCartReceipt() {
         `;
     });
 
+    const invoiceNumber = "INV-" + Date.now();
+
     const html = `
         <html>
         <head>
-            <title>Sales Receipt</title>
+            <title>Invoice</title>
+
             <style>
-                body { font-family: Arial; padding: 20px; width: 360px; }
-                h2 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; }
-                th, td { padding: 6px; border-bottom: 1px dashed #ccc; text-align: center; }
-                .total { font-weight: bold; font-size: 18px; text-align: right; margin-top: 15px; }
+                body {
+                    font-family: Arial;
+                    padding: 20px;
+                    width: 400px;
+                    color: #222;
+                }
+
+                .header {
+                    text-align: center;
+                    margin-bottom: 20px;
+                }
+
+                .header img {
+                    width: 80px;
+                    height: 80px;
+                    object-fit: contain;
+                }
+
+                h1 {
+                    margin: 5px 0;
+                }
+
+                .company-info {
+                    font-size: 13px;
+                    color: #555;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 20px;
+                }
+
+                th, td {
+                    border-bottom: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: center;
+                    font-size: 14px;
+                }
+
+                th {
+                    background: #f2f2f2;
+                }
+
+                .total {
+                    text-align: right;
+                    margin-top: 20px;
+                    font-size: 20px;
+                    font-weight: bold;
+                }
+
+                .footer {
+                    margin-top: 30px;
+                    text-align: center;
+                    font-size: 13px;
+                    color: #666;
+                }
             </style>
         </head>
+
         <body>
-            <h2>POS Receipt</h2>
-            <p>Date: ${new Date().toLocaleString()}</p>
+
+            <div class="header">
+                <img src="logo.png">
+
+                <h1>Your Company Name</h1>
+
+                <div class="company-info">
+                    Beirut, Lebanon<br>
+                    Phone: +961 XX XXX XXX<br>
+                    Email: info@company.com
+                </div>
+            </div>
+
+            <hr>
+
+            <p>
+                <strong>Invoice:</strong> ${invoiceNumber}<br>
+                <strong>Date:</strong> ${new Date().toLocaleString()}
+            </p>
 
             <table>
                 <thead>
@@ -843,15 +915,24 @@ function printCartReceipt() {
                         <th>Total</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     ${rows}
                 </tbody>
             </table>
 
-            <p class="total">Grand Total: $${total.toFixed(2)}</p>
-            <p style="text-align:center;">Thank you</p>
+            <div class="total">
+                Grand Total: $${total.toFixed(2)}
+            </div>
 
-            <script>window.print();</script>
+            <div class="footer">
+                Thank you for your business
+            </div>
+
+            <script>
+                window.print();
+            </script>
+
         </body>
         </html>
     `;
