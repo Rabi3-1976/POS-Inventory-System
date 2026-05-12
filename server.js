@@ -385,6 +385,17 @@ app.post('/import-products', upload.single('file'), (req, res) => {
 
     res.json({ message: "Products imported successfully" });
 });
+app.get('/setup-admin', async (req, res) => {
+    const hashedPassword = await bcrypt.hash("1234", 10);
+
+    await pool.query(`
+        INSERT INTO users (username, password, role)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (username) DO NOTHING
+    `, ["admin", hashedPassword, "admin"]);
+
+    res.send("Admin user created. Username: admin / Password: 1234");
+});
 // ================= START SERVER =================
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
