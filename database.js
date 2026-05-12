@@ -1,91 +1,80 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
+const { Pool } = require("pg");
 
-const dataDir = process.env.DATA_DIR || __dirname;
-
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const dbPath = path.join(dataDir, 'pos_inventory.db');
-
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error("Database connection error:", err.message);
-    } else {
-        console.log("Connected to SQLite database:", dbPath);
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
     }
 });
 
-// Create Tables
-db.serialize(() => {
-
-    // Users
-    db.run(`
+async function initializeDatabase() {
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
             password TEXT,
             role TEXT
         )
     `);
-    db.run(`
-    CREATE TABLE IF NOT EXISTS suppliers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE,
-        phone TEXT,
-        email TEXT,
-        address TEXT
-    )
-`);
 
-db.run(`
-    CREATE TABLE IF NOT EXISTS purchase_orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        supplier_id INTEGER,
-        product_id INTEGER,
-        qty INTEGER,
-        status TEXT DEFAULT 'Open',
-        date TEXT,
-        FOREIGN KEY(supplier_id) REFERENCES suppliers(id),
-        FOREIGN KEY(product_id) REFERENCES products(id)
-    )
-`);
-
-    // Products
-    db.run(`
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT UNIQUE,
             barcode TEXT UNIQUE,
-            price REAL,
+            price NUMERIC,
+            cost NUMERIC DEFAULT 0,
             stock INTEGER DEFAULT 0
         )
     `);
 
-    // Sales
-    db.run(`
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS sales (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             product_id INTEGER,
             qty INTEGER,
-            date TEXT,
-            FOREIGN KEY(product_id) REFERENCES products(id)
+            price NUMERIC,
+            cost NUMERIC,
+            profit NUMERIC,
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
-    // Receiving
-    db.run(`
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS receiving (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             product_id INTEGER,
             qty INTEGER,
-            date TEXT,
-            FOREIGN KEY(product_id) REFERENCES products(id)
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS suppliers (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE,
+            phone TEXT,
+            email TEXT,
+            address TEXT
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+            id SERIAL PRIMARY KEY,
+            supplier_id INTEGER,
+            product_id INTEGER,
+            qty INTEGER,
+            status TEXT DEFAULT 'Open',
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    console.log("PostgreSQL connected successfully");
+}
+
+initializeDatabase().catch(err => {
+    console.error("Database initialization failed:", err);
 });
 
-module.exports = db;
+module.exports = pool;
