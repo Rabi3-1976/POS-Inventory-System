@@ -404,7 +404,20 @@ app.post('/import-products', upload.single('file'), (req, res) => {
 
     res.json({ message: "Products imported successfully" });
 });
-
+app.get('/db-test', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT NOW()");
+        res.json({
+            status: "Database connected",
+            time: result.rows[0]
+        });
+    } catch (err) {
+        console.error("DB TEST ERROR:", err);
+        res.status(500).json({
+            error: err.message
+        });
+    }
+});
 // ================= START SERVER =================
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
