@@ -3,6 +3,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('./database');
+const db = pool;
 const app = express();
 const path = require('path');
 const PORT = process.env.PORT || 3000;
