@@ -20,16 +20,6 @@
 
     <hr>
 
-    <h3>Create User</h3>
-    <input id="newUsername" placeholder="New Username">
-    <input id="newPassword" type="password" placeholder="New Password">
-    <select id="newRole">
-        <option value="admin">Admin</option>
-        <option value="user">User</option>
-    </select>
-    <button onclick="createUser()">Create User</button>
-</div>
-
 <div id="mainSection" style="display:none;">
 
     <div class="layout">
@@ -125,6 +115,12 @@
                     <input id="barcodeSearchInput" placeholder="Scan or type barcode">
                     <button onclick="searchByBarcode()">Search Barcode</button>
                     <button onclick="loadProducts()">Show All</button>
+                    <div class="box">
+                <h2>Import Products</h2>
+
+                <input type="file" id="importFile">
+                <button onclick="importProducts()">Import Excel</button>
+</div>
 
                     <table>
                         <thead>
@@ -220,6 +216,18 @@
 
             <section id="usersPage" class="page" style="display:none;">
                 <h1>User Management</h1>
+                <div class="box">
+                <h2>Create User</h2>
+
+                <input id="newUsername" placeholder="Username">
+                <input id="newPassword" type="password" placeholder="Password">
+
+                <select id="newRole">
+                <option value="admin">Admin</option>
+                <option value="user">User</option>
+    </select>
+                <button onclick="createUser()">Create User</button>
+</div>
 
                 <div class="box">
                     <button onclick="loadUsers()">Load Users</button>

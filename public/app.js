@@ -34,7 +34,8 @@ async function login() {
 if (data.token) {
     token = data.token;
     currentRole = data.role;   // ✅ MUST be before using it
-
+    localStorage.setItem("token", token);
+    localStorage.setItem("role", currentRole);
     document.getElementById("loginSection").style.display = "none";
     document.getElementById("mainSection").style.display = "block";
     document.getElementById("adminSection").style.display = currentRole === "admin" ? "block" : "none";
@@ -625,8 +626,15 @@ if (pageId === "suppliersPage") {
 }
 
 function logout() {
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+
     token = "";
     currentRole = "";
+
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
 
     document.getElementById("mainSection").style.display = "none";
     document.getElementById("loginSection").style.display = "block";
@@ -1216,4 +1224,54 @@ async function loadStockChart() {
             responsive: true
         }
     });
+}
+window.addEventListener("load", () => {
+
+    const savedToken = localStorage.getItem("token");
+    const savedRole = localStorage.getItem("role");
+
+    if (savedToken && savedRole) {
+
+        token = savedToken;
+        currentRole = savedRole;
+
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("mainSection").style.display = "block";
+
+        document.getElementById("adminSection").style.display =
+            currentRole === "admin" ? "block" : "none";
+
+        document.getElementById("usersMenuBtn").style.display =
+            currentRole === "admin" ? "block" : "none";
+
+        showPage("dashboardPage");
+
+        loadProducts();
+        loadDashboard();
+        loadCharts();
+    }
+});
+async function importProducts() {
+
+    const fileInput = document.getElementById("importFile");
+
+    if (!fileInput.files.length) {
+        alert("Please select file");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    const res = await fetch(API + "/import-products", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadProducts();
+    loadDashboard();
 }
