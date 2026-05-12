@@ -359,6 +359,32 @@ app.get('/charts/stock', (req, res) => {
         res.json(rows);
     });
 });
+// ================= IMPORT PRODUCTS =================
+app.post('/import-products', upload.single('file'), (req, res) => {
+
+    const workbook = XLSX.readFile(req.file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    const data = XLSX.utils.sheet_to_json(sheet);
+
+    data.forEach(item => {
+
+        db.run(
+            `INSERT OR IGNORE INTO products 
+            (name, barcode, price, cost, stock)
+            VALUES (?, ?, ?, ?, ?)`,
+            [
+                item.name,
+                item.barcode,
+                item.price,
+                item.cost,
+                item.stock || 0
+            ]
+        );
+    });
+
+    res.json({ message: "Products imported successfully" });
+});
 // ================= START SERVER =================
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
