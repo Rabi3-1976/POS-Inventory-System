@@ -15,6 +15,25 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 app.use(express.json());
 
+app.get('/setup-admin', async (req, res) => {
+    try {
+        const hashedPassword = await bcrypt.hash("1234", 10);
+
+        await pool.query(`
+            INSERT INTO users (username, password, role)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (username) DO UPDATE
+            SET password = EXCLUDED.password,
+                role = EXCLUDED.role
+        `, ["admin", hashedPassword, "admin"]);
+
+        res.send("Admin user ready. Username: admin / Password: 1234");
+    } catch (err) {
+        console.error("Setup admin error:", err);
+        res.status(500).send("Setup admin failed: " + err.message);
+    }
+});
+
 const SECRET = "secretkey";
 function verifyToken(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -385,17 +404,7 @@ app.post('/import-products', upload.single('file'), (req, res) => {
 
     res.json({ message: "Products imported successfully" });
 });
-app.get('/setup-admin', async (req, res) => {
-    const hashedPassword = await bcrypt.hash("1234", 10);
 
-    await pool.query(`
-        INSERT INTO users (username, password, role)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (username) DO NOTHING
-    `, ["admin", hashedPassword, "admin"]);
-
-    res.send("Admin user created. Username: admin / Password: 1234");
-});
 // ================= START SERVER =================
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
