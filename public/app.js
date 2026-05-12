@@ -1254,7 +1254,6 @@ window.addEventListener("load", () => {
         document.getElementById("mainSection").style.display = "none";
     }
 });
-});
 async function importProducts() {
 
     const fileInput = document.getElementById("importFile");
