@@ -20,38 +20,54 @@ async function createUser() {
 }
 // LOGIN
 async function login() {
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
 
-    const res = await fetch(API + "/login", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ username, password })
-    });
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
 
-    const data = await res.json();
+    try {
 
-if (data.token) {
-    token = data.token;
-    currentRole = data.role;   // ✅ MUST be before using it
-    localStorage.setItem("token", token);
-    localStorage.setItem("role", currentRole);
-    document.getElementById("loginSection").style.display = "none";
-    document.getElementById("mainSection").style.display = "block";
-    document.getElementById("adminSection").style.display = currentRole === "admin" ? "block" : "none";
-    document.getElementById("usersMenuBtn").style.display = currentRole === "admin" ? "block" : "none";
+        const res = await fetch(API + "/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username,
+                password
+            })
+        });
 
-showPage("dashboardPage");
-loadProducts();
-loadDashboard();
+        const data = await res.json();
 
-if (currentRole !== "admin") {
-    document.getElementById("userManagementSection").style.display = "none";
-}
-    loadProducts();
-    loadDashboard();
-    } else {
-        alert(data.error || "Login failed");
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        token = data.token;
+        currentRole = data.role;
+
+        localStorage.setItem("token", token);
+        localStorage.setItem("role", currentRole);
+
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("mainSection").style.display = "block";
+
+        document.getElementById("adminSection").style.display =
+            currentRole === "admin" ? "block" : "none";
+
+        document.getElementById("usersMenuBtn").style.display =
+            currentRole === "admin" ? "block" : "none";
+
+        showPage("productsPage");
+
+        loadProducts();
+
+    } catch (err) {
+
+        console.error("LOGIN ERROR:", err);
+
+        alert("Login failed");
     }
 }
 // ADD PRODUCT
@@ -1225,7 +1241,7 @@ async function loadStockChart() {
         }
     });
 }
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => {
 
     const savedToken = localStorage.getItem("token");
     const savedRole = localStorage.getItem("role");
@@ -1246,10 +1262,14 @@ window.addEventListener("load", () => {
 
         showPage("productsPage");
 
-        // Temporary disabled until all backend routes are converted to PostgreSQL
-        // loadDashboard();
-        // loadCharts();
+        try {
+            await loadProducts();
+        } catch (err) {
+            console.error("LOAD PRODUCTS ERROR:", err);
+        }
+
     } else {
+
         document.getElementById("loginSection").style.display = "block";
         document.getElementById("mainSection").style.display = "none";
     }
