@@ -2,12 +2,21 @@ const { Pool } = require("pg");
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: process.env.DATABASE_URL?.includes("render.com")
+        ? { rejectUnauthorized: false }
+        : false
 });
 
+pool.connect()
+    .then(() => {
+        console.log("PostgreSQL connected");
+    })
+    .catch(err => {
+        console.error("PostgreSQL connection error:", err);
+    });
+
 async function initializeDatabase() {
+
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -28,53 +37,11 @@ async function initializeDatabase() {
         )
     `);
 
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS sales (
-            id SERIAL PRIMARY KEY,
-            product_id INTEGER,
-            qty INTEGER,
-            price NUMERIC,
-            cost NUMERIC,
-            profit NUMERIC,
-            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS receiving (
-            id SERIAL PRIMARY KEY,
-            product_id INTEGER,
-            qty INTEGER,
-            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS suppliers (
-            id SERIAL PRIMARY KEY,
-            name TEXT UNIQUE,
-            phone TEXT,
-            email TEXT,
-            address TEXT
-        )
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS purchase_orders (
-            id SERIAL PRIMARY KEY,
-            supplier_id INTEGER,
-            product_id INTEGER,
-            qty INTEGER,
-            status TEXT DEFAULT 'Open',
-            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    console.log("PostgreSQL connected successfully");
+    console.log("Tables initialized");
 }
 
 initializeDatabase().catch(err => {
-    console.error("Database initialization failed:", err);
+    console.error("Initialization failed:", err);
 });
 
 module.exports = pool;
