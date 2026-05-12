@@ -1244,12 +1244,16 @@ window.addEventListener("load", () => {
         document.getElementById("usersMenuBtn").style.display =
             currentRole === "admin" ? "block" : "none";
 
-        showPage("dashboardPage");
+        showPage("productsPage");
 
-        loadProducts();
-        loadDashboard();
-        loadCharts();
+        // Temporary disabled until all backend routes are converted to PostgreSQL
+        // loadDashboard();
+        // loadCharts();
+    } else {
+        document.getElementById("loginSection").style.display = "block";
+        document.getElementById("mainSection").style.display = "none";
     }
+});
 });
 async function importProducts() {
 
