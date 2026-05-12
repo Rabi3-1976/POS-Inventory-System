@@ -56,18 +56,57 @@ function adminOnly(req, res, next) {
 }
 
 // ================= LOGIN =================
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
+
     const { username, password } = req.body;
 
-    db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
-        if (err || !user) return res.status(400).json({ error: "User not found" });
+    try {
 
-        const valid = await bcrypt.compare(password, user.password);
-        if (!valid) return res.status(400).json({ error: "Invalid password" });
+        const result = await pool.query(
+            'SELECT * FROM users WHERE username = $1',
+            [username]
+        );
 
-        const token = jwt.sign({ id: user.id, role: user.role }, SECRET);
-        res.json({ token, role: user.role });
-    });
+        const user = result.rows[0];
+
+        if (!user) {
+            return res.status(400).json({
+                error: "Invalid username or password"
+            });
+        }
+
+        const validPassword = await bcrypt.compare(
+            password,
+            user.password
+        );
+
+        if (!validPassword) {
+            return res.status(400).json({
+                error: "Invalid username or password"
+            });
+        }
+
+        const token = jwt.sign(
+            {
+                id: user.id,
+                role: user.role
+            },
+            SECRET
+        );
+
+        res.json({
+            token,
+            role: user.role
+        });
+
+    } catch (err) {
+
+        console.error("LOGIN ERROR:", err);
+
+        res.status(500).json({
+            error: "Login failed"
+        });
+    }
 });
 
 // ================= CREATE USER =================
@@ -413,6 +452,23 @@ app.get('/db-test', async (req, res) => {
         });
     } catch (err) {
         console.error("DB TEST ERROR:", err);
+        res.status(500).json({
+            error: err.message
+        });
+    }
+});
+app.get('/check-users', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT id, username, role FROM users'
+        );
+
+        res.json(result.rows);
+
+    } catch (err) {
+
+        console.error(err);
+
         res.status(500).json({
             error: err.message
         });
