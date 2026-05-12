@@ -6,6 +6,10 @@ const db = require('./database');
 const app = express();
 const path = require('path');
 const PORT = process.env.PORT || 3000;
+const multer = require('multer');
+const XLSX = require('xlsx');
+
+const upload = multer({ dest: 'uploads/' });
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
