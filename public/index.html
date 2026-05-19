@@ -32,12 +32,39 @@
             <button onclick="showPage('posPage')">POS</button>
             <button onclick="showPage('receivingPage')">Receiving</button>
             <button onclick="showPage('reportsPage')">Reports</button>
+            <button id="branchesMenuBtn" onclick="showPage('branchesPage')">Branches</button>
             <button id="suppliersMenuBtn" onclick="showPage('suppliersPage')">Suppliers</button>
             <button id="usersMenuBtn" onclick="showPage('usersPage')">Users</button>
             <button onclick="logout()">Logout</button>
         </aside>
 
         <main class="content">
+            <section id="branchesPage" class="page" style="display:none;">
+    <h1>Branches / Warehouses</h1>
+
+    <div class="box">
+        <h2>Add Branch</h2>
+        <input id="branchName" placeholder="Branch Name">
+        <input id="branchLocation" placeholder="Location">
+        <button onclick="addBranch()">Add Branch</button>
+    </div>
+
+    <div class="box">
+        <h2>Branch List</h2>
+        <button onclick="loadBranches()">Load Branches</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Branch</th>
+                    <th>Location</th>
+                </tr>
+            </thead>
+            <tbody id="branchesTable"></tbody>
+        </table>
+    </div>
+</section>
 
             <section id="dashboardPage" class="page">
                 <h1>Dashboard</h1>

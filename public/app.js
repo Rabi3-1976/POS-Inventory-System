@@ -636,6 +636,9 @@ window.onload = () => {
     if (barcodeInput) barcodeInput.focus();
 };
 function showPage(pageId) {
+    if (pageId === "branchesPage") {
+    loadBranches();
+
     document.querySelectorAll(".page").forEach(page => {
         page.style.display = "none";
     });
@@ -1306,4 +1309,48 @@ async function importProducts() {
 
     loadProducts();
     loadDashboard();
+}
+async function addBranch() {
+    const name = document.getElementById("branchName").value.trim();
+    const location = document.getElementById("branchLocation").value.trim();
+
+    if (!name) {
+        alert("Please enter branch name");
+        return;
+    }
+
+    const res = await fetch(API + "/branches", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ name, location })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    document.getElementById("branchName").value = "";
+    document.getElementById("branchLocation").value = "";
+
+    loadBranches();
+}
+
+async function loadBranches() {
+    const res = await fetch(API + "/branches");
+    const branches = await res.json();
+
+    const table = document.getElementById("branchesTable");
+    table.innerHTML = "";
+
+    branches.forEach(b => {
+        table.innerHTML += `
+            <tr>
+                <td>${b.id}</td>
+                <td>${b.name}</td>
+                <td>${b.location || ""}</td>
+            </tr>
+        `;
+    });
 }
