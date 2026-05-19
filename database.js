@@ -68,6 +68,34 @@ async function initializeDatabase() {
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS branches (
+        id SERIAL PRIMARY KEY,
+        name TEXT UNIQUE,
+        location TEXT
+    )
+`);
+
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS branch_stock (
+        id SERIAL PRIMARY KEY,
+        branch_id INTEGER,
+        product_id INTEGER,
+        stock INTEGER DEFAULT 0,
+        UNIQUE(branch_id, product_id)
+    )
+`);
+
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS stock_transfers (
+        id SERIAL PRIMARY KEY,
+        from_branch_id INTEGER,
+        to_branch_id INTEGER,
+        product_id INTEGER,
+        qty INTEGER,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
 
     console.log("PostgreSQL tables ready");
 }
