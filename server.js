@@ -254,22 +254,54 @@ app.post("/sales", async (req, res) => {
 
 // DASHBOARD
 app.get("/dashboard", async (req, res) => {
+
     try {
-        const products = await pool.query("SELECT COUNT(*) FROM products");
-        const stock = await pool.query("SELECT COALESCE(SUM(stock),0) FROM products");
-        const sales = await pool.query("SELECT COALESCE(SUM(price),0) FROM sales");
-        const profit = await pool.query("SELECT COALESCE(SUM(profit),0) FROM sales");
-        const lowStock = await pool.query("SELECT COUNT(*) FROM products WHERE stock <= 5");
+
+        const products = await pool.query(
+            "SELECT COUNT(*) AS total_products FROM products"
+        );
+
+        const stock = await pool.query(
+            "SELECT COALESCE(SUM(stock),0) AS total_stock FROM products"
+        );
+
+        const sales = await pool.query(
+            "SELECT COALESCE(SUM(price),0) AS total_sales FROM sales"
+        );
+
+        const profit = await pool.query(
+            "SELECT COALESCE(SUM(profit),0) AS total_profit FROM sales"
+        );
+
+        const lowStock = await pool.query(
+            "SELECT COUNT(*) AS low_stock FROM products WHERE stock <= 5"
+        );
 
         res.json({
-            totalProducts: Number(products.rows[0].count),
-            totalStock: Number(stock.rows[0].coalesce),
-            totalSales: Number(sales.rows[0].coalesce),
-            totalProfit: Number(profit.rows[0].coalesce),
-            lowStock: Number(lowStock.rows[0].count)
+
+            totalProducts:
+                Number(products.rows[0].total_products),
+
+            totalStock:
+                Number(stock.rows[0].total_stock),
+
+            totalSales:
+                Number(sales.rows[0].total_sales),
+
+            totalProfit:
+                Number(profit.rows[0].total_profit),
+
+            lowStock:
+                Number(lowStock.rows[0].low_stock)
         });
+
     } catch (err) {
-        res.status(500).json({ error: "Dashboard failed" });
+
+        console.error(err);
+
+        res.status(500).json({
+            error: "Dashboard failed"
+        });
     }
 });
 
