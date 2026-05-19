@@ -810,13 +810,13 @@ async function checkoutCart() {
         }
     }
 
-    tReceipt();
+    printCartReceipt();
 
     alert("Sale completed successfully");
 
     cart = [];
     displayCart();
-    loadProducts();printCar
+    loadProducts();
     loadDashboard();
     loadCharts();
 }
