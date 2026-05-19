@@ -192,27 +192,45 @@ app.delete("/products/:id", verifyToken, adminOnly, async (req, res) => {
 app.post("/receiving", async (req, res) => {
     const { product_id, qty } = req.body;
 
-    if (!qty || qty <= 0) return res.status(400).json({ error: "Invalid quantity" });
+    if (!product_id || !qty || Number(qty) <= 0) {
+        return res.status(400).json({ error: "Invalid product or quantity" });
+    }
+
+    const client = await pool.connect();
 
     try {
-        await pool.query("BEGIN");
+        await client.query("BEGIN");
 
-        await pool.query(
+        const productCheck = await client.query(
+            "SELECT * FROM products WHERE id = $1",
+            [product_id]
+        );
+
+        if (productCheck.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        await client.query(
             "INSERT INTO receiving (product_id, qty) VALUES ($1, $2)",
-            [product_id, qty]
+            [product_id, Number(qty)]
         );
 
-        await pool.query(
+        await client.query(
             "UPDATE products SET stock = stock + $1 WHERE id = $2",
-            [qty, product_id]
+            [Number(qty), product_id]
         );
 
-        await pool.query("COMMIT");
+        await client.query("COMMIT");
 
         res.json({ message: "Stock received successfully" });
+
     } catch (err) {
-        await pool.query("ROLLBACK");
-        res.status(500).json({ error: "Receiving failed" });
+        await client.query("ROLLBACK");
+        console.error("RECEIVING ERROR:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
