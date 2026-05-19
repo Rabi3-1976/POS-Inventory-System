@@ -192,11 +192,20 @@ async function loadDashboard() {
     const res = await fetch(API + "/dashboard");
     const data = await res.json();
 
-    document.getElementById("totalProducts").innerText = data.totalProducts;
-    document.getElementById("totalStock").innerText = data.totalStock;
-    document.getElementById("totalSales").innerText = data.totalSales.toFixed(2);
-    document.getElementById("lowStock").innerText = data.lowStock;
-    document.getElementById("totalProfit").innerText = data.totalProfit.toFixed(2);
+    document.getElementById("totalProducts").innerText =
+        data.totalProducts ?? data.total_products ?? 0;
+
+    document.getElementById("totalStock").innerText =
+        data.totalStock ?? data.total_stock ?? 0;
+
+    document.getElementById("totalSales").innerText =
+        Number(data.totalSales ?? data.total_sales ?? 0).toFixed(2);
+
+    document.getElementById("lowStock").innerText =
+        data.lowStock ?? data.low_stock ?? 0;
+
+    document.getElementById("totalProfit").innerText =
+        Number(data.totalProfit ?? data.total_profit ?? 0).toFixed(2);
 }
 async function printInventoryReport() {
     const res = await fetch(API + "/products");
