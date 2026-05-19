@@ -510,6 +510,23 @@ app.post("/import-products", upload.single("file"), async (req, res) => {
         res.status(500).json({ error: "Import failed" });
     }
 });
+app.get("/setup-admin", async (req, res) => {
+    try {
+        const hashedPassword = await bcrypt.hash("1234", 10);
+
+        await pool.query(`
+            INSERT INTO users (username, password, role)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (username) DO UPDATE
+            SET password = EXCLUDED.password,
+                role = EXCLUDED.role
+        `, ["admin", hashedPassword, "admin"]);
+
+        res.send("Admin reset successfully. Username: admin / Password: 1234");
+    } catch (err) {
+        res.status(500).send("Setup admin failed: " + err.message);
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
