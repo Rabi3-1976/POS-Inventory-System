@@ -528,6 +528,99 @@ app.post("/import-products", upload.single("file"), async (req, res) => {
         res.status(500).json({ error: "Import failed" });
     }
 });
+// BRANCHES
+app.post("/branches", verifyToken, adminOnly, async (req, res) => {
+    const { name, location } = req.body;
+
+    try {
+        await pool.query(
+            "INSERT INTO branches (name, location) VALUES ($1, $2)",
+            [name, location]
+        );
+
+        res.json({ message: "Branch added" });
+    } catch (err) {
+        res.status(400).json({ error: "Branch already exists" });
+    }
+});
+
+app.get("/branches", async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM branches ORDER BY id");
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: "Branches failed" });
+    }
+});
+app.get("/init-db", async (req, res) => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE,
+                password TEXT,
+                role TEXT
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS products (
+                id SERIAL PRIMARY KEY,
+                name TEXT UNIQUE,
+                barcode TEXT UNIQUE,
+                price NUMERIC DEFAULT 0,
+                cost NUMERIC DEFAULT 0,
+                stock INTEGER DEFAULT 0
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS sales (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER,
+                qty INTEGER,
+                price NUMERIC DEFAULT 0,
+                cost NUMERIC DEFAULT 0,
+                profit NUMERIC DEFAULT 0,
+                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS receiving (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER,
+                qty INTEGER,
+                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS suppliers (
+                id SERIAL PRIMARY KEY,
+                name TEXT UNIQUE,
+                phone TEXT,
+                email TEXT,
+                address TEXT
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS purchase_orders (
+                id SERIAL PRIMARY KEY,
+                supplier_id INTEGER,
+                product_id INTEGER,
+                qty INTEGER,
+                status TEXT DEFAULT 'Open',
+                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        res.send("Database initialized successfully");
+    } catch (err) {
+        res.status(500).send("Init failed: " + err.message);
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
