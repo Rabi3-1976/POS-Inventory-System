@@ -52,6 +52,33 @@
     <div class="box">
         <h2>Branch List</h2>
         <button onclick="loadBranches()">Load Branches</button>
+        <div class="box">
+    <h2>Assign Stock to Branch</h2>
+
+    <select id="stockBranch"></select>
+    <select id="stockProduct"></select>
+    <input id="branchStockQty" type="number" placeholder="Stock Qty">
+
+    <button onclick="saveBranchStock()">Save Branch Stock</button>
+</div>
+
+<div class="box">
+    <h2>Branch Stock List</h2>
+    <button onclick="loadBranchStock()">Load Branch Stock</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Branch</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Stock</th>
+            </tr>
+        </thead>
+        <tbody id="branchStockTable"></tbody>
+    </table>
+</div>
 
         <table>
             <thead>

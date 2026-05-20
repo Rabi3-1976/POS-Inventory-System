@@ -636,8 +636,11 @@ window.onload = () => {
     if (barcodeInput) barcodeInput.focus();
 };
 function showPage(pageId) {
-    if (pageId === "branchesPage") {
+if (pageId === "branchesPage") {
     loadBranches();
+    loadBranchStockOptions();
+    loadBranchStock();
+}
 
     document.querySelectorAll(".page").forEach(page => {
         page.style.display = "none";
@@ -1350,6 +1353,74 @@ async function loadBranches() {
                 <td>${b.id}</td>
                 <td>${b.name}</td>
                 <td>${b.location || ""}</td>
+            </tr>
+        `;
+    });
+}
+async function loadBranchStockOptions() {
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchSelect = document.getElementById("stockBranch");
+    const productSelect = document.getElementById("stockProduct");
+
+    branchSelect.innerHTML = "";
+    productSelect.innerHTML = "";
+
+    branches.forEach(b => {
+        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
+
+    products.forEach(p => {
+        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+    });
+}
+
+async function saveBranchStock() {
+    const branch_id = document.getElementById("stockBranch").value;
+    const product_id = document.getElementById("stockProduct").value;
+    const stock = Number(document.getElementById("branchStockQty").value);
+
+    if (!branch_id || !product_id || stock < 0) {
+        alert("Please select branch/product and enter valid stock");
+        return;
+    }
+
+    const res = await fetch(API + "/branch-stock", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ branch_id, product_id, stock })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    document.getElementById("branchStockQty").value = "";
+
+    loadBranchStock();
+}
+
+async function loadBranchStock() {
+    const res = await fetch(API + "/branch-stock");
+    const rows = await res.json();
+
+    const table = document.getElementById("branchStockTable");
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.stock}</td>
             </tr>
         `;
     });
