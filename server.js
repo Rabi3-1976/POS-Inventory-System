@@ -552,7 +552,44 @@ app.get("/branches", async (req, res) => {
         res.status(500).json({ error: "Branches failed" });
     }
 });
+// BRANCH STOCK
+app.post("/branch-stock", verifyToken, adminOnly, async (req, res) => {
+    const { branch_id, product_id, stock } = req.body;
 
+    try {
+        await pool.query(`
+            INSERT INTO branch_stock (branch_id, product_id, stock)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (branch_id, product_id)
+            DO UPDATE SET stock = EXCLUDED.stock
+        `, [branch_id, product_id, stock]);
+
+        res.json({ message: "Branch stock updated" });
+    } catch (err) {
+        res.status(500).json({ error: "Branch stock update failed" });
+    }
+});
+// GET BRANCH STOCK
+app.get("/branch-stock", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                bs.id,
+                b.name AS branch_name,
+                p.name AS product_name,
+                p.barcode,
+                bs.stock
+            FROM branch_stock bs
+            JOIN branches b ON bs.branch_id = b.id
+            JOIN products p ON bs.product_id = p.id
+            ORDER BY b.name, p.name
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: "Branch stock failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
