@@ -654,7 +654,7 @@ if (pageId === "suppliersPage") {
     if (pageId === "dashboardPage") loadDashboard();
     if (pageId === "productsPage") loadProducts();
     if (pageId === "usersPage") loadUsers();
-}}
+}
 
 function logout() {
 
