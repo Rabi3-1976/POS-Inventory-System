@@ -1203,22 +1203,33 @@ function showPage(pageId) {
         loadCharts();
     }
 
-    if (pageId === "productsPage") loadProducts();
+    if (pageId === "productsPage") {
+        loadProducts();
+    }
 
-    if (pageId === "usersPage") loadUsers();
+    if (pageId === "usersPage") {
+        loadUsers();
+    }
 
     if (pageId === "suppliersPage") {
         loadSupplierOptions();
         loadPurchaseOrders();
     }
 
-if (pageId === "branchesPage") {
-    loadBranches();
-    loadBranchStockOptions();
-    loadBranchStock();
-    loadTransferOptions();
-    loadStockTransfers();
-}
+    if (pageId === "branchesPage") {
+        loadBranches();
+        loadBranchStockOptions();
+        loadBranchStock();
+        loadTransferOptions();
+        loadStockTransfers();
+    }
+
+    if (pageId === "posPage") {
+        loadSaleBranchOptions();
+        setTimeout(() => {
+            document.getElementById("posBarcode").focus();
+        }, 100);
+    }
 }
 let html5QrCode = null;
 
