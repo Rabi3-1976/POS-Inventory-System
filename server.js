@@ -670,6 +670,49 @@ app.get("/stock-transfers", async (req, res) => {
         res.status(500).json({ error: "Transfer history failed" });
     }
 });
+// RECEIVE PRODUCT TO BRANCH
+app.post("/receive-to-branch", verifyToken, adminOnly, async (req, res) => {
+    const { branch_id, product_id, qty } = req.body;
+
+    if (!branch_id || !product_id || !qty || Number(qty) <= 0) {
+        return res.status(400).json({ error: "Invalid branch/product/quantity" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        await client.query(`
+            INSERT INTO branch_stock (branch_id, product_id, stock)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (branch_id, product_id)
+            DO UPDATE SET stock = branch_stock.stock + EXCLUDED.stock
+        `, [branch_id, product_id, Number(qty)]);
+
+        await client.query(`
+            UPDATE products
+            SET stock = stock + $1
+            WHERE id = $2
+        `, [Number(qty), product_id]);
+
+        await client.query(`
+            INSERT INTO receiving (product_id, qty)
+            VALUES ($1, $2)
+        `, [product_id, Number(qty)]);
+
+        await client.query("COMMIT");
+
+        res.json({ message: "Stock received to branch successfully" });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("RECEIVE TO BRANCH ERROR:", err);
+        res.status(500).json({ error: "Receive to branch failed" });
+    } finally {
+        client.release();
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
