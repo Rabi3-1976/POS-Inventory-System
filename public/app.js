@@ -73,35 +73,37 @@ async function login() {
     }
 }
 // LOAD BRANCHES CACHE
-async function loadBranchesCache() {
-    const res = await fetch(API + "/branches");
-    branchesCache = await res.json();
-}
-// ADD PRODUCT
-async function addProduct() {
-    if (!token) {
-        alert("Please login first");
-        return;
-    }
+async function loadBranchDashboard() {
+    const res = await fetch(API + "/branch-dashboard");
+    const data = await res.json();
 
-    const name = document.getElementById("pname").value.trim();
-    const barcode = document.getElementById("barcode").value.trim();
-    const price = document.getElementById("price").value.trim();
-    const cost = document.getElementById("cost").value.trim();
-    const res = await fetch(API + "/products", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ name, barcode, price, cost })
+    const salesTable = document.getElementById("branchSalesDashboardTable");
+    const stockTable = document.getElementById("branchStockDashboardTable");
+
+    salesTable.innerHTML = "";
+    stockTable.innerHTML = "";
+
+    data.sales.forEach(row => {
+        salesTable.innerHTML += `
+            <tr>
+                <td>${row.branch_name}</td>
+                <td>${Number(row.total_sales || 0).toFixed(2)}</td>
+                <td>${Number(row.total_profit || 0).toFixed(2)}</td>
+            </tr>
+        `;
     });
 
-    const data = await res.json();
-    alert(data.message || data.error);
+    data.stock.forEach(row => {
+        const low = data.lowStock.find(x => Number(x.branch_id) === Number(row.branch_id));
 
-    loadProducts();
-    loadDashboard();
+        stockTable.innerHTML += `
+            <tr>
+                <td>${row.branch_name}</td>
+                <td>${row.total_stock}</td>
+                <td>${low ? low.low_stock_items : 0}</td>
+            </tr>
+        `;
+    });
 }
 
 // LOAD PRODUCTS
