@@ -712,10 +712,6 @@ window.onload = () => {
 };
 function showPage(pageId) {
 
-    if (pageId === "branchDashboardPage") {
-    loadBranchDashboard();
-}
-
 if (pageId === "branchesPage") {
     loadBranches();
     loadBranchStockOptions();
@@ -738,6 +734,7 @@ if (pageId === "suppliersPage") {
     document.getElementById(pageId).style.display = "block";
 
     if (pageId === "dashboardPage") loadDashboard();
+    if (pageId === "branchDashboardPage") loadBranchDashboard();
     if (pageId === "productsPage") loadProducts();
     if (pageId === "usersPage") loadUsers();
 }
