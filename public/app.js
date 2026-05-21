@@ -620,7 +620,17 @@ async function changeUserPassword(id) {
     const data = await res.json();
     alert(data.message || data.error);
 }
+async function loadSaleBranchOptions() {
+    const res = await fetch(API + "/branches");
+    const branches = await res.json();
 
+    const select = document.getElementById("saleBranch");
+    select.innerHTML = "";
+
+    branches.forEach(b => {
+        select.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
+}
 async function deleteUser(id) {
     if (!confirm("Delete this user?")) return;
 
@@ -704,7 +714,13 @@ if (pageId === "branchesPage") {
     loadBranchStockOptions();
     loadBranchStock();
 }
+if (pageId === "posPage") {
+    loadSaleBranchOptions();
 
+    setTimeout(() => {
+        document.getElementById("posBarcode").focus();
+    }, 100);
+}
     document.querySelectorAll(".page").forEach(page => {
         page.style.display = "none";
     });
@@ -753,14 +769,15 @@ async function sellByBarcode() {
         return;
     }
 
-    const res = await fetch(API + "/sales", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            product_id: product.id,
-            qty: qty
-        })
-    });
+const res = await fetch(API + "/branch-sale", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+        branch_id: item.branch_id,
+        product_id: item.id,
+        qty: item.qty
+    })
+});
 
     const data = await res.json();
 
@@ -789,7 +806,12 @@ async function addToCart() {
 
     const res = await fetch(API + "/products");
     const products = await res.json();
+    const branch_id = document.getElementById("saleBranch").value;
 
+if (!branch_id) {
+    alert("Please select branch");
+    return;
+}
     const product = products.find(p => p.barcode === barcode);
 
     if (!product) {
@@ -812,13 +834,14 @@ async function addToCart() {
 
         existing.qty += qty;
     } else {
-        cart.push({
-            id: product.id,
-            name: product.name,
-            barcode: product.barcode,
-            price: Number(product.price),
-            qty: qty
-        });
+    cart.push({
+    id: product.id,
+    name: product.name,
+    barcode: product.barcode,
+    price: Number(product.price),
+    qty: qty,
+    branch_id: branch_id
+});
     }
 
     document.getElementById("posBarcode").value = "";
