@@ -787,6 +787,32 @@ app.post("/branch-sale", async (req, res) => {
         client.release();
     }
 });
+// BRANCH SALES REPORT
+app.get("/branch-sales-report", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                bs.id,
+                b.name AS branch_name,
+                p.name AS product_name,
+                p.barcode,
+                bs.qty,
+                bs.price,
+                bs.cost,
+                bs.profit,
+                bs.date
+            FROM branch_sales bs
+            JOIN branches b ON bs.branch_id = b.id
+            JOIN products p ON bs.product_id = p.id
+            ORDER BY bs.date DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("BRANCH SALES REPORT ERROR:", err);
+        res.status(500).json({ error: "Branch sales report failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
