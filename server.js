@@ -819,33 +819,37 @@ app.get("/branch-dashboard", async (req, res) => {
     try {
         const sales = await pool.query(`
             SELECT 
+                b.id AS branch_id,
                 b.name AS branch_name,
                 COALESCE(SUM(bs.price), 0) AS total_sales,
                 COALESCE(SUM(bs.profit), 0) AS total_profit
             FROM branches b
             LEFT JOIN branch_sales bs ON b.id = bs.branch_id
-            GROUP BY b.name
+            GROUP BY b.id, b.name
             ORDER BY b.name
         `);
 
         const stock = await pool.query(`
             SELECT 
+                b.id AS branch_id,
                 b.name AS branch_name,
                 COALESCE(SUM(bs.stock), 0) AS total_stock
             FROM branches b
             LEFT JOIN branch_stock bs ON b.id = bs.branch_id
-            GROUP BY b.name
+            GROUP BY b.id, b.name
             ORDER BY b.name
         `);
 
         const lowStock = await pool.query(`
             SELECT 
+                b.id AS branch_id,
                 b.name AS branch_name,
-                COUNT(*) AS low_stock_items
+                COUNT(bs.id) AS low_stock_items
             FROM branches b
-            LEFT JOIN branch_stock bs ON b.id = bs.branch_id
-            WHERE bs.stock <= 5
-            GROUP BY b.name
+            LEFT JOIN branch_stock bs 
+                ON b.id = bs.branch_id
+                AND bs.stock <= 5
+            GROUP BY b.id, b.name
             ORDER BY b.name
         `);
 
@@ -857,7 +861,7 @@ app.get("/branch-dashboard", async (req, res) => {
 
     } catch (err) {
         console.error("BRANCH DASHBOARD ERROR:", err);
-        res.status(500).json({ error: "Branch dashboard failed" });
+        res.status(500).json({ error: err.message });
     }
 });
 
