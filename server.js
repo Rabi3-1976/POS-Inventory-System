@@ -590,6 +590,86 @@ app.get("/branch-stock", async (req, res) => {
         res.status(500).json({ error: "Branch stock failed" });
     }
 });
+// STOCK TRANSFER
+app.post("/stock-transfer", verifyToken, adminOnly, async (req, res) => {
+    const { from_branch_id, to_branch_id, product_id, qty } = req.body;
+
+    if (!from_branch_id || !to_branch_id || !product_id || !qty || qty <= 0) {
+        return res.status(400).json({ error: "Invalid transfer data" });
+    }
+
+    if (from_branch_id === to_branch_id) {
+        return res.status(400).json({ error: "Cannot transfer to same branch" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const source = await client.query(
+            "SELECT stock FROM branch_stock WHERE branch_id = $1 AND product_id = $2",
+            [from_branch_id, product_id]
+        );
+
+        if (source.rows.length === 0 || Number(source.rows[0].stock) < Number(qty)) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Not enough stock in source branch" });
+        }
+
+        await client.query(
+            "UPDATE branch_stock SET stock = stock - $1 WHERE branch_id = $2 AND product_id = $3",
+            [qty, from_branch_id, product_id]
+        );
+
+        await client.query(`
+            INSERT INTO branch_stock (branch_id, product_id, stock)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (branch_id, product_id)
+            DO UPDATE SET stock = branch_stock.stock + EXCLUDED.stock
+        `, [to_branch_id, product_id, qty]);
+
+        await client.query(`
+            INSERT INTO stock_transfers (from_branch_id, to_branch_id, product_id, qty)
+            VALUES ($1, $2, $3, $4)
+        `, [from_branch_id, to_branch_id, product_id, qty]);
+
+        await client.query("COMMIT");
+
+        res.json({ message: "Stock transferred successfully" });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("TRANSFER ERROR:", err);
+        res.status(500).json({ error: "Stock transfer failed" });
+    } finally {
+        client.release();
+    }
+});
+// TRANSFER HISTORY
+app.get("/stock-transfers", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                st.id,
+                fb.name AS from_branch,
+                tb.name AS to_branch,
+                p.name AS product_name,
+                p.barcode,
+                st.qty,
+                st.date
+            FROM stock_transfers st
+            JOIN branches fb ON st.from_branch_id = fb.id
+            JOIN branches tb ON st.to_branch_id = tb.id
+            JOIN products p ON st.product_id = p.id
+            ORDER BY st.date DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: "Transfer history failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
