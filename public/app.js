@@ -709,6 +709,11 @@ window.onload = () => {
     if (barcodeInput) barcodeInput.focus();
 };
 function showPage(pageId) {
+
+    if (pageId === "branchDashboardPage") {
+    loadBranchDashboard();
+}
+
 if (pageId === "branchesPage") {
     loadBranches();
     loadBranchStockOptions();
@@ -1783,4 +1788,36 @@ async function exportTransferExcel() {
     link.href = URL.createObjectURL(blob);
     link.download = "stock_transfer_report.csv";
     link.click();
+}
+async function loadBranchDashboard() {
+    const res = await fetch(API + "/branch-dashboard");
+    const data = await res.json();
+
+    const salesTable = document.getElementById("branchSalesDashboardTable");
+    const stockTable = document.getElementById("branchStockDashboardTable");
+
+    salesTable.innerHTML = "";
+    stockTable.innerHTML = "";
+
+    data.sales.forEach(row => {
+        salesTable.innerHTML += `
+            <tr>
+                <td>${row.branch_name}</td>
+                <td>${Number(row.total_sales || 0).toFixed(2)}</td>
+                <td>${Number(row.total_profit || 0).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+
+    data.stock.forEach(row => {
+        const low = data.lowStock.find(x => x.branch_name === row.branch_name);
+
+        stockTable.innerHTML += `
+            <tr>
+                <td>${row.branch_name}</td>
+                <td>${row.total_stock}</td>
+                <td>${low ? low.low_stock_items : 0}</td>
+            </tr>
+        `;
+    });
 }
