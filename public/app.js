@@ -1126,11 +1126,13 @@ function showPage(pageId) {
         loadPurchaseOrders();
     }
 
-    if (pageId === "branchesPage") {
-        loadBranches();
-        loadBranchStockOptions();
-        loadBranchStock();
-    }
+if (pageId === "branchesPage") {
+    loadBranches();
+    loadBranchStockOptions();
+    loadBranchStock();
+    loadTransferOptions();
+    loadStockTransfers();
+}
 }
 let html5QrCode = null;
 
@@ -1424,6 +1426,86 @@ async function loadBranchStock() {
                 <td>${r.product_name}</td>
                 <td>${r.barcode}</td>
                 <td>${r.stock}</td>
+            </tr>
+        `;
+    });
+}
+async function loadTransferOptions() {
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const fromBranch = document.getElementById("fromBranch");
+    const toBranch = document.getElementById("toBranch");
+    const transferProduct = document.getElementById("transferProduct");
+
+    fromBranch.innerHTML = "";
+    toBranch.innerHTML = "";
+    transferProduct.innerHTML = "";
+
+    branches.forEach(b => {
+        fromBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+        toBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
+
+    products.forEach(p => {
+        transferProduct.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+    });
+}
+
+async function transferStock() {
+    const from_branch_id = document.getElementById("fromBranch").value;
+    const to_branch_id = document.getElementById("toBranch").value;
+    const product_id = document.getElementById("transferProduct").value;
+    const qty = Number(document.getElementById("transferQty").value);
+
+    if (!from_branch_id || !to_branch_id || !product_id || qty <= 0) {
+        alert("Please select branches/product and enter valid quantity");
+        return;
+    }
+
+    const res = await fetch(API + "/stock-transfer", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            from_branch_id,
+            to_branch_id,
+            product_id,
+            qty
+        })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    document.getElementById("transferQty").value = "";
+
+    loadBranchStock();
+    loadStockTransfers();
+}
+
+async function loadStockTransfers() {
+    const res = await fetch(API + "/stock-transfers");
+    const transfers = await res.json();
+
+    const table = document.getElementById("stockTransfersTable");
+    table.innerHTML = "";
+
+    transfers.forEach(t => {
+        table.innerHTML += `
+            <tr>
+                <td>${t.id}</td>
+                <td>${t.from_branch}</td>
+                <td>${t.to_branch}</td>
+                <td>${t.product_name}</td>
+                <td>${t.barcode}</td>
+                <td>${t.qty}</td>
+                <td>${t.date}</td>
             </tr>
         `;
     });

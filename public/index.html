@@ -54,12 +54,11 @@
         <button onclick="loadBranches()">Load Branches</button>
         <div class="box">
     <h2>Assign Stock to Branch</h2>
-
-    <select id="stockBranch"></select>
-    <select id="stockProduct"></select>
-    <input id="branchStockQty" type="number" placeholder="Stock Qty">
-
-    <button onclick="saveBranchStock()">Save Branch Stock</button>
+<select id="stockBranch"></select>
+<select id="stockProduct"></select>
+<input id="branchStockQty" type="number" placeholder="Stock Qty">
+<button onclick="saveBranchStock()">Save Branch Stock</button>
+<button onclick="loadBranchStockOptions()">Refresh Dropdowns</button>
 </div>
 
 <div class="box">
@@ -77,6 +76,36 @@
             </tr>
         </thead>
         <tbody id="branchStockTable"></tbody>
+    </table>
+</div>
+<div class="box">
+    <h2>Transfer Stock Between Branches</h2>
+
+    <select id="fromBranch"></select>
+    <select id="toBranch"></select>
+    <select id="transferProduct"></select>
+    <input id="transferQty" type="number" placeholder="Transfer Qty">
+
+    <button onclick="transferStock()">Transfer Stock</button>
+</div>
+
+<div class="box">
+    <h2>Transfer History</h2>
+    <button onclick="loadStockTransfers()">Load Transfers</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>From Branch</th>
+                <th>To Branch</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Qty</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="stockTransfersTable"></tbody>
     </table>
 </div>
 
