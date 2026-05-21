@@ -2,8 +2,10 @@ const API = "";
 let token = "";
 let currentRole = "";
 let cart = [];
+let branchesCache = [];
 let salesProfitChart = null;
 let stockChart = null;
+// USER MANAGEMENT
 async function createUser() {
     const username = document.getElementById("newUsername").value.trim();
     const password = document.getElementById("newPassword").value.trim();
@@ -70,6 +72,11 @@ async function login() {
         alert("Login failed");
     }
 }
+// LOAD BRANCHES CACHE
+async function loadBranchesCache() {
+    const res = await fetch(API + "/branches");
+    branchesCache = await res.json();
+}
 // ADD PRODUCT
 async function addProduct() {
     if (!token) {
@@ -99,16 +106,57 @@ async function addProduct() {
 
 // LOAD PRODUCTS
 async function loadProducts() {
+    await loadBranchesCache();
+
     const res = await fetch(API + "/products");
     const products = await res.json();
+
     displayProducts(products);
 }
+// RECEIVE TO BRANCH
+async function receiveToBranch(productId) {
+    const branch_id = document.getElementById("branch_" + productId).value;
+    const qty = Number(document.getElementById("branch_qty_" + productId).value);
 
+    if (!branch_id || qty <= 0) {
+        alert("Please select branch and enter valid quantity");
+        return;
+    }
+
+    const res = await fetch(API + "/receive-to-branch", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            branch_id,
+            product_id: productId,
+            qty
+        })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    loadProducts();
+    loadDashboard();
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
+    }
+}
+// DISPLAY PRODUCTS
 function displayProducts(products) {
     const table = document.getElementById("productTable");
     table.innerHTML = "";
 
     products.forEach(p => {
+
+        const branchOptions = branchesCache.map(b => {
+            return `<option value="${b.id}">${b.name}</option>`;
+        }).join("");
+
         table.innerHTML += `
             <tr>
                 <td>${p.id}</td>
@@ -116,6 +164,21 @@ function displayProducts(products) {
                 <td>${p.barcode}</td>
                 <td>${p.price}</td>
                 <td>${p.stock}</td>
+
+                <td>
+                    <select id="branch_${p.id}">
+                        ${branchOptions}
+                    </select>
+                </td>
+
+                <td>
+                    <input id="branch_qty_${p.id}" type="number" min="1" placeholder="Qty" style="width:80px;">
+                </td>
+
+                <td>
+                    <button onclick="receiveToBranch(${p.id})">Receive Branch</button>
+                </td>
+
                 <td><button onclick="receive(${p.id})">+</button></td>
                 <td><button onclick="sell(${p.id})">-</button></td>
                 <td>
