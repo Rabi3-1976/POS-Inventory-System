@@ -894,10 +894,11 @@ async function checkoutCart() {
     }
 
     for (const item of cart) {
-        const res = await fetch(API + "/sales", {
+        const res = await fetch(API + "/branch-sale", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
+                branch_id: item.branch_id,
                 product_id: item.id,
                 qty: item.qty
             })
@@ -917,9 +918,13 @@ async function checkoutCart() {
 
     cart = [];
     displayCart();
+
     loadProducts();
     loadDashboard();
-    loadCharts();
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
+    }
 }
 
 function printCartReceipt() {
