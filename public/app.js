@@ -391,8 +391,8 @@ async function printSalesReport() {
                 <td>${s.product_name}</td>
                 <td>${s.barcode}</td>
                 <td>${s.qty}</td>
-                <td>${s.price}</td>
-                <td>${(Number(s.price) * Number(s.qty)).toFixed(2)}</td>
+                <td>${(Number(s.price) / Number(s.qty)).toFixed(2)}</td>
+                <td>${Number(s.price).toFixed(2)}</td>
                 <td>${s.date}</td>
             </tr>
         `;
@@ -417,7 +417,7 @@ async function exportSalesExcel() {
     let csv = "ID,Product,Barcode,Qty,Price,Total,Date\n";
 
     sales.forEach(s => {
-       csv += `${s.id},${s.product_name},${s.barcode},${s.qty},${s.price},${(Number(s.price) * Number(s.qty)).toFixed(2)},${s.date}\n`;
+       csv += `${s.id},${s.product_name},${s.barcode},${s.qty},${(Number(s.price) / Number(s.qty)).toFixed(2)},${Number(s.price).toFixed(2)},${s.date}\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv" });
