@@ -1112,21 +1112,24 @@ function showPage(pageId) {
 
     document.getElementById(pageId).style.display = "block";
 
-    if (pageId === "posPage") {
-        setTimeout(() => {
-            document.getElementById("posBarcode").focus();
-        }, 100);
+    if (pageId === "dashboardPage") {
+        loadDashboard();
+        loadCharts();
     }
 
-    if (pageId === "dashboardPage") {
-    loadDashboard();
-    loadCharts();
-}
     if (pageId === "productsPage") loadProducts();
+
     if (pageId === "usersPage") loadUsers();
+
     if (pageId === "suppliersPage") {
         loadSupplierOptions();
         loadPurchaseOrders();
+    }
+
+    if (pageId === "branchesPage") {
+        loadBranches();
+        loadBranchStockOptions();
+        loadBranchStock();
     }
 }
 let html5QrCode = null;
