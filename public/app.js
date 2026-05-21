@@ -1612,3 +1612,95 @@ async function loadStockTransfers() {
         `;
     });
 }
+async function printBranchSalesReport() {
+    const res = await fetch(API + "/branch-sales-report");
+    const sales = await res.json();
+
+    let reportWindow = window.open("", "_blank");
+
+    let html = `
+        <html>
+        <head>
+            <title>Branch Sales Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Branch Sales Report</h1>
+            <p>Date: ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Branch</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Total</th>
+                        <th>Profit</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    sales.forEach(s => {
+        const unitPrice = Number(s.price) / Number(s.qty || 1);
+        const total = Number(s.price);
+        const profit = Number(s.profit || 0);
+
+        html += `
+            <tr>
+                <td>${s.id}</td>
+                <td>${s.branch_name}</td>
+                <td>${s.product_name}</td>
+                <td>${s.barcode}</td>
+                <td>${s.qty}</td>
+                <td>${unitPrice.toFixed(2)}</td>
+                <td>${total.toFixed(2)}</td>
+                <td>${profit.toFixed(2)}</td>
+                <td>${s.date}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+}
+
+async function exportBranchSalesExcel() {
+    const res = await fetch(API + "/branch-sales-report");
+    const sales = await res.json();
+
+    let csv = "ID,Branch,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
+
+    sales.forEach(s => {
+        const unitPrice = Number(s.price) / Number(s.qty || 1);
+        const total = Number(s.price);
+        const profit = Number(s.profit || 0);
+
+        csv += `${s.id},${s.branch_name},${s.product_name},${s.barcode},${s.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${s.date}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "branch_sales_report.csv";
+    link.click();
+}
