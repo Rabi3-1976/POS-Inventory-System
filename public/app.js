@@ -1704,3 +1704,83 @@ async function exportBranchSalesExcel() {
     link.download = "branch_sales_report.csv";
     link.click();
 }
+async function printTransferReport() {
+    const res = await fetch(API + "/stock-transfers");
+    const transfers = await res.json();
+
+    let reportWindow = window.open("", "_blank");
+
+    let html = `
+        <html>
+        <head>
+            <title>Stock Transfer Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Stock Transfer Report</h1>
+            <p>Date: ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>From Branch</th>
+                        <th>To Branch</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Qty</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    transfers.forEach(t => {
+        html += `
+            <tr>
+                <td>${t.id}</td>
+                <td>${t.from_branch}</td>
+                <td>${t.to_branch}</td>
+                <td>${t.product_name}</td>
+                <td>${t.barcode}</td>
+                <td>${t.qty}</td>
+                <td>${t.date}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+}
+
+async function exportTransferExcel() {
+    const res = await fetch(API + "/stock-transfers");
+    const transfers = await res.json();
+
+    let csv = "ID,From Branch,To Branch,Product,Barcode,Qty,Date\n";
+
+    transfers.forEach(t => {
+        csv += `${t.id},${t.from_branch},${t.to_branch},${t.product_name},${t.barcode},${t.qty},${t.date}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "stock_transfer_report.csv";
+    link.click();
+}
