@@ -5,9 +5,9 @@ const pool = new Pool({
         rejectUnauthorized: false
     }
 });
-
+// Initialize database tables
 async function initializeDatabase() {
-
+    
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -39,7 +39,18 @@ async function initializeDatabase() {
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
-
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS branch_sales (
+        id SERIAL PRIMARY KEY,
+        branch_id INTEGER,
+        product_id INTEGER,
+        qty INTEGER,
+        price NUMERIC DEFAULT 0,
+        cost NUMERIC DEFAULT 0,
+        profit NUMERIC DEFAULT 0,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
     await pool.query(`
         CREATE TABLE IF NOT EXISTS receiving (
             id SERIAL PRIMARY KEY,

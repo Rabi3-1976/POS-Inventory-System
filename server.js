@@ -713,6 +713,80 @@ app.post("/receive-to-branch", verifyToken, adminOnly, async (req, res) => {
         client.release();
     }
 });
+// BRANCH SALE
+app.post("/branch-sale", async (req, res) => {
+    const { branch_id, product_id, qty } = req.body;
+
+    if (!branch_id || !product_id || !qty || Number(qty) <= 0) {
+        return res.status(400).json({ error: "Invalid branch/product/quantity" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const productResult = await client.query(
+            "SELECT * FROM products WHERE id = $1",
+            [product_id]
+        );
+
+        const product = productResult.rows[0];
+
+        if (!product) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        const branchStockResult = await client.query(
+            "SELECT stock FROM branch_stock WHERE branch_id = $1 AND product_id = $2",
+            [branch_id, product_id]
+        );
+
+        if (
+            branchStockResult.rows.length === 0 ||
+            Number(branchStockResult.rows[0].stock) < Number(qty)
+        ) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Not enough stock in selected branch" });
+        }
+
+        const totalPrice = Number(product.price) * Number(qty);
+        const totalCost = Number(product.cost || 0) * Number(qty);
+        const profit = totalPrice - totalCost;
+
+        await client.query(
+            "UPDATE branch_stock SET stock = stock - $1 WHERE branch_id = $2 AND product_id = $3",
+            [Number(qty), branch_id, product_id]
+        );
+
+        await client.query(
+            "UPDATE products SET stock = stock - $1 WHERE id = $2",
+            [Number(qty), product_id]
+        );
+
+        await client.query(
+            "INSERT INTO branch_sales (branch_id, product_id, qty, price, cost, profit) VALUES ($1, $2, $3, $4, $5, $6)",
+            [branch_id, product_id, Number(qty), totalPrice, totalCost, profit]
+        );
+
+        await client.query(
+            "INSERT INTO sales (product_id, qty, price, cost, profit) VALUES ($1, $2, $3, $4, $5)",
+            [product_id, Number(qty), totalPrice, totalCost, profit]
+        );
+
+        await client.query("COMMIT");
+
+        res.json({ message: "Branch sale completed successfully", profit });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("BRANCH SALE ERROR:", err);
+        res.status(500).json({ error: "Branch sale failed" });
+    } finally {
+        client.release();
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
