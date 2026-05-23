@@ -1916,3 +1916,27 @@ async function forceBranchDashboard() {
             `;
         }).join("");
 }
+async function syncStockToMain() {
+    if (!confirm("Move all unassigned stock to Main branch?")) return;
+
+    const savedToken = localStorage.getItem("token");
+
+    const res = await fetch(API + "/sync-stock-to-main", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + savedToken
+        }
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadProducts();
+    loadBranchStock();
+    loadDashboard();
+
+    if (typeof loadBranchDashboard === "function") {
+        loadBranchDashboard();
+    }
+}
