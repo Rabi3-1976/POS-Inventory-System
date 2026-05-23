@@ -83,36 +83,56 @@ async function login() {
 }
 // LOAD BRANCHES CACHE
 async function loadBranchDashboard() {
-    const res = await fetch(API + "/branch-dashboard");
-    const data = await res.json();
+    try {
+        alert("Loading Branch Dashboard...");
 
-    const salesTable = document.getElementById("branchSalesDashboardTable");
-    const stockTable = document.getElementById("branchStockDashboardTable");
+        const res = await fetch(API + "/branch-dashboard");
 
-    salesTable.innerHTML = "";
-    stockTable.innerHTML = "";
+        alert("API status: " + res.status);
 
-    data.sales.forEach(row => {
-        salesTable.innerHTML += `
-            <tr>
-                <td>${row.branch_name}</td>
-                <td>${Number(row.total_sales || 0).toFixed(2)}</td>
-                <td>${Number(row.total_profit || 0).toFixed(2)}</td>
-            </tr>
-        `;
-    });
+        const data = await res.json();
 
-    data.stock.forEach(row => {
-        const low = data.lowStock.find(x => Number(x.branch_id) === Number(row.branch_id));
+        console.log("Branch Dashboard Data:", data);
 
-        stockTable.innerHTML += `
-            <tr>
-                <td>${row.branch_name}</td>
-                <td>${row.total_stock}</td>
-                <td>${low ? low.low_stock_items : 0}</td>
-            </tr>
-        `;
-    });
+        const salesTable = document.getElementById("branchSalesDashboardTable");
+        const stockTable = document.getElementById("branchStockDashboardTable");
+
+        if (!salesTable || !stockTable) {
+            alert("Table IDs not found");
+            return;
+        }
+
+        salesTable.innerHTML = "";
+        stockTable.innerHTML = "";
+
+        data.sales.forEach(row => {
+            salesTable.innerHTML += `
+                <tr>
+                    <td>${row.branch_name}</td>
+                    <td>${Number(row.total_sales || 0).toFixed(2)}</td>
+                    <td>${Number(row.total_profit || 0).toFixed(2)}</td>
+                </tr>
+            `;
+        });
+
+        data.stock.forEach(row => {
+            const low = data.lowStock.find(x => Number(x.branch_id) === Number(row.branch_id));
+
+            stockTable.innerHTML += `
+                <tr>
+                    <td>${row.branch_name}</td>
+                    <td>${row.total_stock}</td>
+                    <td>${low ? low.low_stock_items : 0}</td>
+                </tr>
+            `;
+        });
+
+        alert("Branch Dashboard loaded successfully");
+
+    } catch (err) {
+        console.error("BRANCH DASHBOARD FRONTEND ERROR:", err);
+        alert("Branch dashboard error: " + err.message);
+    }
 }
 // LOAD BRANCHES CACHE
 async function loadBranchesCache() {
