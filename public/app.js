@@ -156,7 +156,9 @@ async function receiveToBranch(productId) {
 
     loadProducts();
     loadDashboard();
-
+if (typeof loadBranchDashboard === "function") {
+    loadBranchDashboard();
+}
     if (typeof loadBranchStock === "function") {
         loadBranchStock();
     }
@@ -194,7 +196,9 @@ function displayProducts(products) {
                     <button onclick="receiveToBranch(${p.id})">Receive Branch</button>
                 </td>
 
-                <td><button onclick="receive(${p.id})">+</button></td>
+                <td>
+                <button disabled title="Use Receive Branch instead">+</button>
+                </td>
                 <td><button onclick="sell(${p.id})">-</button></td>
                 <td>
                     ${currentRole === "admin" ? `<button onclick="deleteProduct(${p.id})">Delete</button>` : ""}
@@ -704,8 +708,18 @@ async function receiveByBarcode() {
         return;
     }
 
-    const resProducts = await fetch(API + "/products");
-    const products = await resProducts.json();
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const mainBranch = branches.find(b => b.name.toLowerCase() === "main");
+
+    if (!mainBranch) {
+        alert("Main branch not found. Please create branch named Main first.");
+        return;
+    }
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
 
     const product = products.find(p => p.barcode === barcode);
 
@@ -714,10 +728,14 @@ async function receiveByBarcode() {
         return;
     }
 
-    const res = await fetch(API + "/receiving", {
+    const res = await fetch(API + "/receive-to-branch", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
         body: JSON.stringify({
+            branch_id: mainBranch.id,
             product_id: product.id,
             qty: qty
         })
@@ -731,7 +749,10 @@ async function receiveByBarcode() {
 
     loadProducts();
     loadDashboard();
-    loadCharts();
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
+    }
 }
 document.addEventListener("DOMContentLoaded", function () {
     const receiveBarcode = document.getElementById("receiveBarcode");
