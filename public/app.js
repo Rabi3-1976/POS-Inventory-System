@@ -1261,7 +1261,6 @@ function showPage(pageId) {
             document.getElementById("posBarcode").focus();
         }, 100);
     }
-}
 let html5QrCode = null;
 
 function startPOSScanner() {
