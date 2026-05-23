@@ -1223,7 +1223,7 @@ async function receivePurchaseOrder(id) {
             document.getElementById("posBarcode").focus();
         }, 100);
     }
-}
+
 
     if (pageId === "posPage") {
         loadSaleBranchOptions();
