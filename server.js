@@ -893,6 +893,72 @@ app.get("/branch-stock-check", async (req, res) => {
         res.status(500).json({ error: "Branch stock check failed" });
     }
 });
+// SYNC UNASSIGNED STOCK TO MAIN BRANCH
+app.post("/sync-stock-to-main", verifyToken, adminOnly, async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const mainBranchResult = await client.query(
+            "SELECT id FROM branches WHERE LOWER(name) = LOWER($1) LIMIT 1",
+            ["Main"]
+        );
+
+        if (mainBranchResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+                error: "Main branch not found. Please create branch named Main first."
+            });
+        }
+
+        const mainBranchId = mainBranchResult.rows[0].id;
+
+        const products = await client.query(`
+            SELECT 
+                p.id,
+                p.name,
+                p.stock AS product_stock,
+                COALESCE(SUM(bs.stock), 0) AS branch_stock
+            FROM products p
+            LEFT JOIN branch_stock bs ON p.id = bs.product_id
+            GROUP BY p.id, p.name, p.stock
+        `);
+
+        let synced = 0;
+
+        for (const p of products.rows) {
+            const productStock = Number(p.product_stock || 0);
+            const branchStock = Number(p.branch_stock || 0);
+            const difference = productStock - branchStock;
+
+            if (difference > 0) {
+                await client.query(`
+                    INSERT INTO branch_stock (branch_id, product_id, stock)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (branch_id, product_id)
+                    DO UPDATE SET stock = branch_stock.stock + EXCLUDED.stock
+                `, [mainBranchId, p.id, difference]);
+
+                synced++;
+            }
+        }
+
+        await client.query("COMMIT");
+
+        res.json({
+            message: "Unassigned stock synced to Main branch",
+            productsUpdated: synced
+        });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("SYNC STOCK ERROR:", err);
+        res.status(500).json({ error: "Stock sync failed" });
+    } finally {
+        client.release();
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
