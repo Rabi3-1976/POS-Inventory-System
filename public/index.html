@@ -191,6 +191,7 @@
         <h2>Create Purchase Order</h2>
         <select id="poSupplier"></select>
         <select id="poProduct"></select>
+        <select id="poBranch"></select>
         <input id="poQty" type="number" placeholder="Qty">
         <button onclick="createPurchaseOrder()">Create PO</button>
     </div>
@@ -202,15 +203,16 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Supplier</th>
-                    <th>Product</th>
-                    <th>Barcode</th>
-                    <th>Qty</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Receive</th>
-                </tr>
+    <th>ID</th>
+    <th>Supplier</th>
+    <th>Product</th>
+    <th>Barcode</th>
+    <th>Branch</th>
+    <th>Qty</th>
+    <th>Status</th>
+    <th>Date</th>
+    <th>Receive</th>
+</tr>
             </thead>
             <tbody id="purchaseOrdersTable"></tbody>
         </table>

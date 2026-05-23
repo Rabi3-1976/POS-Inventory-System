@@ -1206,11 +1206,16 @@ async function loadSupplierOptions() {
     const productsRes = await fetch(API + "/products");
     const products = await productsRes.json();
 
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
     const supplierSelect = document.getElementById("poSupplier");
     const productSelect = document.getElementById("poProduct");
+    const branchSelect = document.getElementById("poBranch");
 
     supplierSelect.innerHTML = "";
     productSelect.innerHTML = "";
+    branchSelect.innerHTML = "";
 
     suppliers.forEach(s => {
         supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
@@ -1219,15 +1224,20 @@ async function loadSupplierOptions() {
     products.forEach(p => {
         productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
     });
+
+    branches.forEach(b => {
+        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
 }
 
 async function createPurchaseOrder() {
     const supplier_id = document.getElementById("poSupplier").value;
     const product_id = document.getElementById("poProduct").value;
+    const branch_id = document.getElementById("poBranch").value;
     const qty = Number(document.getElementById("poQty").value);
 
-    if (!supplier_id || !product_id || qty <= 0) {
-        alert("Please select supplier/product and enter valid qty");
+    if (!supplier_id || !product_id || !branch_id || qty <= 0) {
+        alert("Please select supplier, product, branch and enter valid qty");
         return;
     }
 
@@ -1237,13 +1247,14 @@ async function createPurchaseOrder() {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + token
         },
-        body: JSON.stringify({ supplier_id, product_id, qty })
+        body: JSON.stringify({ supplier_id, product_id, branch_id, qty })
     });
 
     const data = await res.json();
     alert(data.message || data.error);
 
     document.getElementById("poQty").value = "";
+
     loadPurchaseOrders();
 }
 
@@ -1255,26 +1266,26 @@ async function loadPurchaseOrders() {
     table.innerHTML = "";
 
     orders.forEach(o => {
-        table.innerHTML += `
-            <tr>
-                <td>${o.id}</td>
-                <td>${o.supplier_name}</td>
-                <td>${o.product_name}</td>
-                <td>${o.barcode}</td>
-                <td>${o.qty}</td>
-                <td>${o.status}</td>
-                <td>${o.date}</td>
-                <td>
-                    ${
-                        o.status === "Received"
-                        ? "Received"
-                        : `<button onclick="receivePurchaseOrder(${o.id})">Receive</button>`
-                    }
-                </td>
-            </tr>
-        `;
-    });
-}
+    table.innerHTML += `
+        <tr>
+            <td>${o.id}</td>
+            <td>${o.supplier_name}</td>
+            <td>${o.product_name}</td>
+            <td>${o.barcode}</td>
+            <td>${o.branch_name || ""}</td>
+            <td>${o.qty}</td>
+            <td>${o.status}</td>
+            <td>${o.date}</td>
+            <td>
+                ${
+                    o.status === "Received"
+                    ? "Received"
+                    : `<button onclick="receivePurchaseOrder(${o.id})">Receive</button>`
+                }
+            </td>
+        </tr>
+    `;
+});
 async function receivePurchaseOrder(id) {
     if (!confirm("Receive this purchase order and update stock?")) return;
 
