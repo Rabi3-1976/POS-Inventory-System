@@ -1840,4 +1840,17 @@ async function loadBranchDashboard() {
         `;
     });
 }
+// LOGOUT FUNCTION
+function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
 
+    token = "";
+    currentRole = "";
+
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+
+    document.getElementById("mainSection").style.display = "none";
+    document.getElementById("loginSection").style.display = "block";
+}
