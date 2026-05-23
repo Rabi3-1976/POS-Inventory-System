@@ -1971,30 +1971,6 @@ async function syncStockToMain() {
     if (typeof loadBranchDashboard === "function") {
         loadBranchDashboard();
     }
-}}
-async function receivePurchaseOrder(id) {
-    if (!confirm("Receive this purchase order and update stock in assigned branch?")) return;
-
-    const res = await fetch(API + "/purchase-orders/" + id + "/receive", {
-        method: "PUT",
-        headers: {
-            "Authorization": "Bearer " + localStorage.getItem("token")
-        }
-    });
-
-    const data = await res.json();
-
-    alert(data.message || data.error);
-
-    loadPurchaseOrders();
-    loadProducts();
-    loadDashboard();
-
-    if (typeof loadBranchStock === "function") {
-        loadBranchStock();
-    }
-
-    if (typeof loadBranchDashboard === "function") {
-        loadBranchDashboard();
-    }
 }
+}
+
