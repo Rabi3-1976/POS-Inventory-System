@@ -850,58 +850,76 @@ const res = await fetch(API + "/branch-sale", {
     loadDashboard();
 }
 async function addToCart() {
+    const branch_id = document.getElementById("saleBranch").value;
     const barcode = document.getElementById("posBarcode").value.trim();
     const qty = Number(document.getElementById("posQty").value);
+
+    if (!branch_id) {
+        alert("Please select branch");
+        return;
+    }
 
     if (!barcode || qty <= 0) {
         alert("Please enter barcode and valid quantity");
         return;
     }
 
-    const res = await fetch(API + "/products");
-    const products = await res.json();
-    const branch_id = document.getElementById("saleBranch").value;
+    const res = await fetch(API + `/branch-stock-check?branch_id=${branch_id}&barcode=${barcode}`);
+    const product = await res.json();
 
-if (!branch_id) {
-    alert("Please select branch");
-    return;
-}
-    const product = products.find(p => p.barcode === barcode);
-
-    if (!product) {
-        alert("Product not found");
+    if (product.error) {
+        alert(product.error);
         return;
     }
 
-    if (product.stock < qty) {
-        alert("Not enough stock");
+    const branchStock = Number(product.branch_stock || 0);
+
+    document.getElementById("availableBranchStock").innerText = branchStock;
+
+    if (branchStock < qty) {
+        alert("Not enough stock in selected branch");
         return;
     }
 
-    const existing = cart.find(item => item.id === product.id);
+    const existing = cart.find(item =>
+        item.id === product.id && item.branch_id === branch_id
+    );
 
     if (existing) {
-        if (product.stock < existing.qty + qty) {
-            alert("Not enough stock for total cart quantity");
+        if (branchStock < existing.qty + qty) {
+            alert("Not enough branch stock for total cart quantity");
             return;
         }
 
         existing.qty += qty;
     } else {
-    cart.push({
-    id: product.id,
-    name: product.name,
-    barcode: product.barcode,
-    price: Number(product.price),
-    qty: qty,
-    branch_id: branch_id
-});
+        cart.push({
+            id: product.id,
+            name: product.name,
+            barcode: product.barcode,
+            price: Number(product.price),
+            qty: qty,
+            branch_id: branch_id
+        });
     }
 
     document.getElementById("posBarcode").value = "";
     document.getElementById("posQty").value = 1;
 
     displayCart();
+}
+
+async function previewBranchStock() {
+    const branch_id = document.getElementById("saleBranch").value;
+    const barcode = document.getElementById("posBarcode").value.trim();
+
+    if (!branch_id || !barcode) return;
+
+    const res = await fetch(API + `/branch-stock-check?branch_id=${branch_id}&barcode=${barcode}`);
+    const data = await res.json();
+
+    document.getElementById("availableBranchStock").innerText =
+        data.branch_stock ?? 0;
 }
 
 function displayCart() {
@@ -1128,9 +1146,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const posBarcode = document.getElementById("posBarcode");
 
     if (posBarcode) {
-        posBarcode.addEventListener("keypress", function (e) {
+        posBarcode.addEventListener("change", previewBranchStock);
+
+        posBarcode.addEventListener("keyup", function (e) {
             if (e.key === "Enter") {
                 addToCart();
+            } else {
+                previewBranchStock();
             }
         });
     }
