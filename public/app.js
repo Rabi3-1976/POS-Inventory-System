@@ -203,6 +203,41 @@ function displayProducts(products) {
         `;
     });
 }
+// ADD PRODUCT
+async function addProduct() {
+    const name = document.getElementById("pname").value.trim();
+    const barcode = document.getElementById("barcode").value.trim();
+    const price = Number(document.getElementById("price").value);
+    const cost = Number(document.getElementById("cost").value);
+
+    if (!name || !barcode || price <= 0) {
+        alert("Please enter product name, barcode, and valid price");
+        return;
+    }
+
+    const savedToken = localStorage.getItem("token");
+
+    const res = await fetch(API + "/products", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + savedToken
+        },
+        body: JSON.stringify({ name, barcode, price, cost })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("pname").value = "";
+    document.getElementById("barcode").value = "";
+    document.getElementById("price").value = "";
+    document.getElementById("cost").value = "";
+
+    loadProducts();
+    loadDashboard();
+}
 
 // SEARCH PRODUCT
 async function searchProduct() {
