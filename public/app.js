@@ -1,4 +1,13 @@
 const API = "";
+async function testBranchDashboard() {
+    alert("Branch dashboard function is loaded");
+
+    const res = await fetch(API + "/branch-dashboard");
+    const data = await res.json();
+
+    console.log(data);
+    alert("Sales rows: " + data.sales.length);
+}
 let token = "";
 let currentRole = "";
 let cart = [];
