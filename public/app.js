@@ -720,47 +720,49 @@ window.onload = () => {
     if (barcodeInput) barcodeInput.focus();
 };
 function showPage(pageId) {
-
-if (pageId === "branchesPage") {
-    loadBranches();
-    loadBranchStockOptions();
-    loadBranchStock();
-}
-if (pageId === "posPage") {
-    loadSaleBranchOptions();
-
-    setTimeout(() => {
-        document.getElementById("posBarcode").focus();
-    }, 100);
-}
     document.querySelectorAll(".page").forEach(page => {
         page.style.display = "none";
     });
-if (pageId === "suppliersPage") {
-    loadSupplierOptions();
-    loadPurchaseOrders();
-}
+
     document.getElementById(pageId).style.display = "block";
 
-    if (pageId === "dashboardPage") loadDashboard();
-    if (pageId === "branchDashboardPage") loadBranchDashboard();
-    if (pageId === "productsPage") loadProducts();
-    if (pageId === "usersPage") loadUsers();
-}
+    if (pageId === "dashboardPage") {
+        loadDashboard();
+        loadCharts();
+    }
 
-function logout() {
+    if (pageId === "branchDashboardPage") {
+        loadBranchDashboard();
+    }
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
+    if (pageId === "productsPage") {
+        loadProducts();
+    }
 
-    token = "";
-    currentRole = "";
+    if (pageId === "usersPage") {
+        loadUsers();
+    }
 
-    document.getElementById("username").value = "";
-    document.getElementById("password").value = "";
+    if (pageId === "suppliersPage") {
+        loadSupplierOptions();
+        loadPurchaseOrders();
+    }
 
-    document.getElementById("mainSection").style.display = "none";
-    document.getElementById("loginSection").style.display = "block";
+    if (pageId === "branchesPage") {
+        loadBranches();
+        loadBranchStockOptions();
+        loadBranchStock();
+        loadTransferOptions();
+        loadStockTransfers();
+    }
+
+    if (pageId === "posPage") {
+        loadSaleBranchOptions();
+
+        setTimeout(() => {
+            document.getElementById("posBarcode").focus();
+        }, 100);
+    }
 }
 
 async function sellByBarcode() {
@@ -1835,15 +1837,3 @@ async function loadBranchDashboard() {
     });
 }
 
-
-    data.stock.forEach(row => {
-        const low = data.lowStock.find(x => x.branch_name === row.branch_name);
-
-        stockTable.innerHTML += `
-            <tr>
-                <td>${row.branch_name}</td>
-                <td>${row.total_stock}</td>
-                <td>${low ? low.low_stock_items : 0}</td>
-            </tr>
-        `;
-    });
