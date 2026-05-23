@@ -114,7 +114,11 @@ async function loadBranchDashboard() {
         `;
     });
 }
-
+// LOAD BRANCHES CACHE
+async function loadBranchesCache() {
+    const res = await fetch(API + "/branches");
+    branchesCache = await res.json();
+}
 // LOAD PRODUCTS
 async function loadProducts() {
     await loadBranchesCache();
