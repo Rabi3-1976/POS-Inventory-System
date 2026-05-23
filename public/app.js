@@ -1215,37 +1215,7 @@ async function receivePurchaseOrder(id) {
     loadDashboard();
     loadCharts();
 }
-function showPage(pageId) {
-    document.querySelectorAll(".page").forEach(page => {
-        page.style.display = "none";
-    });
 
-    document.getElementById(pageId).style.display = "block";
-
-    if (pageId === "dashboardPage") {
-        loadDashboard();
-        loadCharts();
-    }
-
-    if (pageId === "branchDashboardPage") {
-        loadBranchDashboard();
-    }
-
-    if (pageId === "productsPage") loadProducts();
-    if (pageId === "usersPage") loadUsers();
-
-    if (pageId === "suppliersPage") {
-        loadSupplierOptions();
-        loadPurchaseOrders();
-    }
-
-    if (pageId === "branchesPage") {
-        loadBranches();
-        loadBranchStockOptions();
-        loadBranchStock();
-        loadTransferOptions();
-        loadStockTransfers();
-    }
 
     if (pageId === "posPage") {
         loadSaleBranchOptions();
