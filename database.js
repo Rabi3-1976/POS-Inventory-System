@@ -81,6 +81,10 @@ async function initializeDatabase() {
         )
     `);
     await pool.query(`
+    ALTER TABLE purchase_orders
+    ADD COLUMN IF NOT EXISTS branch_id INTEGER
+`);
+    await pool.query(`
     CREATE TABLE IF NOT EXISTS branches (
         id SERIAL PRIMARY KEY,
         name TEXT UNIQUE,

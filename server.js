@@ -394,16 +394,21 @@ app.get("/suppliers", async (req, res) => {
 
 // PURCHASE ORDERS
 app.post("/purchase-orders", verifyToken, adminOnly, async (req, res) => {
-    const { supplier_id, product_id, qty } = req.body;
+    const { supplier_id, product_id, branch_id, qty } = req.body;
+
+    if (!supplier_id || !product_id || !branch_id || !qty || Number(qty) <= 0) {
+        return res.status(400).json({ error: "Please select supplier, product, branch, and valid quantity" });
+    }
 
     try {
         await pool.query(
-            "INSERT INTO purchase_orders (supplier_id, product_id, qty) VALUES ($1, $2, $3)",
-            [supplier_id, product_id, qty]
+            "INSERT INTO purchase_orders (supplier_id, product_id, branch_id, qty) VALUES ($1, $2, $3, $4)",
+            [supplier_id, product_id, branch_id, Number(qty)]
         );
 
         res.json({ message: "Purchase order created" });
     } catch (err) {
+        console.error("CREATE PO ERROR:", err);
         res.status(400).json({ error: "Purchase order failed" });
     }
 });
@@ -416,17 +421,20 @@ app.get("/purchase-orders", async (req, res) => {
                 s.name AS supplier_name,
                 p.name AS product_name,
                 p.barcode,
+                b.name AS branch_name,
                 po.qty,
                 po.status,
                 po.date
             FROM purchase_orders po
             JOIN suppliers s ON po.supplier_id = s.id
             JOIN products p ON po.product_id = p.id
+            LEFT JOIN branches b ON po.branch_id = b.id
             ORDER BY po.date DESC
         `);
 
         res.json(result.rows);
     } catch (err) {
+        console.error("PO LIST ERROR:", err);
         res.status(500).json({ error: "Purchase orders failed" });
     }
 });
@@ -434,36 +442,62 @@ app.get("/purchase-orders", async (req, res) => {
 app.put("/purchase-orders/:id/receive", verifyToken, adminOnly, async (req, res) => {
     const poId = req.params.id;
 
+    const client = await pool.connect();
+
     try {
-        const result = await pool.query("SELECT * FROM purchase_orders WHERE id = $1", [poId]);
+        const result = await client.query(
+            "SELECT * FROM purchase_orders WHERE id = $1",
+            [poId]
+        );
+
         const po = result.rows[0];
 
-        if (!po) return res.status(404).json({ error: "Purchase order not found" });
-        if (po.status === "Received") return res.status(400).json({ error: "Purchase order already received" });
+        if (!po) {
+            return res.status(404).json({ error: "Purchase order not found" });
+        }
 
-        await pool.query("BEGIN");
+        if (po.status === "Received") {
+            return res.status(400).json({ error: "Purchase order already received" });
+        }
 
-        await pool.query(
-            "INSERT INTO receiving (product_id, qty) VALUES ($1, $2)",
-            [po.product_id, po.qty]
-        );
+        if (!po.branch_id) {
+            return res.status(400).json({ error: "Purchase order has no branch assigned" });
+        }
 
-        await pool.query(
+        await client.query("BEGIN");
+
+        await client.query(`
+            INSERT INTO branch_stock (branch_id, product_id, stock)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (branch_id, product_id)
+            DO UPDATE SET stock = branch_stock.stock + EXCLUDED.stock
+        `, [po.branch_id, po.product_id, Number(po.qty)]);
+
+        await client.query(
             "UPDATE products SET stock = stock + $1 WHERE id = $2",
-            [po.qty, po.product_id]
+            [Number(po.qty), po.product_id]
         );
 
-        await pool.query(
+        await client.query(
+            "INSERT INTO receiving (product_id, qty) VALUES ($1, $2)",
+            [po.product_id, Number(po.qty)]
+        );
+
+        await client.query(
             "UPDATE purchase_orders SET status = 'Received' WHERE id = $1",
             [poId]
         );
 
-        await pool.query("COMMIT");
+        await client.query("COMMIT");
 
-        res.json({ message: "Purchase order received and stock updated" });
+        res.json({ message: "Purchase order received into assigned branch" });
+
     } catch (err) {
-        await pool.query("ROLLBACK");
+        await client.query("ROLLBACK");
+        console.error("RECEIVE PO ERROR:", err);
         res.status(500).json({ error: "Receive PO failed" });
+    } finally {
+        client.release();
     }
 });
 
