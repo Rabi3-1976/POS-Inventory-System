@@ -1856,3 +1856,30 @@ function logout() {
     document.getElementById("mainSection").style.display = "none";
     document.getElementById("loginSection").style.display = "block";
 }
+// Force reload branch dashboard data (used after stock transfer to update low stock count)
+async function forceBranchDashboard() {
+    const res = await fetch("/branch-dashboard");
+    const data = await res.json();
+
+    document.getElementById("branchSalesDashboardTable").innerHTML =
+        data.sales.map(r => `
+            <tr>
+                <td>${r.branch_name}</td>
+                <td>${Number(r.total_sales || 0).toFixed(2)}</td>
+                <td>${Number(r.total_profit || 0).toFixed(2)}</td>
+            </tr>
+        `).join("");
+
+    document.getElementById("branchStockDashboardTable").innerHTML =
+        data.stock.map(r => {
+            const low = data.lowStock.find(x => Number(x.branch_id) === Number(r.branch_id));
+
+            return `
+                <tr>
+                    <td>${r.branch_name}</td>
+                    <td>${r.total_stock}</td>
+                    <td>${low ? low.low_stock_items : 0}</td>
+                </tr>
+            `;
+        }).join("");
+}
