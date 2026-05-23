@@ -1227,13 +1227,12 @@ function showPage(pageId) {
         loadCharts();
     }
 
-    if (pageId === "productsPage") {
-        loadProducts();
+    if (pageId === "branchDashboardPage") {
+        loadBranchDashboard();
     }
 
-    if (pageId === "usersPage") {
-        loadUsers();
-    }
+    if (pageId === "productsPage") loadProducts();
+    if (pageId === "usersPage") loadUsers();
 
     if (pageId === "suppliersPage") {
         loadSupplierOptions();
@@ -1247,6 +1246,14 @@ function showPage(pageId) {
         loadTransferOptions();
         loadStockTransfers();
     }
+
+    if (pageId === "posPage") {
+        loadSaleBranchOptions();
+        setTimeout(() => {
+            document.getElementById("posBarcode").focus();
+        }, 100);
+    }
+}
 
     if (pageId === "posPage") {
         loadSaleBranchOptions();
