@@ -864,7 +864,35 @@ app.get("/branch-dashboard", async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+// BRANCH STOCK CHECK
+app.get("/branch-stock-check", async (req, res) => {
+    const { branch_id, barcode } = req.query;
 
+    try {
+        const result = await pool.query(`
+            SELECT 
+                p.id,
+                p.name,
+                p.barcode,
+                p.price,
+                COALESCE(bs.stock, 0) AS branch_stock
+            FROM products p
+            LEFT JOIN branch_stock bs 
+                ON p.id = bs.product_id 
+                AND bs.branch_id = $1
+            WHERE p.barcode = $2
+        `, [branch_id, barcode]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        res.json(result.rows[0]);
+
+    } catch (err) {
+        res.status(500).json({ error: "Branch stock check failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
