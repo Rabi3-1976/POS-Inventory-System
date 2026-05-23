@@ -1971,4 +1971,4 @@ async function syncStockToMain() {
     if (typeof loadBranchDashboard === "function") {
         loadBranchDashboard();
     }
-}
+}}
