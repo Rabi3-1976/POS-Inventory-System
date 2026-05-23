@@ -1795,6 +1795,11 @@ async function loadBranchDashboard() {
     const salesTable = document.getElementById("branchSalesDashboardTable");
     const stockTable = document.getElementById("branchStockDashboardTable");
 
+    if (!salesTable || !stockTable) {
+        alert("Branch dashboard table IDs not found in index.html");
+        return;
+    }
+
     salesTable.innerHTML = "";
     stockTable.innerHTML = "";
 
@@ -1809,7 +1814,7 @@ async function loadBranchDashboard() {
     });
 
     data.stock.forEach(row => {
-        const low = data.lowStock.find(x => x.branch_name === row.branch_name);
+        const low = data.lowStock.find(x => Number(x.branch_id) === Number(row.branch_id));
 
         stockTable.innerHTML += `
             <tr>
@@ -1820,3 +1825,16 @@ async function loadBranchDashboard() {
         `;
     });
 }
+
+
+    data.stock.forEach(row => {
+        const low = data.lowStock.find(x => x.branch_name === row.branch_name);
+
+        stockTable.innerHTML += `
+            <tr>
+                <td>${row.branch_name}</td>
+                <td>${row.total_stock}</td>
+                <td>${low ? low.low_stock_items : 0}</td>
+            </tr>
+        `;
+    });
