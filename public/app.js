@@ -784,7 +784,14 @@ function showPage(pageId) {
         page.style.display = "none";
     });
 
-    document.getElementById(pageId).style.display = "block";
+    const page = document.getElementById(pageId);
+
+    if (!page) {
+        alert("Page not found: " + pageId);
+        return;
+    }
+
+    page.style.display = "block";
 
     if (pageId === "dashboardPage") {
         loadDashboard();
@@ -820,55 +827,10 @@ function showPage(pageId) {
         loadSaleBranchOptions();
 
         setTimeout(() => {
-            document.getElementById("posBarcode").focus();
+            const barcode = document.getElementById("posBarcode");
+            if (barcode) barcode.focus();
         }, 100);
     }
-}
-
-async function sellByBarcode() {
-    const barcode = document.getElementById("posBarcode").value.trim();
-    const qty = Number(document.getElementById("posQty").value);
-
-    if (!barcode || qty <= 0) {
-        alert("Please enter barcode and valid quantity");
-        return;
-    }
-
-    const resProducts = await fetch(API + "/products");
-    const products = await resProducts.json();
-
-    const product = products.find(p => p.barcode === barcode);
-
-    if (!product) {
-        alert("Product not found");
-        return;
-    }
-
-const res = await fetch(API + "/branch-sale", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-        branch_id: item.branch_id,
-        product_id: item.id,
-        qty: item.qty
-    })
-});
-
-    const data = await res.json();
-
-    if (data.error) {
-        alert(data.error);
-        return;
-    }
-
-    alert(`${product.name} sold successfully`);
-
-    document.getElementById("posBarcode").value = "";
-    document.getElementById("posQty").value = 1;
-
-    printReceipt(product.id, qty);
-    loadProducts();
-    loadDashboard();
 }
 async function addToCart() {
     const branch_id = document.getElementById("saleBranch").value;
