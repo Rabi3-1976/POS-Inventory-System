@@ -112,6 +112,16 @@ await pool.query(`
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS customers (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT UNIQUE,
+        email TEXT,
+        address TEXT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
 
     console.log("PostgreSQL tables ready");
 }

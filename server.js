@@ -1001,6 +1001,46 @@ app.post("/sync-stock-to-main", verifyToken, adminOnly, async (req, res) => {
         client.release();
     }
 });
+// CUSTOMERS
+app.post("/customers", verifyToken, async (req, res) => {
+    const { name, phone, email, address } = req.body;
+
+    if (!name || !phone) {
+        return res.status(400).json({ error: "Customer name and phone are required" });
+    }
+
+    try {
+        await pool.query(
+            "INSERT INTO customers (name, phone, email, address) VALUES ($1, $2, $3, $4)",
+            [name, phone, email || "", address || ""]
+        );
+
+        res.json({ message: "Customer added" });
+    } catch (err) {
+        res.status(400).json({ error: "Customer phone already exists" });
+    }
+});
+
+app.get("/customers", async (req, res) => {
+    try {
+        const result = await pool.query(
+            "SELECT * FROM customers ORDER BY id DESC"
+        );
+
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: "Customers failed to load" });
+    }
+});
+
+app.delete("/customers/:id", verifyToken, adminOnly, async (req, res) => {
+    try {
+        await pool.query("DELETE FROM customers WHERE id = $1", [req.params.id]);
+        res.json({ message: "Customer deleted" });
+    } catch (err) {
+        res.status(400).json({ error: "Customer delete failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
