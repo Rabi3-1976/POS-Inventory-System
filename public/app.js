@@ -1935,4 +1935,68 @@ async function syncStockToMain() {
     }
 }
 }
+window.loadBranches = async function () {
+    const res = await fetch(API + "/branches");
+    const branches = await res.json();
 
+    const table = document.getElementById("branchesTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    branches.forEach(b => {
+        table.innerHTML += `
+            <tr>
+                <td>${b.id}</td>
+                <td>${b.name}</td>
+                <td>${b.location || ""}</td>
+            </tr>
+        `;
+    });
+};
+
+window.loadBranchStock = async function () {
+    const res = await fetch(API + "/branch-stock");
+    const rows = await res.json();
+
+    const table = document.getElementById("branchStockTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.stock}</td>
+            </tr>
+        `;
+    });
+};
+
+window.loadBranchStockOptions = async function () {
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchSelect = document.getElementById("stockBranch");
+    const productSelect = document.getElementById("stockProduct");
+
+    if (!branchSelect || !productSelect) return;
+
+    branchSelect.innerHTML = "";
+    productSelect.innerHTML = "";
+
+    branches.forEach(b => {
+        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
+
+    products.forEach(p => {
+        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+    });
+};
