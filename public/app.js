@@ -538,6 +538,9 @@ window.addToCart = async function () {
             alert("Not enough stock in selected branch");
             return;
         }
+        const customerSelect = document.getElementById("saleCustomer");
+        const customerName = customerSelect && customerSelect.value
+        ? customerSelect.options[customerSelect.selectedIndex].text: "Walk-in Customer";
 
         const existing = cart.find(item => Number(item.id) === Number(product.id) && Number(item.branch_id) === Number(branch_id));
 
@@ -549,14 +552,15 @@ window.addToCart = async function () {
 
             existing.qty += qty;
         } else {
-            cart.push({
-                id: product.id,
-                name: product.name,
-                barcode: product.barcode,
-                price: Number(product.price),
-                qty,
-                branch_id
-            });
+           cart.push({
+                        id: product.id,
+                        name: product.name,
+                        barcode: product.barcode,
+                        price: Number(product.price),
+                        qty: qty,
+                        branch_id: branch_id,
+                        customer_name: customerName
+        });
         }
 
         document.getElementById("posBarcode").value = "";
@@ -612,33 +616,37 @@ window.checkoutCart = async function () {
         alert("Cart is empty");
         return;
     }
+}
 
-    try {
-        for (const item of cart) {
-            await fetchJson("/branch-sale", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    branch_id: item.branch_id,
-                    product_id: item.id,
-                    qty: item.qty
-                })
-            });
-        }
+try {
+    const customer_id = document.getElementById("saleCustomer")
+        ? document.getElementById("saleCustomer").value
+        : "";
 
-        printCartReceipt();
-        alert("Sale completed successfully");
-
-        cart = [];
-        displayCart();
-        loadProducts();
-        loadDashboard();
-        loadBranchStock();
-        loadBranchDashboard();
-    } catch (err) {
-        alert(err.message);
+    for (const item of cart) {
+        await fetchJson("/branch-sale", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                branch_id: item.branch_id,
+                product_id: item.id,
+                qty: item.qty,
+                customer_id: customer_id || null
+            })
+        });
     }
-};
+
+    printCartReceipt();
+    alert("Sale completed successfully");
+
+    cart = [];
+    displayCart();
+    loadProducts();
+    loadDashboard();
+
+} catch (err) {
+    alert(err.message);
+}
 
 window.printCartReceipt = function () {
     let receiptWindow = window.open("", "_blank");
