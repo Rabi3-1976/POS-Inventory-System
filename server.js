@@ -757,7 +757,7 @@ app.post("/receive-to-branch", verifyToken, adminOnly, async (req, res) => {
 });
 // BRANCH SALE
 app.post("/branch-sale", async (req, res) => {
-    const { branch_id, product_id, qty } = req.body;
+    const { branch_id, product_id, qty, customer_id } = req.body;
 
     if (!branch_id || !product_id || !qty || Number(qty) <= 0) {
         return res.status(400).json({ error: "Invalid branch/product/quantity" });
@@ -808,13 +808,13 @@ app.post("/branch-sale", async (req, res) => {
         );
 
         await client.query(
-            "INSERT INTO branch_sales (branch_id, product_id, qty, price, cost, profit) VALUES ($1, $2, $3, $4, $5, $6)",
-            [branch_id, product_id, Number(qty), totalPrice, totalCost, profit]
+            "INSERT INTO branch_sales (branch_id, product_id, qty, price, cost, profit, customer_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            [branch_id, product_id, customer_id || null, Number(qty), totalPrice, totalCost, profit]
         );
 
         await client.query(
-            "INSERT INTO sales (product_id, qty, price, cost, profit) VALUES ($1, $2, $3, $4, $5)",
-            [product_id, Number(qty), totalPrice, totalCost, profit]
+            "INSERT INTO sales (product_id,customer_id, qty, price, cost, profit) VALUES ($1, $2, $3, $4, $5, $6)",
+            [product_id, customer_id || null, Number(qty), totalPrice, totalCost, profit]
         );
 
         await client.query("COMMIT");
