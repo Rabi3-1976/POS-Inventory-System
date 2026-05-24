@@ -126,7 +126,9 @@ window.showPage = function (pageId) {
     if (pageId === "productsPage") {
         loadProducts();
     }
-
+    if (pageId === "customersPage") {
+    loadCustomers();
+    }
     if (pageId === "posPage") {
         loadSaleBranchOptions();
         setText("availableBranchStock", "0");
@@ -1500,3 +1502,97 @@ document.addEventListener("DOMContentLoaded", function () {
         saleBranch.addEventListener("change", previewBranchStock);
     }
 });
+window.addCustomer = async function () {
+    const name = document.getElementById("customerName").value.trim();
+    const phone = document.getElementById("customerPhone").value.trim();
+    const email = document.getElementById("customerEmail").value.trim();
+    const address = document.getElementById("customerAddress").value.trim();
+
+    if (!name || !phone) {
+        alert("Customer name and phone are required");
+        return;
+    }
+
+    const res = await fetch(API + "/customers", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({ name, phone, email, address })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    document.getElementById("customerName").value = "";
+    document.getElementById("customerPhone").value = "";
+    document.getElementById("customerEmail").value = "";
+    document.getElementById("customerAddress").value = "";
+
+    loadCustomers();
+};
+
+window.loadCustomers = async function () {
+    const res = await fetch(API + "/customers");
+    const customers = await res.json();
+
+    displayCustomers(customers);
+};
+
+window.displayCustomers = function (customers) {
+    const table = document.getElementById("customersTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    customers.forEach(c => {
+        table.innerHTML += `
+            <tr>
+                <td>${c.id}</td>
+                <td>${c.name}</td>
+                <td>${c.phone}</td>
+                <td>${c.email || ""}</td>
+                <td>${c.address || ""}</td>
+                <td>${c.date}</td>
+                <td>
+                    ${
+                        currentRole === "admin"
+                        ? `<button onclick="deleteCustomer(${c.id})">Delete</button>`
+                        : ""
+                    }
+                </td>
+            </tr>
+        `;
+    });
+};
+
+window.searchCustomers = async function () {
+    const search = document.getElementById("customerSearch").value.toLowerCase();
+
+    const res = await fetch(API + "/customers");
+    const customers = await res.json();
+
+    const filtered = customers.filter(c =>
+        String(c.name || "").toLowerCase().includes(search) ||
+        String(c.phone || "").toLowerCase().includes(search)
+    );
+
+    displayCustomers(filtered);
+};
+
+window.deleteCustomer = async function (id) {
+    if (!confirm("Delete this customer?")) return;
+
+    const res = await fetch(API + "/customers/" + id, {
+        method: "DELETE",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    loadCustomers();
+};
