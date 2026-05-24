@@ -616,37 +616,55 @@ window.checkoutCart = async function () {
         alert("Cart is empty");
         return;
     }
-}
 
-try {
-    const customer_id = document.getElementById("saleCustomer")
-        ? document.getElementById("saleCustomer").value
-        : "";
+    try {
+        const customer_id = document.getElementById("saleCustomer")
+            ? document.getElementById("saleCustomer").value
+            : "";
 
-    for (const item of cart) {
-        await fetchJson("/branch-sale", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                branch_id: item.branch_id,
-                product_id: item.id,
-                qty: item.qty,
-                customer_id: customer_id || null
-            })
-        });
+        for (const item of cart) {
+            const res = await fetch(API + "/branch-sale", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    branch_id: item.branch_id,
+                    product_id: item.id,
+                    qty: item.qty,
+                    customer_id: customer_id || null
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+        }
+
+        printCartReceipt();
+
+        alert("Sale completed successfully");
+
+        cart = [];
+        displayCart();
+
+        loadProducts();
+        loadDashboard();
+
+        if (typeof loadBranchStock === "function") {
+            loadBranchStock();
+        }
+
+        if (typeof loadBranchDashboard === "function") {
+            loadBranchDashboard();
+        }
+
+    } catch (err) {
+        console.error("CHECKOUT ERROR:", err);
+        alert("Checkout failed: " + err.message);
     }
-
-    printCartReceipt();
-    alert("Sale completed successfully");
-
-    cart = [];
-    displayCart();
-    loadProducts();
-    loadDashboard();
-
-} catch (err) {
-    alert(err.message);
-}
+};
 
 window.printCartReceipt = function () {
     let receiptWindow = window.open("", "_blank");
