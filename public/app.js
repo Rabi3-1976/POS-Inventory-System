@@ -130,14 +130,15 @@ window.showPage = function (pageId) {
     loadCustomers();
     }
     if (pageId === "posPage") {
-        loadSaleBranchOptions();
-        setText("availableBranchStock", "0");
+    loadSaleBranchOptions();
+    loadSaleCustomerOptions();
+    setText("availableBranchStock", "0");
 
-        setTimeout(() => {
-            const barcode = document.getElementById("posBarcode");
-            if (barcode) barcode.focus();
-        }, 100);
-    }
+    setTimeout(() => {
+        const barcode = document.getElementById("posBarcode");
+        if (barcode) barcode.focus();
+    }, 100);
+}
 
     if (pageId === "receivingPage") {
         setTimeout(() => {
@@ -1595,4 +1596,21 @@ window.deleteCustomer = async function (id) {
     alert(data.message || data.error);
 
     loadCustomers();
+};
+window.loadSaleCustomerOptions = async function () {
+    const res = await fetch(API + "/customers");
+    const customers = await res.json();
+
+    const select = document.getElementById("saleCustomer");
+    if (!select) return;
+
+    select.innerHTML = `<option value="">Walk-in Customer</option>`;
+
+    customers.forEach(c => {
+        select.innerHTML += `
+            <option value="${c.id}">
+                ${c.name} - ${c.phone}
+            </option>
+        `;
+    });
 };
