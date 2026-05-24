@@ -808,13 +808,32 @@ app.post("/branch-sale", async (req, res) => {
         );
 
         await client.query(
-            "INSERT INTO branch_sales (branch_id, product_id, qty, price, cost, profit, customer_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-            [branch_id, product_id, customer_id || null, Number(qty), totalPrice, totalCost, profit]
+            `INSERT INTO branch_sales 
+             (branch_id, product_id, customer_id, qty, price, cost, profit)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+                branch_id,
+                product_id,
+                customer_id || null,
+                Number(qty),
+                totalPrice,
+                totalCost,
+                profit
+            ]
         );
 
         await client.query(
-            "INSERT INTO sales (product_id,customer_id, qty, price, cost, profit) VALUES ($1, $2, $3, $4, $5, $6)",
-            [product_id, customer_id || null, Number(qty), totalPrice, totalCost, profit]
+            `INSERT INTO sales 
+             (product_id, customer_id, qty, price, cost, profit)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+                product_id,
+                customer_id || null,
+                Number(qty),
+                totalPrice,
+                totalCost,
+                profit
+            ]
         );
 
         await client.query("COMMIT");
@@ -824,11 +843,12 @@ app.post("/branch-sale", async (req, res) => {
     } catch (err) {
         await client.query("ROLLBACK");
         console.error("BRANCH SALE ERROR:", err);
-        res.status(500).json({ error: "Branch sale failed" });
+        res.status(500).json({ error: err.message });
     } finally {
         client.release();
     }
 });
+
 // BRANCH SALES REPORT
 app.get("/branch-sales-report", async (req, res) => {
     try {
