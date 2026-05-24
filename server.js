@@ -40,36 +40,6 @@ function adminOnly(req, res, next) {
     next();
 }
 
-// TEMP SETUP ADMIN - REMOVE AFTER LOGIN WORKS
-//app.get("/setup-admin", async (req, res) => {
-    //try {
-        //const hashedPassword = await bcrypt.hash("1234", 10);
-
-        //await pool.query(`
-            //INSERT INTO users (username, password, role)
-            //VALUES ($1, $2, $3)
-            //ON CONFLICT (username) DO UPDATE
-            //SET password = EXCLUDED.password,
-                //role = EXCLUDED.role
-       // `, ["admin", hashedPassword, "admin"]);
-
-        //res.send("Admin user ready. Username: admin / Password: 1234");
-    //} catch (err) {
-       // console.error(err);
-       // res.status(500).send("Setup admin failed: " + err.message);
-    //}
-//});
-
-// TEMP DB TEST - REMOVE LATER
-app.get("/db-test", async (req, res) => {
-    try {
-        const result = await pool.query("SELECT NOW()");
-        res.json({ status: "Database connected", time: result.rows[0] });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // LOGIN
 app.post("/login", async (req, res) => {
     const { username, password } = req.body;
@@ -176,15 +146,28 @@ app.post("/products", verifyToken, adminOnly, async (req, res) => {
 app.delete("/products/:id", verifyToken, adminOnly, async (req, res) => {
     const id = req.params.id;
 
+    const client = await pool.connect();
+
     try {
-        await pool.query("DELETE FROM sales WHERE product_id = $1", [id]);
-        await pool.query("DELETE FROM receiving WHERE product_id = $1", [id]);
-        await pool.query("DELETE FROM purchase_orders WHERE product_id = $1", [id]);
-        await pool.query("DELETE FROM products WHERE id = $1", [id]);
+        await client.query("BEGIN");
+
+        await client.query("DELETE FROM stock_transfers WHERE product_id = $1", [id]);
+        await client.query("DELETE FROM branch_sales WHERE product_id = $1", [id]);
+        await client.query("DELETE FROM branch_stock WHERE product_id = $1", [id]);
+        await client.query("DELETE FROM purchase_orders WHERE product_id = $1", [id]);
+        await client.query("DELETE FROM sales WHERE product_id = $1", [id]);
+        await client.query("DELETE FROM receiving WHERE product_id = $1", [id]);
+        await client.query("DELETE FROM products WHERE id = $1", [id]);
+
+        await client.query("COMMIT");
 
         res.json({ message: "Product and related data deleted" });
     } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("DELETE PRODUCT ERROR:", err);
         res.status(400).json({ error: "Delete product failed" });
+    } finally {
+        client.release();
     }
 });
 
@@ -590,17 +573,42 @@ app.get("/branches", async (req, res) => {
 app.post("/branch-stock", verifyToken, adminOnly, async (req, res) => {
     const { branch_id, product_id, stock } = req.body;
 
+    if (!branch_id || !product_id || stock === undefined || Number(stock) < 0) {
+        return res.status(400).json({ error: "Invalid branch/product/stock" });
+    }
+
+    const client = await pool.connect();
+
     try {
-        await pool.query(`
+        await client.query("BEGIN");
+
+        await client.query(`
             INSERT INTO branch_stock (branch_id, product_id, stock)
             VALUES ($1, $2, $3)
             ON CONFLICT (branch_id, product_id)
             DO UPDATE SET stock = EXCLUDED.stock
-        `, [branch_id, product_id, stock]);
+        `, [branch_id, product_id, Number(stock)]);
+
+        // Keep product total stock equal to the sum of stock in all branches.
+        const total = await client.query(
+            "SELECT COALESCE(SUM(stock), 0) AS total_stock FROM branch_stock WHERE product_id = $1",
+            [product_id]
+        );
+
+        await client.query(
+            "UPDATE products SET stock = $1 WHERE id = $2",
+            [Number(total.rows[0].total_stock), product_id]
+        );
+
+        await client.query("COMMIT");
 
         res.json({ message: "Branch stock updated" });
     } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("BRANCH STOCK ERROR:", err);
         res.status(500).json({ error: "Branch stock update failed" });
+    } finally {
+        client.release();
     }
 });
 // GET BRANCH STOCK
