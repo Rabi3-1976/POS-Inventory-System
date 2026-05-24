@@ -122,6 +122,15 @@ await pool.query(`
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
+await pool.query(`
+    ALTER TABLE branch_sales
+    ADD COLUMN IF NOT EXISTS customer_id INTEGER
+`);
+
+await pool.query(`
+    ALTER TABLE sales
+    ADD COLUMN IF NOT EXISTS customer_id INTEGER
+`);
 
     console.log("PostgreSQL tables ready");
 }
