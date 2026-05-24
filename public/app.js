@@ -687,7 +687,9 @@ window.printCartReceipt = function () {
     });
 
     const invoiceNumber = "INV-" + Date.now();
-
+    const customerName = cart.length > 0 && cart[0].customer_name
+    ? cart[0].customer_name
+    : "Walk-in Customer";
     const html = `
         <html>
         <head>
@@ -716,7 +718,11 @@ window.printCartReceipt = function () {
                 </div>
             </div>
             <hr>
-            <p><strong>Invoice:</strong> ${invoiceNumber}<br><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+            <p>
+            <strong>Invoice:</strong> ${invoiceNumber}<br>
+            <strong>Date:</strong> ${new Date().toLocaleString()}<br>
+            <strong>Customer:</strong> ${customerName}
+            </p>
             <table>
                 <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
                 <tbody>${rows}</tbody>
@@ -1286,6 +1292,8 @@ window.printBranchSalesReport = async function () {
             <tr>
                 <td>${s.id}</td>
                 <td>${safeHtml(s.branch_name)}</td>
+                <td>${safeHtml(s.customer_name || "Walk-in Customer")}</td>
+                <td>${safeHtml(s.customer_phone || "")}</td>
                 <td>${safeHtml(s.product_name)}</td>
                 <td>${safeHtml(s.barcode)}</td>
                 <td>${s.qty}</td>
@@ -1299,7 +1307,19 @@ window.printBranchSalesReport = async function () {
 
     openReportWindow("Branch Sales Report", `
         <table>
-            <thead><tr><th>ID</th><th>Branch</th><th>Product</th><th>Barcode</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Profit</th><th>Date</th></tr></thead>
+            <thead><tr>
+            <th>ID</th>
+            <th>Branch</th>
+            <th>Customer</th>
+            <th>Phone</th>
+            <th>Product</th>
+            <th>Barcode</th>
+            <th>Qty</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+            <th>Profit</th>
+            <th>Date</th>
+            </tr></thead>
             <tbody>${rows}</tbody>
         </table>
     `);
@@ -1307,11 +1327,11 @@ window.printBranchSalesReport = async function () {
 
 window.exportBranchSalesExcel = async function () {
     const sales = await fetchJson("/branch-sales-report");
-    let csv = "ID,Branch,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
+    let csv = "ID,Branch,Customer,Phone,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
 
     sales.forEach(s => {
         const unitPrice = Number(s.price) / Number(s.qty || 1);
-        csv += `${s.id},${s.branch_name},${s.product_name},${s.barcode},${s.qty},${money(unitPrice)},${money(s.price)},${money(s.profit)},${s.date}\n`;
+        csv += `${s.id},${s.branch_name},${s.customer_name || "Walk-in Customer"},${s.customer_phone || ""},${s.product_name},${s.barcode},${s.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${s.date}\n`;
     });
 
     downloadCsv(csv, "branch_sales_report.csv");
