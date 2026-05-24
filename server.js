@@ -856,6 +856,8 @@ app.get("/branch-sales-report", async (req, res) => {
             SELECT 
                 bs.id,
                 b.name AS branch_name,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
                 p.name AS product_name,
                 p.barcode,
                 bs.qty,
@@ -866,6 +868,7 @@ app.get("/branch-sales-report", async (req, res) => {
             FROM branch_sales bs
             JOIN branches b ON bs.branch_id = b.id
             JOIN products p ON bs.product_id = p.id
+            LEFT JOIN customers c ON bs.customer_id = c.id
             ORDER BY bs.date DESC
         `);
 
