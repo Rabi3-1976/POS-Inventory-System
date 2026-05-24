@@ -1,59 +1,67 @@
 const API = "";
-async function testBranchDashboard() {
-    alert("Branch dashboard function is loaded");
 
-    const res = await fetch(API + "/branch-dashboard");
-    const data = await res.json();
-
-    console.log(data);
-    alert("Sales rows: " + data.sales.length);
-}
 let token = "";
 let currentRole = "";
 let cart = [];
 let branchesCache = [];
 let salesProfitChart = null;
 let stockChart = null;
-// USER MANAGEMENT
-async function createUser() {
-    const username = document.getElementById("newUsername").value.trim();
-    const password = document.getElementById("newPassword").value.trim();
-    const role = document.getElementById("newRole").value;
+let html5QrCode = null;
 
-    const res = await fetch(API + "/create-user", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ username, password, role })
-    });
-
-    const data = await res.json();
-    alert(data.message || data.error);
+function authHeaders(extra = {}) {
+    const savedToken = localStorage.getItem("token") || token || "";
+    return {
+        ...extra,
+        "Authorization": "Bearer " + savedToken
+    };
 }
-// LOGIN
-async function login() {
 
-    const username = document.getElementById("username").value;
+async function fetchJson(url, options = {}) {
+    const res = await fetch(API + url, options);
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+        throw new Error(data.error || "Request failed");
+    }
+
+    return data;
+}
+
+function money(value) {
+    return Number(value || 0).toFixed(2);
+}
+
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = value;
+}
+
+function safeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+    }[c]));
+}
+
+// AUTH
+window.login = async function () {
+    const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
 
+    if (!username || !password) {
+        alert("Please enter username and password");
+        return;
+    }
+
     try {
-
-        const res = await fetch(API + "/login", {
+        const data = await fetchJson("/login", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                username,
-                password
-            })
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ username, password })
         });
-
-        const data = await res.json();
-
-        if (data.error) {
-            alert(data.error);
-            return;
-        }
 
         token = data.token;
         currentRole = data.role;
@@ -64,722 +72,35 @@ async function login() {
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("mainSection").style.display = "block";
 
-        document.getElementById("adminSection").style.display =
-            currentRole === "admin" ? "block" : "none";
+        const adminSection = document.getElementById("adminSection");
+        if (adminSection) adminSection.style.display = currentRole === "admin" ? "block" : "none";
 
-        document.getElementById("usersMenuBtn").style.display =
-            currentRole === "admin" ? "block" : "none";
+        const usersMenuBtn = document.getElementById("usersMenuBtn");
+        if (usersMenuBtn) usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
 
         showPage("productsPage");
-
-        loadProducts();
-
     } catch (err) {
-
         console.error("LOGIN ERROR:", err);
-
-        alert("Login failed");
+        alert(err.message || "Login failed");
     }
-}
-// LOAD BRANCHES CACHE
-async function loadBranchDashboard() {
-    const res = await fetch(API + "/branch-dashboard");
-    const data = await res.json();
-
-    const salesTable = document.getElementById("branchSalesDashboardTable");
-    const stockTable = document.getElementById("branchStockDashboardTable");
-
-    salesTable.innerHTML = "";
-    stockTable.innerHTML = "";
-
-    data.sales.forEach(row => {
-        salesTable.innerHTML += `
-            <tr>
-                <td>${row.branch_name}</td>
-                <td>${Number(row.total_sales || 0).toFixed(2)}</td>
-                <td>${Number(row.total_profit || 0).toFixed(2)}</td>
-            </tr>
-        `;
-    });
-
-    data.stock.forEach(row => {
-        const low = data.lowStock.find(x => Number(x.branch_id) === Number(row.branch_id));
-
-        stockTable.innerHTML += `
-            <tr>
-                <td>${row.branch_name}</td>
-                <td>${row.total_stock}</td>
-                <td>${low ? low.low_stock_items : 0}</td>
-            </tr>
-        `;
-    });
-}
-// LOAD BRANCHES CACHE
-async function loadBranchesCache() {
-    const res = await fetch(API + "/branches");
-    branchesCache = await res.json();
-}
-// LOAD PRODUCTS
-async function loadProducts() {
-    await loadBranchesCache();
-
-    const res = await fetch(API + "/products");
-    const products = await res.json();
-
-    displayProducts(products);
-}
-// RECEIVE TO BRANCH
-async function receiveToBranch(productId) {
-    const branch_id = document.getElementById("branch_" + productId).value;
-    const qty = Number(document.getElementById("branch_qty_" + productId).value);
-
-    if (!branch_id || qty <= 0) {
-        alert("Please select branch and enter valid quantity");
-        return;
-    }
-
-    const res = await fetch(API + "/receive-to-branch", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({
-            branch_id,
-            product_id: productId,
-            qty
-        })
-    });
-
-    const data = await res.json();
-    alert(data.message || data.error);
-
-    loadProducts();
-    loadDashboard();
-if (typeof loadBranchDashboard === "function") {
-    loadBranchDashboard();
-}
-    if (typeof loadBranchStock === "function") {
-        loadBranchStock();
-    }
-}
-// DISPLAY PRODUCTS
-function displayProducts(products) {
-    const table = document.getElementById("productTable");
-    table.innerHTML = "";
-
-    products.forEach(p => {
-
-        const branchOptions = branchesCache.map(b => {
-            return `<option value="${b.id}">${b.name}</option>`;
-        }).join("");
-
-        table.innerHTML += `
-            <tr>
-                <td>${p.id}</td>
-                <td>${p.name}</td>
-                <td>${p.barcode}</td>
-                <td>${p.price}</td>
-                <td>${p.stock}</td>
-
-                <td>
-                    <select id="branch_${p.id}">
-                        ${branchOptions}
-                    </select>
-                </td>
-
-                <td>
-                    <input id="branch_qty_${p.id}" type="number" min="1" placeholder="Qty" style="width:80px;">
-                </td>
-
-                <td>
-                    <button onclick="receiveToBranch(${p.id})">Receive Branch</button>
-                </td>
-
-                <td>
-                <button disabled title="Use Receive Branch instead">+</button>
-                </td>
-                <td><button onclick="sell(${p.id})">-</button></td>
-                <td>
-                    ${currentRole === "admin" ? `<button onclick="deleteProduct(${p.id})">Delete</button>` : ""}
-                </td>
-            </tr>
-        `;
-    });
-}
-// ADD PRODUCT
-async function addProduct() {
-    const name = document.getElementById("pname").value.trim();
-    const barcode = document.getElementById("barcode").value.trim();
-    const price = Number(document.getElementById("price").value);
-    const cost = Number(document.getElementById("cost").value);
-
-    if (!name || !barcode || price <= 0) {
-        alert("Please enter product name, barcode, and valid price");
-        return;
-    }
-
-    const savedToken = localStorage.getItem("token");
-
-    const res = await fetch(API + "/products", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + savedToken
-        },
-        body: JSON.stringify({ name, barcode, price, cost })
-    });
-
-    const data = await res.json();
-
-    alert(data.message || data.error);
-
-    document.getElementById("pname").value = "";
-    document.getElementById("barcode").value = "";
-    document.getElementById("price").value = "";
-    document.getElementById("cost").value = "";
-
-    loadProducts();
-    loadDashboard();
-}
-
-// SEARCH PRODUCT
-async function searchProduct() {
-    const barcode = document.getElementById("searchBarcode").value;
-
-    const res = await fetch(API + "/products");
-    const products = await res.json();
-
-    const filtered = products.filter(p => p.barcode == barcode);
-
-    displayProducts(filtered);
-}
-// DELETE PRODUCT
-async function deleteProduct(id) {
-    if (!confirm("Delete this product?")) return;
-
-    await fetch(API + "/products/" + id, {
-        method: "DELETE"
-    });
-
-    loadProducts();
-    loadDashboard();;
-}
-// RECEIVING
-async function receive(id) {
-    const qty = prompt("Enter quantity to receive:");
-    if (!qty) return;
-
-    await fetch(API + "/receiving", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ product_id: id, qty: Number(qty) })
-    });
-
-    loadProducts();
-    loadDashboard();
-}
-
-// SALES
-async function sell(id) {
-    const qty = prompt("Enter quantity to sell:");
-    if (!qty) return;
-
-    const res = await fetch(API + "/sales", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ product_id: id, qty: Number(qty) })
-    });
-
-    const data = await res.json();
-
-    if (data.error) {
-        alert(data.error);
-        return;
-    }
-
-    alert(data.message);
-
-    printReceipt(id, qty);
-
-    loadProducts();
-    loadDashboard();
-}
-async function loadDashboard() {
-    const res = await fetch(API + "/dashboard");
-    const data = await res.json();
-
-    document.getElementById("totalProducts").innerText =
-        data.totalProducts ?? data.total_products ?? 0;
-
-    document.getElementById("totalStock").innerText =
-        data.totalStock ?? data.total_stock ?? 0;
-
-    document.getElementById("totalSales").innerText =
-        Number(data.totalSales ?? data.total_sales ?? 0).toFixed(2);
-
-    document.getElementById("lowStock").innerText =
-        data.lowStock ?? data.low_stock ?? 0;
-
-    document.getElementById("totalProfit").innerText =
-        Number(data.totalProfit ?? data.total_profit ?? 0).toFixed(2);
-}
-async function printInventoryReport() {
-    const res = await fetch(API + "/products");
-    const products = await res.json();
-
-    let reportWindow = window.open("", "_blank");
-
-    let html = `
-        <html>
-        <head>
-            <title>Inventory Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Inventory Report</h1>
-            <p>Date: ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Price</th>
-                        <th>Stock</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    products.forEach(p => {
-        html += `
-            <tr>
-                <td>${p.id}</td>
-                <td>${p.name}</td>
-                <td>${p.barcode}</td>
-                <td>${p.price}</td>
-                <td>${p.stock}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-            </table>
-
-            <script>
-                window.print();
-            </script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-}
-async function exportInventoryExcel() {
-    const res = await fetch(API + "/products");
-    const products = await res.json();
-
-    let csv = "ID,Product,Barcode,Price,Stock\n";
-
-    products.forEach(p => {
-        csv += `${p.id},${p.name},${p.barcode},${p.price},${p.stock}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "inventory_report.csv";
-    link.click();
-}
-async function printSalesReport() {
-    const res = await fetch(API + "/sales-report");
-    const sales = await res.json();
-
-    let reportWindow = window.open("", "_blank");
-
-    let html = `
-        <html>
-        <head>
-            <title>Sales Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Sales Report</h1>
-            <p>Date: ${new Date().toLocaleString()}</p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Qty</th>
-                        <th>Price</th>
-                        <th>Total</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    sales.forEach(s => {
-        html += `
-            <tr>
-                <td>${s.id}</td>
-                <td>${s.product_name}</td>
-                <td>${s.barcode}</td>
-                <td>${s.qty}</td>
-                <td>${(Number(s.price) / Number(s.qty)).toFixed(2)}</td>
-                <td>${Number(s.price).toFixed(2)}</td>
-                <td>${s.date}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-            </table>
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-}
-
-async function exportSalesExcel() {
-    const res = await fetch(API + "/sales-report");
-    const sales = await res.json();
-
-    let csv = "ID,Product,Barcode,Qty,Price,Total,Date\n";
-
-    sales.forEach(s => {
-       csv += `${s.id},${s.product_name},${s.barcode},${s.qty},${(Number(s.price) / Number(s.qty)).toFixed(2)},${Number(s.price).toFixed(2)},${s.date}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "sales_report.csv";
-    link.click();
-}
-
-async function printReceivingReport() {
-    const res = await fetch(API + "/receiving-report");
-    const receiving = await res.json();
-
-    let reportWindow = window.open("", "_blank");
-
-    let html = `
-        <html>
-        <head>
-            <title>Receiving Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Receiving Report</h1>
-            <p>Date: ${new Date().toLocaleString()}</p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Qty</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    receiving.forEach(r => {
-        html += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.qty}</td>
-                <td>${r.date}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-            </table>
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-}
-
-async function exportReceivingExcel() {
-    const res = await fetch(API + "/receiving-report");
-    const receiving = await res.json();
-
-    let csv = "ID,Product,Barcode,Qty,Date\n";
-
-    receiving.forEach(r => {
-        csv += `${r.id},${r.product_name},${r.barcode},${r.qty},${r.date}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "receiving_report.csv";
-    link.click();
-}
-async function searchByBarcode() {
-    const barcode = document.getElementById("barcodeSearchInput").value.trim();
-
-    if (!barcode) {
-        alert("Please enter or scan barcode");
-        return;
-    }
-
-    const res = await fetch(API + "/products");
-    const products = await res.json();
-
-    const filtered = products.filter(p => p.barcode === barcode);
-
-    if (filtered.length === 0) {
-        alert("Product not found");
-        return;
-    }
-
-    displayProducts(filtered);
-}
-document.addEventListener("DOMContentLoaded", function () {
-    const barcodeInput = document.getElementById("barcodeSearchInput");
-
-    if (barcodeInput) {
-        barcodeInput.addEventListener("keypress", function (e) {
-            if (e.key === "Enter") {
-                searchByBarcode();
-            }
-        });
-    }
-});
-async function printReceipt(productId, qty) {
-    const res = await fetch(API + "/products");
-    const products = await res.json();
-
-    const product = products.find(p => p.id == productId);
-    if (!product) return;
-
-    const total = Number(product.price) * Number(qty);
-
-    let receiptWindow = window.open("", "_blank");
-
-    let html = `
-        <html>
-        <head>
-            <title>Sales Receipt</title>
-            <style>
-                body { font-family: Arial; padding: 20px; width: 300px; }
-                h2 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; }
-                td { padding: 6px; border-bottom: 1px dashed #ccc; }
-                .total { font-weight: bold; font-size: 18px; }
-            </style>
-        </head>
-        <body>
-            <h2>POS Receipt</h2>
-            <p>Date: ${new Date().toLocaleString()}</p>
-
-            <table>
-                <tr><td>Product</td><td>${product.name}</td></tr>
-                <tr><td>Barcode</td><td>${product.barcode}</td></tr>
-                <tr><td>Qty</td><td>${qty}</td></tr>
-                <tr><td>Price</td><td>${product.price}</td></tr>
-                <tr class="total"><td>Total</td><td>${total.toFixed(2)}</td></tr>
-            </table>
-
-            <p style="text-align:center;">Thank you</p>
-
-            <script>
-                window.print();
-            </script>
-        </body>
-        </html>
-    `;
-
-    receiptWindow.document.write(html);
-    receiptWindow.document.close();
-}
-async function loadUsers() {
-    const res = await fetch(API + "/users", {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    });
-
-    const users = await res.json();
-
-    const table = document.getElementById("usersTable");
-    table.innerHTML = "";
-
-    users.forEach(u => {
-        table.innerHTML += `
-            <tr>
-                <td>${u.id}</td>
-                <td>${u.username}</td>
-                <td>${u.role}</td>
-                <td><button onclick="changeUserPassword(${u.id})">Change Password</button></td>
-                <td><button onclick="deleteUser(${u.id})">Delete</button></td>
-            </tr>
-        `;
-    });
-}
-
-async function changeUserPassword(id) {
-    const password = prompt("Enter new password:");
-    if (!password) return;
-
-    const res = await fetch(API + "/users/" + id + "/password", {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ password })
-    });
-
-    const data = await res.json();
-    alert(data.message || data.error);
-}
-async function loadSaleBranchOptions() {
-    const res = await fetch(API + "/branches");
-    const branches = await res.json();
-
-    const select = document.getElementById("saleBranch");
-    select.innerHTML = "";
-
-    branches.forEach(b => {
-        select.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-    });
-}
-async function deleteUser(id) {
-    if (!confirm("Delete this user?")) return;
-
-    const res = await fetch(API + "/users/" + id, {
-        method: "DELETE",
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    });
-
-    const data = await res.json();
-    alert(`${product.name} → Received ${qty} units`);
-    loadUsers();
-}
-async function receiveByBarcode() {
-    const barcode = document.getElementById("receiveBarcode").value.trim();
-    const qty = Number(document.getElementById("receiveQty").value);
-
-    if (!barcode || qty <= 0) {
-        alert("Please enter barcode and valid quantity");
-        return;
-    }
-
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
-
-    const mainBranch = branches.find(b => b.name.toLowerCase() === "main");
-
-    if (!mainBranch) {
-        alert("Main branch not found. Please create branch named Main first.");
-        return;
-    }
-
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
-
-    const product = products.find(p => p.barcode === barcode);
-
-    if (!product) {
-        alert("Product not found");
-        return;
-    }
-
-    const res = await fetch(API + "/receive-to-branch", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        body: JSON.stringify({
-            branch_id: mainBranch.id,
-            product_id: product.id,
-            qty: qty
-        })
-    });
-
-    const data = await res.json();
-    alert(data.message || data.error);
-
-    document.getElementById("receiveBarcode").value = "";
-    document.getElementById("receiveQty").value = "";
-
-    loadProducts();
-    loadDashboard();
-
-    if (typeof loadBranchStock === "function") {
-        loadBranchStock();
-    }
-}
-document.addEventListener("DOMContentLoaded", function () {
-    const receiveBarcode = document.getElementById("receiveBarcode");
-
-    if (receiveBarcode) {
-        receiveBarcode.addEventListener("keypress", function (e) {
-            if (e.key === "Enter") {
-                document.getElementById("receiveQty").focus();
-            }
-        });
-    }
-
-    const receiveQty = document.getElementById("receiveQty");
-
-    if (receiveQty) {
-        receiveQty.addEventListener("keypress", function (e) {
-            if (e.key === "Enter") {
-                receiveByBarcode();
-            }
-        });
-    }
-});
-window.onload = () => {
-    const barcodeInput = document.getElementById("receiveBarcode");
-    if (barcodeInput) barcodeInput.focus();
 };
-function showPage(pageId) {
+
+window.logout = function () {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+
+    token = "";
+    currentRole = "";
+    cart = [];
+
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+    document.getElementById("mainSection").style.display = "none";
+    document.getElementById("loginSection").style.display = "block";
+};
+
+// NAVIGATION
+window.showPage = function (pageId) {
     document.querySelectorAll(".page").forEach(page => {
         page.style.display = "none";
     });
@@ -806,8 +127,21 @@ function showPage(pageId) {
         loadProducts();
     }
 
-    if (pageId === "usersPage") {
-        loadUsers();
+    if (pageId === "posPage") {
+        loadSaleBranchOptions();
+        setText("availableBranchStock", "0");
+
+        setTimeout(() => {
+            const barcode = document.getElementById("posBarcode");
+            if (barcode) barcode.focus();
+        }, 100);
+    }
+
+    if (pageId === "receivingPage") {
+        setTimeout(() => {
+            const receiveBarcode = document.getElementById("receiveBarcode");
+            if (receiveBarcode) receiveBarcode.focus();
+        }, 100);
     }
 
     if (pageId === "suppliersPage") {
@@ -823,16 +157,360 @@ function showPage(pageId) {
         loadStockTransfers();
     }
 
-    if (pageId === "posPage") {
-        loadSaleBranchOptions();
-
-        setTimeout(() => {
-            const barcode = document.getElementById("posBarcode");
-            if (barcode) barcode.focus();
-        }, 100);
+    if (pageId === "usersPage") {
+        loadUsers();
     }
-}
-async function addToCart() {
+};
+
+// USERS
+window.createUser = async function () {
+    const username = document.getElementById("newUsername").value.trim();
+    const password = document.getElementById("newPassword").value.trim();
+    const role = document.getElementById("newRole").value;
+
+    if (!username || !password || !role) {
+        alert("Please enter username, password and role");
+        return;
+    }
+
+    try {
+        const data = await fetchJson("/create-user", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ username, password, role })
+        });
+
+        alert(data.message || "User created");
+        document.getElementById("newUsername").value = "";
+        document.getElementById("newPassword").value = "";
+        loadUsers();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.loadUsers = async function () {
+    try {
+        const users = await fetchJson("/users", {
+            headers: authHeaders()
+        });
+
+        const table = document.getElementById("usersTable");
+        if (!table) return;
+
+        table.innerHTML = "";
+
+        users.forEach(u => {
+            table.innerHTML += `
+                <tr>
+                    <td>${u.id}</td>
+                    <td>${safeHtml(u.username)}</td>
+                    <td>${safeHtml(u.role)}</td>
+                    <td><button onclick="changeUserPassword(${u.id})">Change Password</button></td>
+                    <td><button onclick="deleteUser(${u.id})">Delete</button></td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.changeUserPassword = async function (id) {
+    const password = prompt("Enter new password:");
+    if (!password) return;
+
+    try {
+        const data = await fetchJson("/users/" + id + "/password", {
+            method: "PUT",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ password })
+        });
+
+        alert(data.message || "Password updated");
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.deleteUser = async function (id) {
+    if (!confirm("Delete this user?")) return;
+
+    try {
+        const data = await fetchJson("/users/" + id, {
+            method: "DELETE",
+            headers: authHeaders()
+        });
+
+        alert(data.message || "User deleted");
+        loadUsers();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+// DASHBOARDS
+window.loadDashboard = async function () {
+    try {
+        const data = await fetchJson("/dashboard");
+
+        setText("totalProducts", data.totalProducts ?? data.total_products ?? 0);
+        setText("totalStock", data.totalStock ?? data.total_stock ?? 0);
+        setText("totalSales", money(data.totalSales ?? data.total_sales));
+        setText("lowStock", data.lowStock ?? data.low_stock ?? 0);
+        setText("totalProfit", money(data.totalProfit ?? data.total_profit));
+    } catch (err) {
+        console.error("Dashboard error:", err);
+    }
+};
+
+window.loadBranchDashboard = async function () {
+    try {
+        const data = await fetchJson("/branch-dashboard");
+
+        const salesTable = document.getElementById("branchSalesDashboardTable");
+        const stockTable = document.getElementById("branchStockDashboardTable");
+
+        if (!salesTable || !stockTable) return;
+
+        salesTable.innerHTML = "";
+        stockTable.innerHTML = "";
+
+        data.sales.forEach(row => {
+            salesTable.innerHTML += `
+                <tr>
+                    <td>${safeHtml(row.branch_name)}</td>
+                    <td>${money(row.total_sales)}</td>
+                    <td>${money(row.total_profit)}</td>
+                </tr>
+            `;
+        });
+
+        data.stock.forEach(row => {
+            const low = data.lowStock.find(x => Number(x.branch_id) === Number(row.branch_id));
+            stockTable.innerHTML += `
+                <tr>
+                    <td>${safeHtml(row.branch_name)}</td>
+                    <td>${row.total_stock}</td>
+                    <td>${low ? low.low_stock_items : 0}</td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        console.error("Branch dashboard error:", err);
+        alert("Branch dashboard failed: " + err.message);
+    }
+};
+
+// PRODUCTS
+window.loadBranchesCache = async function () {
+    branchesCache = await fetchJson("/branches");
+};
+
+window.loadProducts = async function () {
+    try {
+        await loadBranchesCache();
+        const products = await fetchJson("/products");
+        displayProducts(products);
+    } catch (err) {
+        console.error("LOAD PRODUCTS ERROR:", err);
+        alert(err.message || "Failed to load products");
+    }
+};
+
+window.displayProducts = function (products) {
+    const table = document.getElementById("productTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    products.forEach(p => {
+        const branchOptions = branchesCache.map(b => `<option value="${b.id}">${safeHtml(b.name)}</option>`).join("");
+
+        table.innerHTML += `
+            <tr>
+                <td>${p.id}</td>
+                <td>${safeHtml(p.name)}</td>
+                <td>${safeHtml(p.barcode)}</td>
+                <td>${money(p.price)}</td>
+                <td>${p.stock}</td>
+                <td>
+                    <select id="branch_${p.id}">
+                        ${branchOptions}
+                    </select>
+                </td>
+                <td>
+                    <input id="branch_qty_${p.id}" type="number" min="1" placeholder="Qty" style="width:80px;">
+                </td>
+                <td><button onclick="receiveToBranch(${p.id})">Receive Branch</button></td>
+                <td><button disabled title="Use Receive Branch instead">+</button></td>
+                <td><button disabled title="Use POS page for branch sales">-</button></td>
+                <td>${currentRole === "admin" ? `<button onclick="deleteProduct(${p.id})">Delete</button>` : ""}</td>
+            </tr>
+        `;
+    });
+};
+
+window.addProduct = async function () {
+    const name = document.getElementById("pname").value.trim();
+    const barcode = document.getElementById("barcode").value.trim();
+    const price = Number(document.getElementById("price").value);
+    const cost = Number(document.getElementById("cost").value);
+
+    if (!name || !barcode || price <= 0) {
+        alert("Please enter product name, barcode, and valid price");
+        return;
+    }
+
+    try {
+        const data = await fetchJson("/products", {
+            method: "POST",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ name, barcode, price, cost })
+        });
+
+        alert(data.message || "Product added");
+
+        document.getElementById("pname").value = "";
+        document.getElementById("barcode").value = "";
+        document.getElementById("price").value = "";
+        document.getElementById("cost").value = "";
+
+        loadProducts();
+        loadDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.searchProduct = window.searchByBarcode = async function () {
+    const barcode = (document.getElementById("barcodeSearchInput") || document.getElementById("searchBarcode")).value.trim();
+
+    if (!barcode) {
+        alert("Please enter or scan barcode");
+        return;
+    }
+
+    try {
+        const products = await fetchJson("/products");
+        const filtered = products.filter(p => String(p.barcode) === barcode);
+
+        if (filtered.length === 0) {
+            alert("Product not found");
+            return;
+        }
+
+        displayProducts(filtered);
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.deleteProduct = async function (id) {
+    if (!confirm("Delete this product and related transactions?")) return;
+
+    try {
+        const data = await fetchJson("/products/" + id, {
+            method: "DELETE",
+            headers: authHeaders()
+        });
+
+        alert(data.message || "Product deleted");
+        loadProducts();
+        loadDashboard();
+        loadBranchStock();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.receiveToBranch = async function (productId) {
+    const branch_id = document.getElementById("branch_" + productId).value;
+    const qty = Number(document.getElementById("branch_qty_" + productId).value);
+
+    if (!branch_id || qty <= 0) {
+        alert("Please select branch and enter valid quantity");
+        return;
+    }
+
+    try {
+        const data = await fetchJson("/receive-to-branch", {
+            method: "POST",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ branch_id, product_id: productId, qty })
+        });
+
+        alert(data.message || "Stock received");
+        loadProducts();
+        loadDashboard();
+        loadBranchStock();
+        loadBranchDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.importProducts = async function () {
+    const fileInput = document.getElementById("importFile");
+
+    if (!fileInput.files.length) {
+        alert("Please select file");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    try {
+        const data = await fetchJson("/import-products", {
+            method: "POST",
+            body: formData
+        });
+
+        alert(data.message || "Products imported");
+        loadProducts();
+        loadDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+// POS
+window.loadSaleBranchOptions = async function () {
+    try {
+        const branches = await fetchJson("/branches");
+        const select = document.getElementById("saleBranch");
+
+        if (!select) return;
+
+        select.innerHTML = "";
+
+        branches.forEach(b => {
+            select.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+        });
+    } catch (err) {
+        console.error("Load sale branch options error:", err);
+    }
+};
+
+window.previewBranchStock = async function () {
+    const branch_id = document.getElementById("saleBranch")?.value;
+    const barcode = document.getElementById("posBarcode")?.value.trim();
+
+    if (!branch_id || !barcode) {
+        setText("availableBranchStock", "0");
+        return;
+    }
+
+    try {
+        const data = await fetchJson(`/branch-stock-check?branch_id=${encodeURIComponent(branch_id)}&barcode=${encodeURIComponent(barcode)}`);
+        setText("availableBranchStock", data.branch_stock ?? 0);
+    } catch (err) {
+        setText("availableBranchStock", "0");
+    }
+};
+
+window.addToCart = async function () {
     const branch_id = document.getElementById("saleBranch").value;
     const barcode = document.getElementById("posBarcode").value.trim();
     const qty = Number(document.getElementById("posQty").value);
@@ -847,70 +525,54 @@ async function addToCart() {
         return;
     }
 
-    const res = await fetch(API + `/branch-stock-check?branch_id=${branch_id}&barcode=${barcode}`);
-    const product = await res.json();
+    try {
+        const product = await fetchJson(`/branch-stock-check?branch_id=${encodeURIComponent(branch_id)}&barcode=${encodeURIComponent(barcode)}`);
+        const branchStock = Number(product.branch_stock || 0);
 
-    if (product.error) {
-        alert(product.error);
-        return;
-    }
+        setText("availableBranchStock", branchStock);
 
-    const branchStock = Number(product.branch_stock || 0);
-
-    document.getElementById("availableBranchStock").innerText = branchStock;
-
-    if (branchStock < qty) {
-        alert("Not enough stock in selected branch");
-        return;
-    }
-
-    const existing = cart.find(item =>
-        item.id === product.id && item.branch_id === branch_id
-    );
-
-    if (existing) {
-        if (branchStock < existing.qty + qty) {
-            alert("Not enough branch stock for total cart quantity");
+        if (branchStock < qty) {
+            alert("Not enough stock in selected branch");
             return;
         }
 
-        existing.qty += qty;
-    } else {
-        cart.push({
-            id: product.id,
-            name: product.name,
-            barcode: product.barcode,
-            price: Number(product.price),
-            qty: qty,
-            branch_id: branch_id
-        });
+        const existing = cart.find(item => Number(item.id) === Number(product.id) && Number(item.branch_id) === Number(branch_id));
+
+        if (existing) {
+            if (branchStock < existing.qty + qty) {
+                alert("Not enough branch stock for total cart quantity");
+                return;
+            }
+
+            existing.qty += qty;
+        } else {
+            cart.push({
+                id: product.id,
+                name: product.name,
+                barcode: product.barcode,
+                price: Number(product.price),
+                qty,
+                branch_id
+            });
+        }
+
+        document.getElementById("posBarcode").value = "";
+        document.getElementById("posQty").value = 1;
+        setText("availableBranchStock", "0");
+
+        displayCart();
+    } catch (err) {
+        alert(err.message);
     }
+};
 
-    document.getElementById("posBarcode").value = "";
-    document.getElementById("posQty").value = 1;
-
-    displayCart();
-}
-
-async function previewBranchStock() {
-    const branch_id = document.getElementById("saleBranch").value;
-    const barcode = document.getElementById("posBarcode").value.trim();
-
-    if (!branch_id || !barcode) return;
-
-    const res = await fetch(API + `/branch-stock-check?branch_id=${branch_id}&barcode=${barcode}`);
-    const data = await res.json();
-
-    document.getElementById("availableBranchStock").innerText =
-        data.branch_stock ?? 0;
-}
-
-function displayCart() {
+window.displayCart = function () {
     const table = document.getElementById("cartTable");
     const totalBox = document.getElementById("cartTotal");
 
-    table.innerHTML = "";
+    if (!table || !totalBox) return;
 
+    table.innerHTML = "";
     let total = 0;
 
     cart.forEach((item, index) => {
@@ -919,70 +581,63 @@ function displayCart() {
 
         table.innerHTML += `
             <tr>
-                <td>${item.name}</td>
-                <td>${item.barcode}</td>
+                <td>${safeHtml(item.name)}</td>
+                <td>${safeHtml(item.barcode)}</td>
                 <td>${item.qty}</td>
-                <td>${item.price.toFixed(2)}</td>
-                <td>${lineTotal.toFixed(2)}</td>
+                <td>${money(item.price)}</td>
+                <td>${money(lineTotal)}</td>
                 <td><button onclick="removeFromCart(${index})">Remove</button></td>
             </tr>
         `;
     });
 
-    totalBox.innerText = total.toFixed(2);
-}
+    totalBox.innerText = money(total);
+};
 
-function removeFromCart(index) {
+window.removeFromCart = function (index) {
     cart.splice(index, 1);
     displayCart();
-}
+};
 
-function clearCart() {
+window.clearCart = function () {
     cart = [];
     displayCart();
-}
+};
 
-async function checkoutCart() {
+window.checkoutCart = async function () {
     if (cart.length === 0) {
         alert("Cart is empty");
         return;
     }
 
-    for (const item of cart) {
-        const res = await fetch(API + "/branch-sale", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                branch_id: item.branch_id,
-                product_id: item.id,
-                qty: item.qty
-            })
-        });
-
-        const data = await res.json();
-
-        if (data.error) {
-            alert(data.error);
-            return;
+    try {
+        for (const item of cart) {
+            await fetchJson("/branch-sale", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    branch_id: item.branch_id,
+                    product_id: item.id,
+                    qty: item.qty
+                })
+            });
         }
-    }
 
-    printCartReceipt();
+        printCartReceipt();
+        alert("Sale completed successfully");
 
-    alert("Sale completed successfully");
-
-    cart = [];
-    displayCart();
-
-    loadProducts();
-    loadDashboard();
-
-    if (typeof loadBranchStock === "function") {
+        cart = [];
+        displayCart();
+        loadProducts();
+        loadDashboard();
         loadBranchStock();
+        loadBranchDashboard();
+    } catch (err) {
+        alert(err.message);
     }
-}
+};
 
-function printCartReceipt() {
+window.printCartReceipt = function () {
     let receiptWindow = window.open("", "_blank");
 
     let total = 0;
@@ -994,10 +649,10 @@ function printCartReceipt() {
 
         rows += `
             <tr>
-                <td>${item.name}</td>
+                <td>${safeHtml(item.name)}</td>
                 <td>${item.qty}</td>
-                <td>${item.price.toFixed(2)}</td>
-                <td>${lineTotal.toFixed(2)}</td>
+                <td>${money(item.price)}</td>
+                <td>${money(lineTotal)}</td>
             </tr>
         `;
     });
@@ -1008,465 +663,94 @@ function printCartReceipt() {
         <html>
         <head>
             <title>Invoice</title>
-
             <style>
-                body {
-                    font-family: Arial;
-                    padding: 20px;
-                    width: 400px;
-                    color: #222;
-                }
-
-                .header {
-                    text-align: center;
-                    margin-bottom: 20px;
-                }
-
-                .header img {
-                    width: 80px;
-                    height: 80px;
-                    object-fit: contain;
-                }
-
-                h1 {
-                    margin: 5px 0;
-                }
-
-                .company-info {
-                    font-size: 13px;
-                    color: #555;
-                }
-
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 20px;
-                }
-
-                th, td {
-                    border-bottom: 1px solid #ddd;
-                    padding: 8px;
-                    text-align: center;
-                    font-size: 14px;
-                }
-
-                th {
-                    background: #f2f2f2;
-                }
-
-                .total {
-                    text-align: right;
-                    margin-top: 20px;
-                    font-size: 20px;
-                    font-weight: bold;
-                }
-
-                .footer {
-                    margin-top: 30px;
-                    text-align: center;
-                    font-size: 13px;
-                    color: #666;
-                }
+                body { font-family: Arial; padding: 20px; width: 420px; color: #222; }
+                .header { text-align: center; margin-bottom: 20px; }
+                .header img { width: 80px; height: 80px; object-fit: contain; }
+                h1 { margin: 5px 0; }
+                .company-info { font-size: 13px; color: #555; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: center; font-size: 14px; }
+                th { background: #f2f2f2; }
+                .total { text-align: right; margin-top: 20px; font-size: 20px; font-weight: bold; }
+                .footer { margin-top: 30px; text-align: center; font-size: 13px; color: #666; }
             </style>
         </head>
-
         <body>
-
             <div class="header">
                 <img src="logo.png">
-
                 <h1>Your Company Name</h1>
-
                 <div class="company-info">
                     Beirut, Lebanon<br>
                     Phone: +961 XX XXX XXX<br>
                     Email: info@company.com
                 </div>
             </div>
-
             <hr>
-
-            <p>
-                <strong>Invoice:</strong> ${invoiceNumber}<br>
-                <strong>Date:</strong> ${new Date().toLocaleString()}
-            </p>
-
+            <p><strong>Invoice:</strong> ${invoiceNumber}<br><strong>Date:</strong> ${new Date().toLocaleString()}</p>
             <table>
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Qty</th>
-                        <th>Price</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    ${rows}
-                </tbody>
+                <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+                <tbody>${rows}</tbody>
             </table>
-
-            <div class="total">
-                Grand Total: $${total.toFixed(2)}
-            </div>
-
-            <div class="footer">
-                Thank you for your business
-            </div>
-
-            <script>
-                window.print();
-            </script>
-
+            <div class="total">Grand Total: $${money(total)}</div>
+            <div class="footer">Thank you for your business</div>
+            <script>window.print();</script>
         </body>
         </html>
     `;
 
     receiptWindow.document.write(html);
     receiptWindow.document.close();
-}
-document.addEventListener("DOMContentLoaded", function () {
-    const posBarcode = document.getElementById("posBarcode");
+};
 
-    if (posBarcode) {
-        posBarcode.addEventListener("change", previewBranchStock);
+// RECEIVING
+window.receiveByBarcode = async function () {
+    const barcode = document.getElementById("receiveBarcode").value.trim();
+    const qty = Number(document.getElementById("receiveQty").value);
 
-        posBarcode.addEventListener("keyup", function (e) {
-            if (e.key === "Enter") {
-                addToCart();
-            } else {
-                previewBranchStock();
-            }
+    if (!barcode || qty <= 0) {
+        alert("Please enter barcode and valid quantity");
+        return;
+    }
+
+    try {
+        const branches = await fetchJson("/branches");
+        const mainBranch = branches.find(b => b.name.toLowerCase() === "main");
+
+        if (!mainBranch) {
+            alert("Main branch not found. Please create branch named Main first.");
+            return;
+        }
+
+        const products = await fetchJson("/products");
+        const product = products.find(p => String(p.barcode) === barcode);
+
+        if (!product) {
+            alert("Product not found");
+            return;
+        }
+
+        const data = await fetchJson("/receive-to-branch", {
+            method: "POST",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ branch_id: mainBranch.id, product_id: product.id, qty })
         });
+
+        alert(data.message || "Stock received to Main branch");
+
+        document.getElementById("receiveBarcode").value = "";
+        document.getElementById("receiveQty").value = "";
+
+        loadProducts();
+        loadDashboard();
+        loadBranchStock();
+    } catch (err) {
+        alert(err.message);
     }
-});
-async function addSupplier() {
-    const name = document.getElementById("supplierName").value.trim();
-    const phone = document.getElementById("supplierPhone").value.trim();
-    const email = document.getElementById("supplierEmail").value.trim();
-    const address = document.getElementById("supplierAddress").value.trim();
+};
 
-    const res = await fetch(API + "/suppliers", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ name, phone, email, address })
-    });
-
-    const data = await res.json();
-    alert(data.message || data.error);
-
-    loadSupplierOptions();
-}
-
-async function loadSupplierOptions() {
-    const suppliersRes = await fetch(API + "/suppliers");
-    const suppliers = await suppliersRes.json();
-
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
-
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
-
-    const supplierSelect = document.getElementById("poSupplier");
-    const productSelect = document.getElementById("poProduct");
-    const branchSelect = document.getElementById("poBranch");
-
-    supplierSelect.innerHTML = "";
-    productSelect.innerHTML = "";
-    branchSelect.innerHTML = "";
-
-    suppliers.forEach(s => {
-        supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-    });
-
-    products.forEach(p => {
-        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
-    });
-
-    branches.forEach(b => {
-        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-    });
-}
-
-async function createPurchaseOrder() {
-    const supplier_id = document.getElementById("poSupplier").value;
-    const product_id = document.getElementById("poProduct").value;
-    const branch_id = document.getElementById("poBranch").value;
-    const qty = Number(document.getElementById("poQty").value);
-
-    if (!supplier_id || !product_id || !branch_id || qty <= 0) {
-        alert("Please select supplier, product, branch and enter valid qty");
-        return;
-    }
-
-    const res = await fetch(API + "/purchase-orders", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ supplier_id, product_id, branch_id, qty })
-    });
-
-    const data = await res.json();
-    alert(data.message || data.error);
-
-    document.getElementById("poQty").value = "";
-
-    loadPurchaseOrders();
-}
-
-async function loadPurchaseOrders() {
-    const res = await fetch(API + "/purchase-orders");
-    const orders = await res.json();
-
-    const table = document.getElementById("purchaseOrdersTable");
-    table.innerHTML = "";
-
-    orders.forEach(o => {
-    table.innerHTML += `
-        <tr>
-            <td>${o.id}</td>
-            <td>${o.supplier_name}</td>
-            <td>${o.product_name}</td>
-            <td>${o.barcode}</td>
-            <td>${o.branch_name || ""}</td>
-            <td>${o.qty}</td>
-            <td>${o.status}</td>
-            <td>${o.date}</td>
-            <td>
-                ${
-                    o.status === "Received"
-                    ? "Received"
-                    : `<button onclick="receivePurchaseOrder(${o.id})">Receive</button>`
-                }
-            </td>
-        </tr>
-    `;
-});
-async function receivePurchaseOrder(id) {
-    if (!confirm("Receive this purchase order and update stock?")) return;
-
-    const res = await fetch(API + "/purchase-orders/" + id + "/receive", {
-        method: "PUT",
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    });
-
-    const data = await res.json();
-    alert(data.message || data.error);
-
-    loadPurchaseOrders();
-    loadProducts();
-    loadDashboard();
-    loadCharts();
-}
-
-
-    if (pageId === "posPage") {
-        loadSaleBranchOptions();
-        setTimeout(() => {
-            document.getElementById("posBarcode").focus();
-        }, 100);
-    }
-
-
-    if (pageId === "posPage") {
-        loadSaleBranchOptions();
-        setTimeout(() => {
-            document.getElementById("posBarcode").focus();
-        }, 100);
-    }
-let html5QrCode = null;
-
-function startPOSScanner() {
-    stopScanner();
-
-    html5QrCode = new Html5Qrcode("reader");
-
-    html5QrCode.start(
-        { facingMode: "environment" },
-        {
-            fps: 10,
-            qrbox: { width: 250, height: 250 }
-        },
-        decodedText => {
-            document.getElementById("posBarcode").value = decodedText;
-            stopScanner();
-            addToCart();
-        },
-        errorMessage => {}
-    ).catch(err => {
-        alert("Camera error: " + err);
-    });
-}
-
-function startReceivingScanner() {
-    stopScanner();
-
-    html5QrCode = new Html5Qrcode("receivingReader");
-
-    html5QrCode.start(
-        { facingMode: "environment" },
-        {
-            fps: 10,
-            qrbox: { width: 250, height: 250 }
-        },
-        decodedText => {
-            document.getElementById("receiveBarcode").value = decodedText;
-            stopScanner();
-            document.getElementById("receiveQty").focus();
-        },
-        errorMessage => {}
-    ).catch(err => {
-        alert("Camera error: " + err);
-    });
-}
-
-function stopScanner() {
-    if (html5QrCode) {
-        html5QrCode.stop()
-            .then(() => {
-                html5QrCode.clear();
-                html5QrCode = null;
-            })
-            .catch(() => {
-                html5QrCode = null;
-            });
-    }
-}
-async function loadCharts() {
-    await loadSalesProfitChart();
-    await loadStockChart();
-}
-
-async function loadSalesProfitChart() {
-    const res = await fetch(API + "/charts/sales-profit");
-    const data = await res.json();
-
-    const labels = data.map(x => x.sale_date);
-    const sales = data.map(x => x.total_sales || 0);
-    const profit = data.map(x => x.total_profit || 0);
-
-    const ctx = document.getElementById("salesProfitChart");
-
-    if (salesProfitChart) {
-        salesProfitChart.destroy();
-    }
-
-    salesProfitChart = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: "Sales",
-                    data: sales
-                },
-                {
-                    label: "Profit",
-                    data: profit
-                }
-            ]
-        },
-        options: {
-            responsive: true
-        }
-    });
-}
-
-async function loadStockChart() {
-    const res = await fetch(API + "/charts/stock");
-    const data = await res.json();
-
-    const labels = data.map(x => x.name);
-    const stock = data.map(x => x.stock || 0);
-
-    const ctx = document.getElementById("stockChart");
-
-    if (stockChart) {
-        stockChart.destroy();
-    }
-
-    stockChart = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: "Current Stock",
-                    data: stock
-                }
-            ]
-        },
-        options: {
-            responsive: true
-        }
-    });
-}
-window.addEventListener("load", async () => {
-
-    const savedToken = localStorage.getItem("token");
-    const savedRole = localStorage.getItem("role");
-
-    if (savedToken && savedRole) {
-
-        token = savedToken;
-        currentRole = savedRole;
-
-        document.getElementById("loginSection").style.display = "none";
-        document.getElementById("mainSection").style.display = "block";
-
-        document.getElementById("adminSection").style.display =
-            currentRole === "admin" ? "block" : "none";
-
-        document.getElementById("usersMenuBtn").style.display =
-            currentRole === "admin" ? "block" : "none";
-
-        showPage("productsPage");
-
-        try {
-            await loadProducts();
-        } catch (err) {
-            console.error("LOAD PRODUCTS ERROR:", err);
-        }
-
-    } else {
-
-        document.getElementById("loginSection").style.display = "block";
-        document.getElementById("mainSection").style.display = "none";
-    }
-});
-async function importProducts() {
-
-    const fileInput = document.getElementById("importFile");
-
-    if (!fileInput.files.length) {
-        alert("Please select file");
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
-
-    const res = await fetch(API + "/import-products", {
-        method: "POST",
-        body: formData
-    });
-
-    const data = await res.json();
-
-    alert(data.message || data.error);
-
-    loadProducts();
-    loadDashboard();
-}
-async function addBranch() {
+// BRANCHES
+window.addBranch = async function () {
     const name = document.getElementById("branchName").value.trim();
     const location = document.getElementById("branchLocation").value.trim();
 
@@ -1475,64 +759,75 @@ async function addBranch() {
         return;
     }
 
-    const res = await fetch(API + "/branches", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ name, location })
-    });
+    try {
+        const data = await fetchJson("/branches", {
+            method: "POST",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ name, location })
+        });
 
-    const data = await res.json();
-    alert(data.message || data.error);
+        alert(data.message || "Branch added");
 
-    document.getElementById("branchName").value = "";
-    document.getElementById("branchLocation").value = "";
+        document.getElementById("branchName").value = "";
+        document.getElementById("branchLocation").value = "";
 
-    loadBranches();
-}
+        loadBranches();
+        loadBranchStockOptions();
+        loadTransferOptions();
+    } catch (err) {
+        alert(err.message);
+    }
+};
 
-async function loadBranches() {
-    const res = await fetch(API + "/branches");
-    const branches = await res.json();
+window.loadBranches = async function () {
+    try {
+        const branches = await fetchJson("/branches");
+        const table = document.getElementById("branchesTable");
 
-    const table = document.getElementById("branchesTable");
-    table.innerHTML = "";
+        if (!table) return;
 
-    branches.forEach(b => {
-        table.innerHTML += `
-            <tr>
-                <td>${b.id}</td>
-                <td>${b.name}</td>
-                <td>${b.location || ""}</td>
-            </tr>
-        `;
-    });
-}
-async function loadBranchStockOptions() {
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
+        table.innerHTML = "";
 
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
+        branches.forEach(b => {
+            table.innerHTML += `
+                <tr>
+                    <td>${b.id}</td>
+                    <td>${safeHtml(b.name)}</td>
+                    <td>${safeHtml(b.location || "")}</td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        console.error("Branches error:", err);
+    }
+};
 
-    const branchSelect = document.getElementById("stockBranch");
-    const productSelect = document.getElementById("stockProduct");
+window.loadBranchStockOptions = async function () {
+    try {
+        const branches = await fetchJson("/branches");
+        const products = await fetchJson("/products");
 
-    branchSelect.innerHTML = "";
-    productSelect.innerHTML = "";
+        const branchSelect = document.getElementById("stockBranch");
+        const productSelect = document.getElementById("stockProduct");
 
-    branches.forEach(b => {
-        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-    });
+        if (!branchSelect || !productSelect) return;
 
-    products.forEach(p => {
-        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
-    });
-}
+        branchSelect.innerHTML = "";
+        productSelect.innerHTML = "";
 
-async function saveBranchStock() {
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+        });
+
+        products.forEach(p => {
+            productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+        });
+    } catch (err) {
+        console.error("Branch stock options error:", err);
+    }
+};
+
+window.saveBranchStock = async function () {
     const branch_id = document.getElementById("stockBranch").value;
     const product_id = document.getElementById("stockProduct").value;
     const stock = Number(document.getElementById("branchStockQty").value);
@@ -1542,68 +837,80 @@ async function saveBranchStock() {
         return;
     }
 
-    const res = await fetch(API + "/branch-stock", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ branch_id, product_id, stock })
-    });
+    try {
+        const data = await fetchJson("/branch-stock", {
+            method: "POST",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ branch_id, product_id, stock })
+        });
 
-    const data = await res.json();
-    alert(data.message || data.error);
+        alert(data.message || "Branch stock updated");
 
-    document.getElementById("branchStockQty").value = "";
+        document.getElementById("branchStockQty").value = "";
+        loadBranchStock();
+        loadProducts();
+        loadDashboard();
+        loadBranchDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
 
-    loadBranchStock();
-}
+window.loadBranchStock = async function () {
+    try {
+        const rows = await fetchJson("/branch-stock");
+        const table = document.getElementById("branchStockTable");
 
-async function loadBranchStock() {
-    const res = await fetch(API + "/branch-stock");
-    const rows = await res.json();
+        if (!table) return;
 
-    const table = document.getElementById("branchStockTable");
-    table.innerHTML = "";
+        table.innerHTML = "";
 
-    rows.forEach(r => {
-        table.innerHTML += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.stock}</td>
-            </tr>
-        `;
-    });
-}
-async function loadTransferOptions() {
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
+        rows.forEach(r => {
+            table.innerHTML += `
+                <tr>
+                    <td>${r.id}</td>
+                    <td>${safeHtml(r.branch_name)}</td>
+                    <td>${safeHtml(r.product_name)}</td>
+                    <td>${safeHtml(r.barcode)}</td>
+                    <td>${r.stock}</td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        console.error("Branch stock error:", err);
+    }
+};
 
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
+window.loadTransferOptions = async function () {
+    try {
+        const branches = await fetchJson("/branches");
+        const products = await fetchJson("/products");
 
-    const fromBranch = document.getElementById("fromBranch");
-    const toBranch = document.getElementById("toBranch");
-    const transferProduct = document.getElementById("transferProduct");
+        const fromBranch = document.getElementById("fromBranch");
+        const toBranch = document.getElementById("toBranch");
+        const transferProduct = document.getElementById("transferProduct");
 
-    fromBranch.innerHTML = "";
-    toBranch.innerHTML = "";
-    transferProduct.innerHTML = "";
+        if (!fromBranch || !toBranch || !transferProduct) return;
 
-    branches.forEach(b => {
-        fromBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-        toBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-    });
+        fromBranch.innerHTML = "";
+        toBranch.innerHTML = "";
+        transferProduct.innerHTML = "";
 
-    products.forEach(p => {
-        transferProduct.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
-    });
-}
+        branches.forEach(b => {
+            const option = `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+            fromBranch.innerHTML += option;
+            toBranch.innerHTML += option;
+        });
 
-async function transferStock() {
+        products.forEach(p => {
+            transferProduct.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+        });
+    } catch (err) {
+        console.error("Transfer options error:", err);
+    }
+};
+
+window.transferStock = async function () {
     const from_branch_id = document.getElementById("fromBranch").value;
     const to_branch_id = document.getElementById("toBranch").value;
     const product_id = document.getElementById("transferProduct").value;
@@ -1614,60 +921,219 @@ async function transferStock() {
         return;
     }
 
-    const res = await fetch(API + "/stock-transfer", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({
-            from_branch_id,
-            to_branch_id,
-            product_id,
-            qty
-        })
-    });
+    try {
+        const data = await fetchJson("/stock-transfer", {
+            method: "POST",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ from_branch_id, to_branch_id, product_id, qty })
+        });
 
-    const data = await res.json();
-    alert(data.message || data.error);
+        alert(data.message || "Stock transferred");
+        document.getElementById("transferQty").value = "";
 
-    document.getElementById("transferQty").value = "";
+        loadBranchStock();
+        loadStockTransfers();
+        loadBranchDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
 
-    loadBranchStock();
-    loadStockTransfers();
-}
+window.loadStockTransfers = async function () {
+    try {
+        const transfers = await fetchJson("/stock-transfers");
+        const table = document.getElementById("stockTransfersTable");
 
-async function loadStockTransfers() {
-    const res = await fetch(API + "/stock-transfers");
-    const transfers = await res.json();
+        if (!table) return;
 
-    const table = document.getElementById("stockTransfersTable");
-    table.innerHTML = "";
+        table.innerHTML = "";
 
-    transfers.forEach(t => {
-        table.innerHTML += `
-            <tr>
-                <td>${t.id}</td>
-                <td>${t.from_branch}</td>
-                <td>${t.to_branch}</td>
-                <td>${t.product_name}</td>
-                <td>${t.barcode}</td>
-                <td>${t.qty}</td>
-                <td>${t.date}</td>
-            </tr>
-        `;
-    });
-}
-async function printBranchSalesReport() {
-    const res = await fetch(API + "/branch-sales-report");
-    const sales = await res.json();
+        transfers.forEach(t => {
+            table.innerHTML += `
+                <tr>
+                    <td>${t.id}</td>
+                    <td>${safeHtml(t.from_branch)}</td>
+                    <td>${safeHtml(t.to_branch)}</td>
+                    <td>${safeHtml(t.product_name)}</td>
+                    <td>${safeHtml(t.barcode)}</td>
+                    <td>${t.qty}</td>
+                    <td>${safeHtml(t.date)}</td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        console.error("Transfers error:", err);
+    }
+};
 
-    let reportWindow = window.open("", "_blank");
+window.syncStockToMain = async function () {
+    if (!confirm("Move all unassigned stock to Main branch?")) return;
 
-    let html = `
+    try {
+        const data = await fetchJson("/sync-stock-to-main", {
+            method: "POST",
+            headers: authHeaders()
+        });
+
+        alert((data.message || "Stock synced") + (data.productsUpdated !== undefined ? `\nProducts updated: ${data.productsUpdated}` : ""));
+
+        loadProducts();
+        loadBranchStock();
+        loadDashboard();
+        loadBranchDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+// SUPPLIERS / PURCHASE ORDERS
+window.addSupplier = async function () {
+    const name = document.getElementById("supplierName").value.trim();
+    const phone = document.getElementById("supplierPhone").value.trim();
+    const email = document.getElementById("supplierEmail").value.trim();
+    const address = document.getElementById("supplierAddress").value.trim();
+
+    if (!name) {
+        alert("Please enter supplier name");
+        return;
+    }
+
+    try {
+        const data = await fetchJson("/suppliers", {
+            method: "POST",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ name, phone, email, address })
+        });
+
+        alert(data.message || "Supplier added");
+        document.getElementById("supplierName").value = "";
+        document.getElementById("supplierPhone").value = "";
+        document.getElementById("supplierEmail").value = "";
+        document.getElementById("supplierAddress").value = "";
+
+        loadSupplierOptions();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.loadSupplierOptions = async function () {
+    try {
+        const suppliers = await fetchJson("/suppliers");
+        const products = await fetchJson("/products");
+        const branches = await fetchJson("/branches");
+
+        const supplierSelect = document.getElementById("poSupplier");
+        const productSelect = document.getElementById("poProduct");
+        const branchSelect = document.getElementById("poBranch");
+
+        if (!supplierSelect || !productSelect || !branchSelect) return;
+
+        supplierSelect.innerHTML = "";
+        productSelect.innerHTML = "";
+        branchSelect.innerHTML = "";
+
+        suppliers.forEach(s => {
+            supplierSelect.innerHTML += `<option value="${s.id}">${safeHtml(s.name)}</option>`;
+        });
+
+        products.forEach(p => {
+            productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+        });
+
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+        });
+    } catch (err) {
+        console.error("Supplier options error:", err);
+    }
+};
+
+window.createPurchaseOrder = async function () {
+    const supplier_id = document.getElementById("poSupplier").value;
+    const product_id = document.getElementById("poProduct").value;
+    const branch_id = document.getElementById("poBranch").value;
+    const qty = Number(document.getElementById("poQty").value);
+
+    if (!supplier_id || !product_id || !branch_id || qty <= 0) {
+        alert("Please select supplier, product, branch and enter valid qty");
+        return;
+    }
+
+    try {
+        const data = await fetchJson("/purchase-orders", {
+            method: "POST",
+            headers: authHeaders({"Content-Type": "application/json"}),
+            body: JSON.stringify({ supplier_id, product_id, branch_id, qty })
+        });
+
+        alert(data.message || "Purchase order created");
+        document.getElementById("poQty").value = "";
+        loadPurchaseOrders();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.loadPurchaseOrders = async function () {
+    try {
+        const orders = await fetchJson("/purchase-orders");
+        const table = document.getElementById("purchaseOrdersTable");
+
+        if (!table) return;
+
+        table.innerHTML = "";
+
+        orders.forEach(o => {
+            table.innerHTML += `
+                <tr>
+                    <td>${o.id}</td>
+                    <td>${safeHtml(o.supplier_name)}</td>
+                    <td>${safeHtml(o.product_name)}</td>
+                    <td>${safeHtml(o.barcode)}</td>
+                    <td>${safeHtml(o.branch_name || "")}</td>
+                    <td>${o.qty}</td>
+                    <td>${safeHtml(o.status)}</td>
+                    <td>${safeHtml(o.date)}</td>
+                    <td>${o.status === "Received" ? "Received" : `<button onclick="receivePurchaseOrder(${o.id})">Receive</button>`}</td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.receivePurchaseOrder = async function (id) {
+    if (!confirm("Receive this purchase order and update stock in assigned branch?")) return;
+
+    try {
+        const data = await fetchJson("/purchase-orders/" + id + "/receive", {
+            method: "PUT",
+            headers: authHeaders()
+        });
+
+        alert(data.message || "Purchase order received");
+
+        loadPurchaseOrders();
+        loadProducts();
+        loadDashboard();
+        loadBranchStock();
+        loadBranchStockOptions();
+        loadBranchDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+// REPORTS
+function openReportWindow(title, bodyHtml) {
+    const reportWindow = window.open("", "_blank");
+
+    reportWindow.document.write(`
         <html>
         <head>
-            <title>Branch Sales Report</title>
+            <title>${safeHtml(title)}</title>
             <style>
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
@@ -1677,326 +1143,360 @@ async function printBranchSalesReport() {
             </style>
         </head>
         <body>
-            <h1>Branch Sales Report</h1>
+            <h1>${safeHtml(title)}</h1>
             <p>Date: ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Branch</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Qty</th>
-                        <th>Unit Price</th>
-                        <th>Total</th>
-                        <th>Profit</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    sales.forEach(s => {
-        const unitPrice = Number(s.price) / Number(s.qty || 1);
-        const total = Number(s.price);
-        const profit = Number(s.profit || 0);
-
-        html += `
-            <tr>
-                <td>${s.id}</td>
-                <td>${s.branch_name}</td>
-                <td>${s.product_name}</td>
-                <td>${s.barcode}</td>
-                <td>${s.qty}</td>
-                <td>${unitPrice.toFixed(2)}</td>
-                <td>${total.toFixed(2)}</td>
-                <td>${profit.toFixed(2)}</td>
-                <td>${s.date}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-            </table>
+            ${bodyHtml}
             <script>window.print();</script>
         </body>
         </html>
-    `;
+    `);
 
-    reportWindow.document.write(html);
     reportWindow.document.close();
 }
 
-async function exportBranchSalesExcel() {
-    const res = await fetch(API + "/branch-sales-report");
-    const sales = await res.json();
+window.printInventoryReport = async function () {
+    const products = await fetchJson("/products");
+    const rows = products.map(p => `
+        <tr>
+            <td>${p.id}</td>
+            <td>${safeHtml(p.name)}</td>
+            <td>${safeHtml(p.barcode)}</td>
+            <td>${money(p.price)}</td>
+            <td>${p.stock}</td>
+        </tr>
+    `).join("");
 
+    openReportWindow("Inventory Report", `
+        <table>
+            <thead><tr><th>ID</th><th>Product</th><th>Barcode</th><th>Price</th><th>Stock</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `);
+};
+
+window.exportInventoryExcel = async function () {
+    const products = await fetchJson("/products");
+    let csv = "ID,Product,Barcode,Price,Stock\n";
+
+    products.forEach(p => {
+        csv += `${p.id},${p.name},${p.barcode},${p.price},${p.stock}\n`;
+    });
+
+    downloadCsv(csv, "inventory_report.csv");
+};
+
+window.printSalesReport = async function () {
+    const sales = await fetchJson("/sales-report");
+    const rows = sales.map(s => `
+        <tr>
+            <td>${s.id}</td>
+            <td>${safeHtml(s.product_name)}</td>
+            <td>${safeHtml(s.barcode)}</td>
+            <td>${s.qty}</td>
+            <td>${money(Number(s.price) / Number(s.qty || 1))}</td>
+            <td>${money(s.price)}</td>
+            <td>${safeHtml(s.date)}</td>
+        </tr>
+    `).join("");
+
+    openReportWindow("Sales Report", `
+        <table>
+            <thead><tr><th>ID</th><th>Product</th><th>Barcode</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Date</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `);
+};
+
+window.exportSalesExcel = async function () {
+    const sales = await fetchJson("/sales-report");
+    let csv = "ID,Product,Barcode,Qty,Unit Price,Total,Date\n";
+
+    sales.forEach(s => {
+        csv += `${s.id},${s.product_name},${s.barcode},${s.qty},${money(Number(s.price) / Number(s.qty || 1))},${money(s.price)},${s.date}\n`;
+    });
+
+    downloadCsv(csv, "sales_report.csv");
+};
+
+window.printReceivingReport = async function () {
+    const receiving = await fetchJson("/receiving-report");
+    const rows = receiving.map(r => `
+        <tr>
+            <td>${r.id}</td>
+            <td>${safeHtml(r.product_name)}</td>
+            <td>${safeHtml(r.barcode)}</td>
+            <td>${r.qty}</td>
+            <td>${safeHtml(r.date)}</td>
+        </tr>
+    `).join("");
+
+    openReportWindow("Receiving Report", `
+        <table>
+            <thead><tr><th>ID</th><th>Product</th><th>Barcode</th><th>Qty</th><th>Date</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `);
+};
+
+window.exportReceivingExcel = async function () {
+    const receiving = await fetchJson("/receiving-report");
+    let csv = "ID,Product,Barcode,Qty,Date\n";
+
+    receiving.forEach(r => {
+        csv += `${r.id},${r.product_name},${r.barcode},${r.qty},${r.date}\n`;
+    });
+
+    downloadCsv(csv, "receiving_report.csv");
+};
+
+window.printBranchSalesReport = async function () {
+    const sales = await fetchJson("/branch-sales-report");
+    const rows = sales.map(s => {
+        const unitPrice = Number(s.price) / Number(s.qty || 1);
+        return `
+            <tr>
+                <td>${s.id}</td>
+                <td>${safeHtml(s.branch_name)}</td>
+                <td>${safeHtml(s.product_name)}</td>
+                <td>${safeHtml(s.barcode)}</td>
+                <td>${s.qty}</td>
+                <td>${money(unitPrice)}</td>
+                <td>${money(s.price)}</td>
+                <td>${money(s.profit)}</td>
+                <td>${safeHtml(s.date)}</td>
+            </tr>
+        `;
+    }).join("");
+
+    openReportWindow("Branch Sales Report", `
+        <table>
+            <thead><tr><th>ID</th><th>Branch</th><th>Product</th><th>Barcode</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Profit</th><th>Date</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `);
+};
+
+window.exportBranchSalesExcel = async function () {
+    const sales = await fetchJson("/branch-sales-report");
     let csv = "ID,Branch,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
 
     sales.forEach(s => {
         const unitPrice = Number(s.price) / Number(s.qty || 1);
-        const total = Number(s.price);
-        const profit = Number(s.profit || 0);
-
-        csv += `${s.id},${s.branch_name},${s.product_name},${s.barcode},${s.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${s.date}\n`;
+        csv += `${s.id},${s.branch_name},${s.product_name},${s.barcode},${s.qty},${money(unitPrice)},${money(s.price)},${money(s.profit)},${s.date}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
+    downloadCsv(csv, "branch_sales_report.csv");
+};
 
-    link.href = URL.createObjectURL(blob);
-    link.download = "branch_sales_report.csv";
-    link.click();
-}
-async function printTransferReport() {
-    const res = await fetch(API + "/stock-transfers");
-    const transfers = await res.json();
+window.printTransferReport = async function () {
+    const transfers = await fetchJson("/stock-transfers");
+    const rows = transfers.map(t => `
+        <tr>
+            <td>${t.id}</td>
+            <td>${safeHtml(t.from_branch)}</td>
+            <td>${safeHtml(t.to_branch)}</td>
+            <td>${safeHtml(t.product_name)}</td>
+            <td>${safeHtml(t.barcode)}</td>
+            <td>${t.qty}</td>
+            <td>${safeHtml(t.date)}</td>
+        </tr>
+    `).join("");
 
-    let reportWindow = window.open("", "_blank");
+    openReportWindow("Stock Transfer Report", `
+        <table>
+            <thead><tr><th>ID</th><th>From Branch</th><th>To Branch</th><th>Product</th><th>Barcode</th><th>Qty</th><th>Date</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `);
+};
 
-    let html = `
-        <html>
-        <head>
-            <title>Stock Transfer Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Stock Transfer Report</h1>
-            <p>Date: ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>From Branch</th>
-                        <th>To Branch</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Qty</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    transfers.forEach(t => {
-        html += `
-            <tr>
-                <td>${t.id}</td>
-                <td>${t.from_branch}</td>
-                <td>${t.to_branch}</td>
-                <td>${t.product_name}</td>
-                <td>${t.barcode}</td>
-                <td>${t.qty}</td>
-                <td>${t.date}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-            </table>
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-}
-
-async function exportTransferExcel() {
-    const res = await fetch(API + "/stock-transfers");
-    const transfers = await res.json();
-
+window.exportTransferExcel = async function () {
+    const transfers = await fetchJson("/stock-transfers");
     let csv = "ID,From Branch,To Branch,Product,Barcode,Qty,Date\n";
 
     transfers.forEach(t => {
         csv += `${t.id},${t.from_branch},${t.to_branch},${t.product_name},${t.barcode},${t.qty},${t.date}\n`;
     });
 
+    downloadCsv(csv, "stock_transfer_report.csv");
+};
+
+function downloadCsv(csv, filename) {
     const blob = new Blob([csv], { type: "text/csv" });
     const link = document.createElement("a");
-
     link.href = URL.createObjectURL(blob);
-    link.download = "stock_transfer_report.csv";
+    link.download = filename;
     link.click();
 }
-async function loadBranchDashboard() {
-    const res = await fetch(API + "/branch-dashboard");
-    const data = await res.json();
 
-    const salesTable = document.getElementById("branchSalesDashboardTable");
-    const stockTable = document.getElementById("branchStockDashboardTable");
+// CHARTS
+window.loadCharts = async function () {
+    await loadSalesProfitChart();
+    await loadStockChart();
+};
 
-    if (!salesTable || !stockTable) {
-        alert("Branch dashboard table IDs not found in index.html");
-        return;
+window.loadSalesProfitChart = async function () {
+    try {
+        const data = await fetchJson("/charts/sales-profit");
+        const labels = data.map(x => x.sale_date);
+        const sales = data.map(x => Number(x.total_sales || 0));
+        const profit = data.map(x => Number(x.total_profit || 0));
+
+        const ctx = document.getElementById("salesProfitChart");
+        if (!ctx) return;
+
+        if (salesProfitChart) salesProfitChart.destroy();
+
+        salesProfitChart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels,
+                datasets: [
+                    { label: "Sales", data: sales },
+                    { label: "Profit", data: profit }
+                ]
+            },
+            options: { responsive: true }
+        });
+    } catch (err) {
+        console.error("Sales chart error:", err);
     }
+};
 
-    salesTable.innerHTML = "";
-    stockTable.innerHTML = "";
+window.loadStockChart = async function () {
+    try {
+        const data = await fetchJson("/charts/stock");
+        const labels = data.map(x => x.name);
+        const stock = data.map(x => Number(x.stock || 0));
 
-    data.sales.forEach(row => {
-        salesTable.innerHTML += `
-            <tr>
-                <td>${row.branch_name}</td>
-                <td>${Number(row.total_sales || 0).toFixed(2)}</td>
-                <td>${Number(row.total_profit || 0).toFixed(2)}</td>
-            </tr>
-        `;
-    });
+        const ctx = document.getElementById("stockChart");
+        if (!ctx) return;
 
-    data.stock.forEach(row => {
-        const low = data.lowStock.find(x => Number(x.branch_id) === Number(row.branch_id));
+        if (stockChart) stockChart.destroy();
 
-        stockTable.innerHTML += `
-            <tr>
-                <td>${row.branch_name}</td>
-                <td>${row.total_stock}</td>
-                <td>${low ? low.low_stock_items : 0}</td>
-            </tr>
-        `;
-    });
-}
+        stockChart = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels,
+                datasets: [{ label: "Current Stock", data: stock }]
+            },
+            options: { responsive: true }
+        });
+    } catch (err) {
+        console.error("Stock chart error:", err);
+    }
+};
 
+// SCANNERS
+window.startPOSScanner = function () {
+    stopScanner();
 
-// LOGOUT FUNCTION
-function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
+    html5QrCode = new Html5Qrcode("reader");
 
-    token = "";
-    currentRole = "";
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        decodedText => {
+            document.getElementById("posBarcode").value = decodedText;
+            stopScanner();
+            previewBranchStock();
+            addToCart();
+        },
+        () => {}
+    ).catch(err => alert("Camera error: " + err));
+};
 
-    document.getElementById("username").value = "";
-    document.getElementById("password").value = "";
+window.startReceivingScanner = function () {
+    stopScanner();
 
-    document.getElementById("mainSection").style.display = "none";
-    document.getElementById("loginSection").style.display = "block";
-}
-// Force reload branch dashboard data (used after stock transfer to update low stock count)
-async function forceBranchDashboard() {
-    const res = await fetch("/branch-dashboard");
-    const data = await res.json();
+    html5QrCode = new Html5Qrcode("receivingReader");
 
-    document.getElementById("branchSalesDashboardTable").innerHTML =
-        data.sales.map(r => `
-            <tr>
-                <td>${r.branch_name}</td>
-                <td>${Number(r.total_sales || 0).toFixed(2)}</td>
-                <td>${Number(r.total_profit || 0).toFixed(2)}</td>
-            </tr>
-        `).join("");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        decodedText => {
+            document.getElementById("receiveBarcode").value = decodedText;
+            stopScanner();
+            document.getElementById("receiveQty").focus();
+        },
+        () => {}
+    ).catch(err => alert("Camera error: " + err));
+};
 
-    document.getElementById("branchStockDashboardTable").innerHTML =
-        data.stock.map(r => {
-            const low = data.lowStock.find(x => Number(x.branch_id) === Number(r.branch_id));
+window.stopScanner = function () {
+    if (html5QrCode) {
+        html5QrCode.stop()
+            .then(() => {
+                html5QrCode.clear();
+                html5QrCode = null;
+            })
+            .catch(() => {
+                html5QrCode = null;
+            });
+    }
+};
 
-            return `
-                <tr>
-                    <td>${r.branch_name}</td>
-                    <td>${r.total_stock}</td>
-                    <td>${low ? low.low_stock_items : 0}</td>
-                </tr>
-            `;
-        }).join("");
-}
-async function syncStockToMain() {
-    if (!confirm("Move all unassigned stock to Main branch?")) return;
-
+// INIT
+window.addEventListener("load", async () => {
     const savedToken = localStorage.getItem("token");
+    const savedRole = localStorage.getItem("role");
 
-    const res = await fetch(API + "/sync-stock-to-main", {
-        method: "POST",
-        headers: {
-            "Authorization": "Bearer " + savedToken
-        }
-    });
+    if (savedToken && savedRole) {
+        token = savedToken;
+        currentRole = savedRole;
 
-    const data = await res.json();
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("mainSection").style.display = "block";
 
-    alert(data.message || data.error);
+        const adminSection = document.getElementById("adminSection");
+        if (adminSection) adminSection.style.display = currentRole === "admin" ? "block" : "none";
 
-    loadProducts();
-    loadBranchStock();
-    loadDashboard();
+        const usersMenuBtn = document.getElementById("usersMenuBtn");
+        if (usersMenuBtn) usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
 
-    if (typeof loadBranchDashboard === "function") {
-        loadBranchDashboard();
+        showPage("productsPage");
+    } else {
+        document.getElementById("loginSection").style.display = "block";
+        document.getElementById("mainSection").style.display = "none";
     }
-}
-}
-window.loadBranches = async function () {
-    const res = await fetch(API + "/branches");
-    const branches = await res.json();
+});
 
-    const table = document.getElementById("branchesTable");
-    if (!table) return;
+document.addEventListener("DOMContentLoaded", function () {
+    const barcodeSearchInput = document.getElementById("barcodeSearchInput");
+    if (barcodeSearchInput) {
+        barcodeSearchInput.addEventListener("keypress", e => {
+            if (e.key === "Enter") searchByBarcode();
+        });
+    }
 
-    table.innerHTML = "";
+    const receiveBarcode = document.getElementById("receiveBarcode");
+    if (receiveBarcode) {
+        receiveBarcode.addEventListener("keypress", e => {
+            if (e.key === "Enter") document.getElementById("receiveQty").focus();
+        });
+    }
 
-    branches.forEach(b => {
-        table.innerHTML += `
-            <tr>
-                <td>${b.id}</td>
-                <td>${b.name}</td>
-                <td>${b.location || ""}</td>
-            </tr>
-        `;
-    });
-};
+    const receiveQty = document.getElementById("receiveQty");
+    if (receiveQty) {
+        receiveQty.addEventListener("keypress", e => {
+            if (e.key === "Enter") receiveByBarcode();
+        });
+    }
 
-window.loadBranchStock = async function () {
-    const res = await fetch(API + "/branch-stock");
-    const rows = await res.json();
+    const posBarcode = document.getElementById("posBarcode");
+    if (posBarcode) {
+        posBarcode.addEventListener("change", previewBranchStock);
+        posBarcode.addEventListener("keyup", e => {
+            if (e.key === "Enter") {
+                addToCart();
+            } else {
+                previewBranchStock();
+            }
+        });
+    }
 
-    const table = document.getElementById("branchStockTable");
-    if (!table) return;
-
-    table.innerHTML = "";
-
-    rows.forEach(r => {
-        table.innerHTML += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.stock}</td>
-            </tr>
-        `;
-    });
-};
-
-window.loadBranchStockOptions = async function () {
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
-
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
-
-    const branchSelect = document.getElementById("stockBranch");
-    const productSelect = document.getElementById("stockProduct");
-
-    if (!branchSelect || !productSelect) return;
-
-    branchSelect.innerHTML = "";
-    productSelect.innerHTML = "";
-
-    branches.forEach(b => {
-        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-    });
-
-    products.forEach(p => {
-        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
-    });
-};
+    const saleBranch = document.getElementById("saleBranch");
+    if (saleBranch) {
+        saleBranch.addEventListener("change", previewBranchStock);
+    }
+});

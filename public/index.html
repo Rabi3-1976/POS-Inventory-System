@@ -1,30 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <title>POS Inventory System</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2200">
 </head>
 <body>
 
 <div id="loginSection" class="login-box">
     <h1>POS Inventory System</h1>
     <h2>Login</h2>
-
     <input id="username" placeholder="Username">
     <input id="password" type="password" placeholder="Password">
     <button onclick="login()">Login</button>
-
-<hr>
+    <hr>
 </div>
 
 <div id="mainSection" style="display:none;">
-
     <div class="layout">
-
         <aside class="sidebar">
             <h2>POS System</h2>
             <button onclick="showPage('dashboardPage')">Dashboard</button>
@@ -40,121 +37,6 @@
         </aside>
 
         <main class="content">
-            <section id="branchDashboardPage" class="page" style="display:none;">
-            <button onclick="testBranchDashboard()">Test Branch Dashboard</button>
-            <button onclick="forceBranchDashboard()">Load Branch Dashboard</button>
-    <h1>Branch Dashboard</h1>       
-    <div class="box">
-        <h2>Sales & Profit by Branch</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Branch</th>
-                    <th>Total Sales</th>
-                    <th>Total Profit</th>
-                </tr>
-            </thead>
-            <tbody id="branchSalesDashboardTable"></tbody>
-        </table>
-    </div>
-
-    <div class="box">
-        <h2>Stock by Branch</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Branch</th>
-                    <th>Total Stock</th>
-                    <th>Low Stock Items</th>
-                </tr>
-            </thead>
-            <tbody id="branchStockDashboardTable"></tbody>
-        </table>
-    </div>
-</section>
-            <section id="branchesPage" class="page" style="display:none;">
-                
-    <h1>Branches / Warehouses</h1>
-        <button onclick="syncStockToMain()">Sync Unassigned Stock to Main</button>
-    <div class="box">
-        <h2>Add Branch</h2>
-        <input id="branchName" placeholder="Branch Name">
-        <input id="branchLocation" placeholder="Location">
-        <button onclick="addBranch()">Add Branch</button>
-    </div>
-
-    <div class="box">
-        <h2>Branch List</h2>
-        <button onclick="loadBranches()">Load Branches</button>
-        <div class="box">
-    <h2>Assign Stock to Branch</h2>
-<select id="stockBranch"></select>
-<select id="stockProduct"></select>
-<input id="branchStockQty" type="number" placeholder="Stock Qty">
-<button onclick="saveBranchStock()">Save Branch Stock</button>
-<button onclick="loadBranchStockOptions()">Refresh Dropdowns</button>
-</div>
-
-<div class="box">
-    <h2>Branch Stock List</h2>
-    <button onclick="loadBranchStock()">Load Branch Stock</button>
-
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Branch</th>
-                <th>Product</th>
-                <th>Barcode</th>
-                <th>Stock</th>
-            </tr>
-        </thead>
-        <tbody id="branchStockTable"></tbody>
-    </table>
-</div>
-<div class="box">
-    <h2>Transfer Stock Between Branches</h2>
-
-    <select id="fromBranch"></select>
-    <select id="toBranch"></select>
-    <select id="transferProduct"></select>
-    <input id="transferQty" type="number" placeholder="Transfer Qty">
-
-    <button onclick="transferStock()">Transfer Stock</button>
-</div>
-
-<div class="box">
-    <h2>Transfer History</h2>
-    <button onclick="loadStockTransfers()">Load Transfers</button>
-
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>From Branch</th>
-                <th>To Branch</th>
-                <th>Product</th>
-                <th>Barcode</th>
-                <th>Qty</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody id="stockTransfersTable"></tbody>
-    </table>
-</div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Branch</th>
-                    <th>Location</th>
-                </tr>
-            </thead>
-            <tbody id="branchesTable"></tbody>
-        </table>
-    </div>
-</section>
 
             <section id="dashboardPage" class="page">
                 <h1>Dashboard</h1>
@@ -165,59 +47,47 @@
                     <div class="card">Low Stock Items<br><span id="lowStock">0</span></div>
                     <div class="card">Total Profit<br>$<span id="totalProfit">0</span></div>
                     <div class="box">
-                    <h2>Sales & Profit Chart</h2>
-                    <canvas id="salesProfitChart"></canvas>
+                        <h2>Sales & Profit Chart</h2>
+                        <canvas id="salesProfitChart"></canvas>
                     </div>
-
                     <div class="box">
-                    <h2>Stock Chart</h2>
-                    <canvas id="stockChart"></canvas>
+                        <h2>Stock Chart</h2>
+                        <canvas id="stockChart"></canvas>
                     </div>
                 </div>
             </section>
-<section id="suppliersPage" class="page" style="display:none;">
-    <h1>Suppliers & Purchase Orders</h1>
 
-    <div class="box">
-        <h2>Add Supplier</h2>
-        <input id="supplierName" placeholder="Supplier Name">
-        <input id="supplierPhone" placeholder="Phone">
-        <input id="supplierEmail" placeholder="Email">
-        <input id="supplierAddress" placeholder="Address">
-        <button onclick="addSupplier()">Add Supplier</button>
-    </div>
+            <section id="branchDashboardPage" class="page" style="display:none;">
+                <h1>Branch Dashboard</h1>
+                <div class="box">
+                    <h2>Sales & Profit by Branch</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Branch</th>
+                                <th>Total Sales</th>
+                                <th>Total Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="branchSalesDashboardTable"></tbody>
+                    </table>
+                </div>
 
-    <div class="box">
-        <h2>Create Purchase Order</h2>
-        <select id="poSupplier"></select>
-        <select id="poProduct"></select>
-        <select id="poBranch"></select>
-        <input id="poQty" type="number" placeholder="Qty">
-        <button onclick="createPurchaseOrder()">Create PO</button>
-    </div>
+                <div class="box">
+                    <h2>Stock by Branch</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Branch</th>
+                                <th>Total Stock</th>
+                                <th>Low Stock Items</th>
+                            </tr>
+                        </thead>
+                        <tbody id="branchStockDashboardTable"></tbody>
+                    </table>
+                </div>
+            </section>
 
-    <div class="box">
-        <h2>Purchase Orders</h2>
-        <button onclick="loadPurchaseOrders()">Load Purchase Orders</button>
-
-        <table>
-            <thead>
-                <tr>
-    <th>ID</th>
-    <th>Supplier</th>
-    <th>Product</th>
-    <th>Barcode</th>
-    <th>Branch</th>
-    <th>Qty</th>
-    <th>Status</th>
-    <th>Date</th>
-    <th>Receive</th>
-</tr>
-            </thead>
-            <tbody id="purchaseOrdersTable"></tbody>
-        </table>
-    </div>
-</section>
             <section id="productsPage" class="page" style="display:none;">
                 <h1>Products</h1>
 
@@ -235,12 +105,12 @@
                     <input id="barcodeSearchInput" placeholder="Scan or type barcode">
                     <button onclick="searchByBarcode()">Search Barcode</button>
                     <button onclick="loadProducts()">Show All</button>
-                    <div class="box">
-                <h2>Import Products</h2>
 
-                <input type="file" id="importFile">
-                <button onclick="importProducts()">Import Excel</button>
-</div>
+                    <div class="box">
+                        <h2>Import Products</h2>
+                        <input type="file" id="importFile">
+                        <button onclick="importProducts()">Import Excel</button>
+                    </div>
 
                     <table>
                         <thead>
@@ -262,73 +132,185 @@
                     </table>
                 </div>
             </section>
-            <section id="posPage" class="page" style="display:none;">
-    <h1>POS Cashier</h1>
-
-    <div class="box">
-        <select id="saleBranch"></select>
-        <input id="posBarcode" placeholder="Scan / Enter Barcode">
-        <p>Available Branch Stock: <strong id="availableBranchStock">0</strong></p>
-        <input id="posQty" type="number" value="1" min="1" placeholder="Qty">
-        <button onclick="addToCart()">Add to Cart</button>
-       
-    </div>
-
-    <div class="box">
-        <h2>Cart</h2>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Barcode</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>Total</th>
-                    <th>Remove</th>
-                </tr>
-            </thead>
-            <tbody id="cartTable"></tbody>
-        </table>
-
-        <h2>Total: $<span id="cartTotal">0.00</span></h2>
-
-        <button onclick="checkoutCart()">Checkout</button>
-        <button onclick="clearCart()">Clear Cart</button>
-    </div>
-</section>
 
             <section id="posPage" class="page" style="display:none;">
                 <h1>POS Cashier</h1>
 
                 <div class="box">
+                    <select id="saleBranch"></select>
                     <input id="posBarcode" placeholder="Scan / Enter Barcode">
                     <input id="posQty" type="number" value="1" min="1" placeholder="Qty">
-                    <button onclick="sellByBarcode()">Sell Item</button>
-                     <button onclick="startPOSScanner()">Start Camera Scanner</button>
-                     <button onclick="stopScanner()">Stop Scanner</button>
-                     <div id="reader" style="width:300px; margin-top:15px;"></div>
+                    <button onclick="addToCart()">Add to Cart</button>
+                    <button onclick="startPOSScanner()">Start Camera Scanner</button>
+                    <button onclick="stopScanner()">Stop Scanner</button>
+                    <p>Available Branch Stock: <strong id="availableBranchStock">0</strong></p>
+                    <div id="reader" style="width:300px; margin-top:15px;"></div>
+                </div>
+
+                <div class="box">
+                    <h2>Cart</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Barcode</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                                <th>Remove</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cartTable"></tbody>
+                    </table>
+
+                    <h2>Total: $<span id="cartTotal">0.00</span></h2>
+                    <button onclick="checkoutCart()">Checkout</button>
+                    <button onclick="clearCart()">Clear Cart</button>
                 </div>
             </section>
 
             <section id="receivingPage" class="page" style="display:none;">
                 <h1>Receiving Module</h1>
-
                 <div class="box">
                     <input id="receiveBarcode" placeholder="Scan / Enter Barcode">
                     <input id="receiveQty" type="number" placeholder="Receiving Qty">
-                    <button onclick="receiveByBarcode()">Receive Stock</button>
+                    <button onclick="receiveByBarcode()">Receive Stock to Main</button>
                     <button onclick="printReceivingReport()">View Receiving Report</button>
                     <button onclick="startReceivingScanner()">Start Camera Scanner</button>
                     <button onclick="stopScanner()">Stop Scanner</button>
-
                     <div id="receivingReader" style="width:300px; margin-top:15px;"></div>
+                </div>
+            </section>
+
+            <section id="branchesPage" class="page" style="display:none;">
+                <h1>Branches / Warehouses</h1>
+
+                <div class="box">
+                    <button onclick="syncStockToMain()">Sync Unassigned Stock to Main</button>
+                </div>
+
+                <div class="box">
+                    <h2>Add Branch</h2>
+                    <input id="branchName" placeholder="Branch Name">
+                    <input id="branchLocation" placeholder="Location">
+                    <button onclick="addBranch()">Add Branch</button>
+                </div>
+
+                <div class="box">
+                    <h2>Branch List</h2>
+                    <button onclick="loadBranches()">Load Branches</button>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Branch</th>
+                                <th>Location</th>
+                            </tr>
+                        </thead>
+                        <tbody id="branchesTable"></tbody>
+                    </table>
+                </div>
+
+                <div class="box">
+                    <h2>Assign Stock to Branch</h2>
+                    <select id="stockBranch"></select>
+                    <select id="stockProduct"></select>
+                    <input id="branchStockQty" type="number" placeholder="Stock Qty">
+                    <button onclick="saveBranchStock()">Save Branch Stock</button>
+                    <button onclick="loadBranchStockOptions()">Refresh Dropdowns</button>
+                </div>
+
+                <div class="box">
+                    <h2>Branch Stock List</h2>
+                    <button onclick="loadBranchStock()">Load Branch Stock</button>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Branch</th>
+                                <th>Product</th>
+                                <th>Barcode</th>
+                                <th>Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody id="branchStockTable"></tbody>
+                    </table>
+                </div>
+
+                <div class="box">
+                    <h2>Transfer Stock Between Branches</h2>
+                    <select id="fromBranch"></select>
+                    <select id="toBranch"></select>
+                    <select id="transferProduct"></select>
+                    <input id="transferQty" type="number" placeholder="Transfer Qty">
+                    <button onclick="transferStock()">Transfer Stock</button>
+                </div>
+
+                <div class="box">
+                    <h2>Transfer History</h2>
+                    <button onclick="loadStockTransfers()">Load Transfers</button>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>From Branch</th>
+                                <th>To Branch</th>
+                                <th>Product</th>
+                                <th>Barcode</th>
+                                <th>Qty</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTransfersTable"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="suppliersPage" class="page" style="display:none;">
+                <h1>Suppliers & Purchase Orders</h1>
+
+                <div class="box">
+                    <h2>Add Supplier</h2>
+                    <input id="supplierName" placeholder="Supplier Name">
+                    <input id="supplierPhone" placeholder="Phone">
+                    <input id="supplierEmail" placeholder="Email">
+                    <input id="supplierAddress" placeholder="Address">
+                    <button onclick="addSupplier()">Add Supplier</button>
+                </div>
+
+                <div class="box">
+                    <h2>Create Purchase Order</h2>
+                    <select id="poSupplier"></select>
+                    <select id="poProduct"></select>
+                    <select id="poBranch"></select>
+                    <input id="poQty" type="number" placeholder="Qty">
+                    <button onclick="createPurchaseOrder()">Create PO</button>
+                </div>
+
+                <div class="box">
+                    <h2>Purchase Orders</h2>
+                    <button onclick="loadPurchaseOrders()">Load Purchase Orders</button>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Supplier</th>
+                                <th>Product</th>
+                                <th>Barcode</th>
+                                <th>Branch</th>
+                                <th>Qty</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Receive</th>
+                            </tr>
+                        </thead>
+                        <tbody id="purchaseOrdersTable"></tbody>
+                    </table>
                 </div>
             </section>
 
             <section id="reportsPage" class="page" style="display:none;">
                 <h1>Reports</h1>
-
                 <div class="box">
                     <button onclick="printInventoryReport()">Print Inventory PDF</button>
                     <button onclick="exportInventoryExcel()">Export Inventory Excel</button>
@@ -345,22 +327,20 @@
 
             <section id="usersPage" class="page" style="display:none;">
                 <h1>User Management</h1>
+
                 <div class="box">
-                <h2>Create User</h2>
-
-                <input id="newUsername" placeholder="Username">
-                <input id="newPassword" type="password" placeholder="Password">
-
-                <select id="newRole">
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-    </select>
-                <button onclick="createUser()">Create User</button>
-</div>
+                    <h2>Create User</h2>
+                    <input id="newUsername" placeholder="Username">
+                    <input id="newPassword" type="password" placeholder="Password">
+                    <select id="newRole">
+                        <option value="admin">Admin</option>
+                        <option value="user">User</option>
+                    </select>
+                    <button onclick="createUser()">Create User</button>
+                </div>
 
                 <div class="box">
                     <button onclick="loadUsers()">Load Users</button>
-
                     <table>
                         <thead>
                             <tr>
@@ -375,11 +355,10 @@
                     </table>
                 </div>
             </section>
-
         </main>
     </div>
 </div>
 
-<script src="app.js?v=2199"></script>
+<script src="app.js?v=2200"></script>
 </body>
 </html>
