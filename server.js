@@ -1064,6 +1064,38 @@ app.delete("/customers/:id", verifyToken, adminOnly, async (req, res) => {
         res.status(400).json({ error: "Customer delete failed" });
     }
 });
+// CUSTOMER PURCHASE HISTORY
+app.get("/customer-history/:id", async (req, res) => {
+    const customerId = req.params.id;
+
+    try {
+        const result = await pool.query(`
+            SELECT 
+                bs.id,
+                b.name AS branch_name,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                p.name AS product_name,
+                p.barcode,
+                bs.qty,
+                bs.price,
+                bs.cost,
+                bs.profit,
+                bs.date
+            FROM branch_sales bs
+            JOIN branches b ON bs.branch_id = b.id
+            JOIN products p ON bs.product_id = p.id
+            LEFT JOIN customers c ON bs.customer_id = c.id
+            WHERE bs.customer_id = $1
+            ORDER BY bs.date DESC
+        `, [customerId]);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("CUSTOMER HISTORY ERROR:", err);
+        res.status(500).json({ error: "Customer history failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
