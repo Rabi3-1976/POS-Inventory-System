@@ -135,7 +135,32 @@
             </section>
         <section id="customersPage" class="page" style="display:none;">
     <h1>Customers</h1>
+<div class="box">
+    <h2>Customer Purchase History</h2>
 
+    <select id="historyCustomer"></select>
+
+    <button onclick="loadCustomerHistory()">Load History</button>
+    <button onclick="printCustomerHistory()">Print History</button>
+    <button onclick="exportCustomerHistoryExcel()">Export Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Branch</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+                <th>Profit</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="customerHistoryTable"></tbody>
+    </table>
+</div>
     <div class="box">
         <h2>Add Customer</h2>
 

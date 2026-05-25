@@ -128,7 +128,8 @@ window.showPage = function (pageId) {
     }
     if (pageId === "customersPage") {
     loadCustomers();
-    }
+    loadHistoryCustomerOptions();
+}
     if (pageId === "posPage") {
     loadSaleBranchOptions();
     loadSaleCustomerOptions();
@@ -1659,4 +1660,169 @@ window.loadSaleCustomerOptions = async function () {
             </option>
         `;
     });
+};
+window.loadHistoryCustomerOptions = async function () {
+    const res = await fetch(API + "/customers");
+    const customers = await res.json();
+
+    const select = document.getElementById("historyCustomer");
+    if (!select) return;
+
+    select.innerHTML = "";
+
+    customers.forEach(c => {
+        select.innerHTML += `
+            <option value="${c.id}">
+                ${c.name} - ${c.phone}
+            </option>
+        `;
+    });
+};
+
+window.loadCustomerHistory = async function () {
+    const customerId = document.getElementById("historyCustomer").value;
+
+    if (!customerId) {
+        alert("Please select customer");
+        return;
+    }
+
+    const res = await fetch(API + "/customer-history/" + customerId);
+    const rows = await res.json();
+
+    const table = document.getElementById("customerHistoryTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        const unitPrice = Number(r.price) / Number(r.qty || 1);
+        const total = Number(r.price || 0);
+        const profit = Number(r.profit || 0);
+
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.qty}</td>
+                <td>${unitPrice.toFixed(2)}</td>
+                <td>${total.toFixed(2)}</td>
+                <td>${profit.toFixed(2)}</td>
+                <td>${r.date}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printCustomerHistory = async function () {
+    const customerId = document.getElementById("historyCustomer").value;
+
+    if (!customerId) {
+        alert("Please select customer");
+        return;
+    }
+
+    const res = await fetch(API + "/customer-history/" + customerId);
+    const rows = await res.json();
+
+    const selectedText = document.getElementById("historyCustomer")
+        .options[document.getElementById("historyCustomer").selectedIndex].text;
+
+    let reportWindow = window.open("", "_blank");
+
+    let html = `
+        <html>
+        <head>
+            <title>Customer Purchase History</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Customer Purchase History</h1>
+            <p><strong>Customer:</strong> ${selectedText}</p>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Branch</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Total</th>
+                        <th>Profit</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    rows.forEach(r => {
+        const unitPrice = Number(r.price) / Number(r.qty || 1);
+        const total = Number(r.price || 0);
+        const profit = Number(r.profit || 0);
+
+        html += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.qty}</td>
+                <td>${unitPrice.toFixed(2)}</td>
+                <td>${total.toFixed(2)}</td>
+                <td>${profit.toFixed(2)}</td>
+                <td>${r.date}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportCustomerHistoryExcel = async function () {
+    const customerId = document.getElementById("historyCustomer").value;
+
+    if (!customerId) {
+        alert("Please select customer");
+        return;
+    }
+
+    const res = await fetch(API + "/customer-history/" + customerId);
+    const rows = await res.json();
+
+    let csv = "ID,Branch,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
+
+    rows.forEach(r => {
+        const unitPrice = Number(r.price) / Number(r.qty || 1);
+        const total = Number(r.price || 0);
+        const profit = Number(r.profit || 0);
+
+        csv += `${r.id},${r.branch_name},${r.product_name},${r.barcode},${r.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${r.date}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "customer_purchase_history.csv";
+    link.click();
 };
