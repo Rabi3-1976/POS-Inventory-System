@@ -657,34 +657,47 @@ window.checkoutCart = async function () {
         return;
     }
 
+    const branch_id = document.getElementById("saleBranch").value;
+
+    if (!branch_id) {
+        alert("Please select branch");
+        return;
+    }
+
+    const customer_id = document.getElementById("saleCustomer")
+        ? document.getElementById("saleCustomer").value
+        : "";
+
     try {
-        const customer_id = document.getElementById("saleCustomer")
-            ? document.getElementById("saleCustomer").value
-            : "";
+        const items = cart.map(item => ({
+            product_id: item.id,
+            qty: item.qty
+        }));
 
-        for (const item of cart) {
-            const res = await fetch(API + "/branch-sale", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    branch_id: item.branch_id,
-                    product_id: item.id,
-                    qty: item.qty,
-                    customer_id: customer_id || null
-                })
-            });
+        const res = await fetch(API + "/checkout-invoice", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + localStorage.getItem("token")
+            },
+            body: JSON.stringify({
+                branch_id,
+                customer_id: customer_id || null,
+                payment_method: "Cash",
+                items
+            })
+        });
 
-            const data = await res.json();
+        const data = await res.json();
 
-            if (data.error) {
-                alert(data.error);
-                return;
-            }
+        if (data.error) {
+            alert(data.error);
+            return;
         }
 
-        printCartReceipt();
+        printCartReceipt(data.invoice_no);
 
-        alert("Sale completed successfully");
+        alert("Sale completed successfully\nInvoice: " + data.invoice_no);
 
         cart = [];
         displayCart();
@@ -700,13 +713,15 @@ window.checkoutCart = async function () {
             loadBranchDashboard();
         }
 
+        setText("availableBranchStock", "0");
+
     } catch (err) {
-        console.error("CHECKOUT ERROR:", err);
+        console.error("CHECKOUT INVOICE ERROR:", err);
         alert("Checkout failed: " + err.message);
     }
 };
 
-window.printCartReceipt = function () {
+window.printCartReceipt = function (invoiceNo) {
     let receiptWindow = window.open("", "_blank");
 
     let total = 0;
@@ -726,7 +741,7 @@ window.printCartReceipt = function () {
         `;
     });
 
-    const invoiceNumber = "INV-" + Date.now();
+    const invoiceNumber = invoiceNo || ("INV-" + Date.now());
     const customerName = cart.length > 0 && cart[0].customer_name
     ? cart[0].customer_name
     : "Walk-in Customer";
