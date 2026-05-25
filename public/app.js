@@ -68,6 +68,7 @@ window.login = async function () {
 
         localStorage.setItem("token", token);
         localStorage.setItem("role", currentRole);
+        localStorage.setItem("username", username);
         applyRolePermissions();
 
         document.getElementById("loginSection").style.display = "none";
@@ -97,6 +98,7 @@ window.login = async function () {
 window.logout = function () {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
+    localStorage.removeItem("username");
 
     token = "";
     currentRole = "";
@@ -728,63 +730,310 @@ window.printCartReceipt = function (invoiceNo) {
     let rows = "";
 
     cart.forEach(item => {
-        const lineTotal = item.price * item.qty;
+        const lineTotal = Number(item.price) * Number(item.qty);
         total += lineTotal;
 
         rows += `
             <tr>
-                <td>${safeHtml(item.name)}</td>
+                <td>${item.name}</td>
+                <td>${item.barcode}</td>
                 <td>${item.qty}</td>
-                <td>${money(item.price)}</td>
-                <td>${money(lineTotal)}</td>
+                <td>$${Number(item.price).toFixed(2)}</td>
+                <td>$${lineTotal.toFixed(2)}</td>
             </tr>
         `;
     });
 
     const invoiceNumber = invoiceNo || ("INV-" + Date.now());
-    const customerName = cart.length > 0 && cart[0].customer_name
-    ? cart[0].customer_name
-    : "Walk-in Customer";
+
+    const customerSelect = document.getElementById("saleCustomer");
+    const customerName = customerSelect && customerSelect.value
+        ? customerSelect.options[customerSelect.selectedIndex].text
+        : "Walk-in Customer";
+
+    const branchSelect = document.getElementById("saleBranch");
+    const branchName = branchSelect && branchSelect.value
+        ? branchSelect.options[branchSelect.selectedIndex].text
+        : "";
+
+    const paymentMethod = "Cash";
+    const cashier = localStorage.getItem("username") || currentRole || "User";
+
     const html = `
         <html>
         <head>
-            <title>Invoice</title>
+            <title>${invoiceNumber}</title>
+
             <style>
-                body { font-family: Arial; padding: 20px; width: 420px; color: #222; }
-                .header { text-align: center; margin-bottom: 20px; }
-                .header img { width: 80px; height: 80px; object-fit: contain; }
-                h1 { margin: 5px 0; }
-                .company-info { font-size: 13px; color: #555; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: center; font-size: 14px; }
-                th { background: #f2f2f2; }
-                .total { text-align: right; margin-top: 20px; font-size: 20px; font-weight: bold; }
-                .footer { margin-top: 30px; text-align: center; font-size: 13px; color: #666; }
+                @page {
+                    size: A4;
+                    margin: 12mm;
+                }
+
+                body {
+                    font-family: Arial, sans-serif;
+                    color: #111827;
+                    margin: 0;
+                    padding: 0;
+                    background: white;
+                }
+
+                .invoice {
+                    max-width: 800px;
+                    margin: auto;
+                    padding: 20px;
+                    border: 1px solid #e5e7eb;
+                }
+
+                .header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-bottom: 3px solid #111827;
+                    padding-bottom: 15px;
+                    margin-bottom: 20px;
+                }
+
+                .company {
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                }
+
+                .company img {
+                    width: 75px;
+                    height: 75px;
+                    object-fit: contain;
+                }
+
+                .company h1 {
+                    margin: 0;
+                    font-size: 24px;
+                    color: #111827;
+                }
+
+                .company p {
+                    margin: 3px 0;
+                    font-size: 13px;
+                    color: #4b5563;
+                }
+
+                .invoice-title {
+                    text-align: right;
+                }
+
+                .invoice-title h2 {
+                    margin: 0;
+                    font-size: 28px;
+                    color: #111827;
+                }
+
+                .invoice-title p {
+                    margin: 5px 0;
+                    font-size: 14px;
+                }
+
+                .info-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 15px;
+                    margin-bottom: 20px;
+                }
+
+                .info-box {
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    padding: 12px;
+                    background: #f9fafb;
+                }
+
+                .info-box h3 {
+                    margin: 0 0 8px 0;
+                    font-size: 15px;
+                    color: #111827;
+                    border-bottom: 1px solid #d1d5db;
+                    padding-bottom: 5px;
+                }
+
+                .info-box p {
+                    margin: 5px 0;
+                    font-size: 14px;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 15px;
+                }
+
+                th {
+                    background: #111827;
+                    color: white;
+                    padding: 10px;
+                    font-size: 14px;
+                    border: 1px solid #111827;
+                }
+
+                td {
+                    padding: 10px;
+                    font-size: 14px;
+                    border: 1px solid #d1d5db;
+                    text-align: center;
+                }
+
+                td:first-child {
+                    text-align: left;
+                }
+
+                .totals {
+                    margin-top: 20px;
+                    display: flex;
+                    justify-content: flex-end;
+                }
+
+                .totals-box {
+                    width: 300px;
+                    border: 1px solid #111827;
+                }
+
+                .totals-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 10px;
+                    border-bottom: 1px solid #d1d5db;
+                    font-size: 15px;
+                }
+
+                .totals-row:last-child {
+                    border-bottom: none;
+                    background: #111827;
+                    color: white;
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+
+                .footer {
+                    margin-top: 30px;
+                    text-align: center;
+                    font-size: 13px;
+                    color: #6b7280;
+                    border-top: 1px solid #e5e7eb;
+                    padding-top: 15px;
+                }
+
+                .signature-area {
+                    margin-top: 40px;
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 40px;
+                }
+
+                .signature {
+                    flex: 1;
+                    border-top: 1px solid #111827;
+                    text-align: center;
+                    padding-top: 8px;
+                    font-size: 13px;
+                }
+
+                @media print {
+                    body {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+
+                    .invoice {
+                        border: none;
+                        padding: 0;
+                    }
+                }
             </style>
         </head>
+
         <body>
-            <div class="header">
-                <img src="logo.png">
-                <h1>Your Company Name</h1>
-                <div class="company-info">
-                    Beirut, Lebanon<br>
-                    Phone: +961 XX XXX XXX<br>
-                    Email: info@company.com
+            <div class="invoice">
+
+                <div class="header">
+                    <div class="company">
+                        <img src="logo.png" alt="Logo">
+
+                        <div>
+                            <h1>POS Inventory System</h1>
+                            <p>Beirut, Lebanon</p>
+                            <p>Phone: +961 XX XXX XXX</p>
+                            <p>Email: info@company.com</p>
+                        </div>
+                    </div>
+
+                    <div class="invoice-title">
+                        <h2>INVOICE</h2>
+                        <p><strong>No:</strong> ${invoiceNumber}</p>
+                        <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+                    </div>
                 </div>
+
+                <div class="info-grid">
+                    <div class="info-box">
+                        <h3>Customer Information</h3>
+                        <p><strong>Customer:</strong> ${customerName}</p>
+                    </div>
+
+                    <div class="info-box">
+                        <h3>Sale Information</h3>
+                        <p><strong>Branch:</strong> ${branchName}</p>
+                        <p><strong>Cashier:</strong> ${cashier}</p>
+                        <p><strong>Payment:</strong> ${paymentMethod}</p>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Barcode</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+
+                <div class="totals">
+                    <div class="totals-box">
+                        <div class="totals-row">
+                            <span>Subtotal</span>
+                            <span>$${total.toFixed(2)}</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Discount</span>
+                            <span>$0.00</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Grand Total</span>
+                            <span>$${total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="signature-area">
+                    <div class="signature">Customer Signature</div>
+                    <div class="signature">Authorized Signature</div>
+                </div>
+
+                <div class="footer">
+                    Thank you for your business<br>
+                    This invoice was generated by POS Inventory System.
+                </div>
+
             </div>
-            <hr>
-            <p>
-            <strong>Invoice:</strong> ${invoiceNumber}<br>
-            <strong>Date:</strong> ${new Date().toLocaleString()}<br>
-            <strong>Customer:</strong> ${customerName}
-            </p>
-            <table>
-                <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-            <div class="total">Grand Total: $${money(total)}</div>
-            <div class="footer">Thank you for your business</div>
-            <script>window.print();</script>
+
+            <script>
+                window.print();
+            </script>
         </body>
         </html>
     `;
