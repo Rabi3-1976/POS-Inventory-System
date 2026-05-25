@@ -1096,6 +1096,50 @@ app.get("/customer-history/:id", async (req, res) => {
         res.status(500).json({ error: "Customer history failed" });
     }
 });
+// EXPENSES
+app.post("/expenses", verifyToken, async (req, res) => {
+    const { category, amount, notes } = req.body;
+
+    if (!category || !amount || Number(amount) <= 0) {
+        return res.status(400).json({ error: "Category and valid amount are required" });
+    }
+
+    try {
+        await pool.query(
+            "INSERT INTO expenses (category, amount, notes) VALUES ($1, $2, $3)",
+            [category, Number(amount), notes || ""]
+        );
+
+        res.json({ message: "Expense added" });
+    } catch (err) {
+        console.error("ADD EXPENSE ERROR:", err);
+        res.status(500).json({ error: "Expense add failed" });
+    }
+});
+
+app.get("/expenses", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT * FROM expenses
+            ORDER BY date DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("LOAD EXPENSES ERROR:", err);
+        res.status(500).json({ error: "Expenses failed to load" });
+    }
+});
+
+app.delete("/expenses/:id", verifyToken, adminOnly, async (req, res) => {
+    try {
+        await pool.query("DELETE FROM expenses WHERE id = $1", [req.params.id]);
+        res.json({ message: "Expense deleted" });
+    } catch (err) {
+        console.error("DELETE EXPENSE ERROR:", err);
+        res.status(500).json({ error: "Expense delete failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

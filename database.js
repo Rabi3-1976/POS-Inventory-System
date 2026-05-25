@@ -134,6 +134,15 @@ await pool.query(`
 
     console.log("PostgreSQL tables ready");
 }
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS expenses (
+        id SERIAL PRIMARY KEY,
+        category TEXT NOT NULL,
+        amount NUMERIC DEFAULT 0,
+        notes TEXT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
 
 initializeDatabase().catch(err => {
     console.error("Database initialization failed:", err);
