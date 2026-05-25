@@ -131,9 +131,6 @@ await pool.query(`
     ALTER TABLE sales
     ADD COLUMN IF NOT EXISTS customer_id INTEGER
 `);
-
-    console.log("PostgreSQL tables ready");
-}
 await pool.query(`
     CREATE TABLE IF NOT EXISTS expenses (
         id SERIAL PRIMARY KEY,
@@ -143,7 +140,8 @@ await pool.query(`
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
-
+    console.log("PostgreSQL tables ready");
+}
 initializeDatabase().catch(err => {
     console.error("Database initialization failed:", err);
 });
