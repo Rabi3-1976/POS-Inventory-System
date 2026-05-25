@@ -29,6 +29,7 @@
             <button onclick="showPage('productsPage')">Products</button>
             <button onclick="showPage('customersPage')">Customers</button>
             <button onclick="showPage('expensesPage')">Expenses</button>
+            <button onclick="showPage('closingPage')">Daily Closing</button>
             <button onclick="showPage('posPage')">POS</button>
             <button onclick="showPage('receivingPage')">Receiving</button>
             <button onclick="showPage('reportsPage')">Reports</button>
@@ -228,6 +229,38 @@
                 </tr>
             </thead>
             <tbody id="expensesTable"></tbody>
+        </table>
+    </div>
+</section>
+<section id="closingPage" class="page" style="display:none;">
+    <h1>Daily Closing Report</h1>
+
+    <div class="dashboard">
+        <div class="card">Today Sales<br>$<span id="closingSales">0.00</span></div>
+        <div class="card">Today Profit<br>$<span id="closingProfit">0.00</span></div>
+        <div class="card">Today Expenses<br>$<span id="closingExpenses">0.00</span></div>
+        <div class="card">Net Profit<br>$<span id="closingNetProfit">0.00</span></div>
+        <div class="card">Transactions<br><span id="closingTransactions">0</span></div>
+    </div>
+
+    <div class="box">
+        <h2>Today Expenses</h2>
+
+        <button onclick="loadDailyClosing()">Refresh Closing</button>
+        <button onclick="printDailyClosing()">Print Closing Report</button>
+        <button onclick="exportDailyClosingExcel()">Export Closing Excel</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Notes</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="closingExpensesTable"></tbody>
         </table>
     </div>
 </section>

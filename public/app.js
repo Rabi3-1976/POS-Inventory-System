@@ -133,6 +133,9 @@ window.showPage = function (pageId) {
     if (pageId === "expensesPage") {
     loadExpenses();
 }
+if (pageId === "closingPage") {
+    loadDailyClosing();
+}
     if (pageId === "posPage") {
     loadSaleBranchOptions();
     loadSaleCustomerOptions();
@@ -1985,5 +1988,146 @@ window.exportExpensesExcel = async function () {
 
     link.href = URL.createObjectURL(blob);
     link.download = "expenses_report.csv";
+    link.click();
+};
+window.loadDailyClosing = async function () {
+    const res = await fetch(API + "/daily-closing");
+    const data = await res.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    setText("closingSales", Number(data.total_sales || 0).toFixed(2));
+    setText("closingProfit", Number(data.total_profit || 0).toFixed(2));
+    setText("closingExpenses", Number(data.total_expenses || 0).toFixed(2));
+    setText("closingNetProfit", Number(data.net_profit || 0).toFixed(2));
+    setText("closingTransactions", data.total_transactions || 0);
+
+    const table = document.getElementById("closingExpensesTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    data.expenses.forEach(e => {
+        table.innerHTML += `
+            <tr>
+                <td>${e.id}</td>
+                <td>${e.category}</td>
+                <td>${Number(e.amount || 0).toFixed(2)}</td>
+                <td>${e.notes || ""}</td>
+                <td>${e.date}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printDailyClosing = async function () {
+    const res = await fetch(API + "/daily-closing");
+    const data = await res.json();
+
+    let expenseRows = "";
+
+    data.expenses.forEach(e => {
+        expenseRows += `
+            <tr>
+                <td>${e.id}</td>
+                <td>${e.category}</td>
+                <td>${Number(e.amount || 0).toFixed(2)}</td>
+                <td>${e.notes || ""}</td>
+                <td>${e.date}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Daily Closing Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                .summary {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 10px;
+                    margin-top: 20px;
+                }
+                .card {
+                    border: 1px solid #000;
+                    padding: 12px;
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Daily Closing Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <div class="summary">
+                <div class="card">Today Sales: $${Number(data.total_sales || 0).toFixed(2)}</div>
+                <div class="card">Today Profit: $${Number(data.total_profit || 0).toFixed(2)}</div>
+                <div class="card">Today Expenses: $${Number(data.total_expenses || 0).toFixed(2)}</div>
+                <div class="card">Net Profit: $${Number(data.net_profit || 0).toFixed(2)}</div>
+                <div class="card">Transactions: ${data.total_transactions || 0}</div>
+            </div>
+
+            <h2>Today Expenses</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Notes</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${expenseRows}
+                </tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportDailyClosingExcel = async function () {
+    const res = await fetch(API + "/daily-closing");
+    const data = await res.json();
+
+    let csv = "Daily Closing Report\n";
+    csv += `Date,${new Date().toLocaleString()}\n\n`;
+    csv += `Today Sales,${Number(data.total_sales || 0).toFixed(2)}\n`;
+    csv += `Today Profit,${Number(data.total_profit || 0).toFixed(2)}\n`;
+    csv += `Today Expenses,${Number(data.total_expenses || 0).toFixed(2)}\n`;
+    csv += `Net Profit,${Number(data.net_profit || 0).toFixed(2)}\n`;
+    csv += `Transactions,${data.total_transactions || 0}\n\n`;
+
+    csv += "Expenses\n";
+    csv += "ID,Category,Amount,Notes,Date\n";
+
+    data.expenses.forEach(e => {
+        csv += `${e.id},${e.category},${Number(e.amount || 0).toFixed(2)},${e.notes || ""},${e.date}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "daily_closing_report.csv";
     link.click();
 };
