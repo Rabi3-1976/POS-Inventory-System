@@ -1140,6 +1140,51 @@ app.delete("/expenses/:id", verifyToken, adminOnly, async (req, res) => {
         res.status(500).json({ error: "Expense delete failed" });
     }
 });
+// DAILY CLOSING REPORT
+app.get("/daily-closing", async (req, res) => {
+    try {
+        const sales = await pool.query(`
+            SELECT 
+                COALESCE(SUM(price), 0) AS total_sales,
+                COALESCE(SUM(profit), 0) AS total_profit,
+                COUNT(*) AS total_transactions
+            FROM sales
+            WHERE DATE(date) = CURRENT_DATE
+        `);
+
+        const expenses = await pool.query(`
+            SELECT 
+                COALESCE(SUM(amount), 0) AS total_expenses
+            FROM expenses
+            WHERE DATE(date) = CURRENT_DATE
+        `);
+
+        const expenseList = await pool.query(`
+            SELECT *
+            FROM expenses
+            WHERE DATE(date) = CURRENT_DATE
+            ORDER BY date DESC
+        `);
+
+        const salesValue = Number(sales.rows[0].total_sales || 0);
+        const profitValue = Number(sales.rows[0].total_profit || 0);
+        const expensesValue = Number(expenses.rows[0].total_expenses || 0);
+
+        res.json({
+            date: new Date().toISOString(),
+            total_sales: salesValue,
+            total_profit: profitValue,
+            total_expenses: expensesValue,
+            net_profit: profitValue - expensesValue,
+            total_transactions: Number(sales.rows[0].total_transactions || 0),
+            expenses: expenseList.rows
+        });
+
+    } catch (err) {
+        console.error("DAILY CLOSING ERROR:", err);
+        res.status(500).json({ error: "Daily closing failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
