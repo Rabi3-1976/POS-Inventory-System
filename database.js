@@ -140,6 +140,32 @@ await pool.query(`
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS invoices (
+        id SERIAL PRIMARY KEY,
+        invoice_no TEXT UNIQUE,
+        customer_id INTEGER,
+        branch_id INTEGER,
+        user_id INTEGER,
+        payment_method TEXT DEFAULT 'Cash',
+        total NUMERIC DEFAULT 0,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS invoice_items (
+        id SERIAL PRIMARY KEY,
+        invoice_id INTEGER,
+        product_id INTEGER,
+        product_name TEXT,
+        barcode TEXT,
+        qty INTEGER,
+        unit_price NUMERIC DEFAULT 0,
+        line_total NUMERIC DEFAULT 0
+    )
+`);
+
     console.log("PostgreSQL tables ready");
 }
 initializeDatabase().catch(err => {
