@@ -24,15 +24,15 @@
     <div class="layout">
         <aside class="sidebar">
             <h2>POS System</h2>
-            <button onclick="showPage('dashboardPage')">Dashboard</button>
-            <button onclick="showPage('branchDashboardPage')">Branch Dashboard</button>
-            <button onclick="showPage('productsPage')">Products</button>
-            <button onclick="showPage('customersPage')">Customers</button>
-            <button onclick="showPage('expensesPage')">Expenses</button>
-            <button onclick="showPage('closingPage')">Daily Closing</button>
-            <button onclick="showPage('posPage')">POS</button>
-            <button onclick="showPage('receivingPage')">Receiving</button>
-            <button onclick="showPage('reportsPage')">Reports</button>
+            <button id="dashboardMenuBtn" onclick="showPage('dashboardPage')">Dashboard</button>
+            <button id="branchDashboardMenuBtn" onclick="showPage('branchDashboardPage')">Branch Dashboard</button>
+            <button id="productsMenuBtn" onclick="showPage('productsPage')">Products</button>
+            <button id="posMenuBtn" onclick="showPage('posPage')">POS</button>
+            <button id="receivingMenuBtn" onclick="showPage('receivingPage')">Receiving</button>
+            <button id="reportsMenuBtn" onclick="showPage('reportsPage')">Reports</button>
+            <button id="customersMenuBtn" onclick="showPage('customersPage')">Customers</button>
+            <button id="expensesMenuBtn" onclick="showPage('expensesPage')">Expenses</button>
+            <button id="closingMenuBtn" onclick="showPage('closingPage')">Daily Closing</button>
             <button id="branchesMenuBtn" onclick="showPage('branchesPage')">Branches</button>
             <button id="suppliersMenuBtn" onclick="showPage('suppliersPage')">Suppliers</button>
             <button id="usersMenuBtn" onclick="showPage('usersPage')">Users</button>
@@ -465,10 +465,12 @@
                     <h2>Create User</h2>
                     <input id="newUsername" placeholder="Username">
                     <input id="newPassword" type="password" placeholder="Password">
-                    <select id="newRole">
-                        <option value="admin">Admin</option>
-                        <option value="user">User</option>
-                    </select>
+                        <select id="newRole">
+                            <option value="admin">Admin</option>
+                            <option value="cashier">Cashier</option>
+                            <option value="warehouse">Warehouse</option>
+                            <option value="manager">Manager</option>
+                        </select>
                     <button onclick="createUser()">Create User</button>
                 </div>
 

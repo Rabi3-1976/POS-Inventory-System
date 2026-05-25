@@ -68,6 +68,7 @@ window.login = async function () {
 
         localStorage.setItem("token", token);
         localStorage.setItem("role", currentRole);
+        applyRolePermissions();
 
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("mainSection").style.display = "block";
@@ -78,7 +79,15 @@ window.login = async function () {
         const usersMenuBtn = document.getElementById("usersMenuBtn");
         if (usersMenuBtn) usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
 
-        showPage("productsPage");
+        if (currentRole === "cashier") {
+                showPage("posPage");
+}                   else if (currentRole === "warehouse") {
+                        showPage("productsPage");
+}                               else if (currentRole === "manager") {
+                                    showPage("dashboardPage");
+}                                   else {
+                    showPage("dashboardPage");
+}
     } catch (err) {
         console.error("LOGIN ERROR:", err);
         alert(err.message || "Login failed");
@@ -101,6 +110,27 @@ window.logout = function () {
 
 // NAVIGATION
 window.showPage = function (pageId) {
+    const role = currentRole || localStorage.getItem("role");
+
+const pagePermissions = {
+    dashboardPage: ["admin", "manager"],
+    branchDashboardPage: ["admin", "manager"],
+    productsPage: ["admin", "warehouse"],
+    posPage: ["admin", "cashier"],
+    receivingPage: ["admin", "warehouse"],
+    reportsPage: ["admin", "manager"],
+    customersPage: ["admin", "cashier", "manager"],
+    expensesPage: ["admin", "manager"],
+    closingPage: ["admin", "manager"],
+    branchesPage: ["admin", "warehouse"],
+    suppliersPage: ["admin", "warehouse"],
+    usersPage: ["admin"]
+};
+
+if (pagePermissions[pageId] && !pagePermissions[pageId].includes(role)) {
+    alert("Access denied for your role");
+    return;
+}
     document.querySelectorAll(".page").forEach(page => {
         page.style.display = "none";
     });
@@ -1500,6 +1530,7 @@ window.addEventListener("load", async () => {
     if (savedToken && savedRole) {
         token = savedToken;
         currentRole = savedRole;
+        applyRolePermissions();
 
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("mainSection").style.display = "block";
@@ -1510,7 +1541,15 @@ window.addEventListener("load", async () => {
         const usersMenuBtn = document.getElementById("usersMenuBtn");
         if (usersMenuBtn) usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
 
-        showPage("productsPage");
+        if (currentRole === "cashier") {
+        showPage("posPage");
+}           else if (currentRole === "warehouse") {
+                showPage("productsPage");
+}                   else if (currentRole === "manager") {
+                        showPage("dashboardPage");
+}                           else {
+                                showPage("dashboardPage");
+}
     } else {
         document.getElementById("loginSection").style.display = "block";
         document.getElementById("mainSection").style.display = "none";
@@ -2130,4 +2169,72 @@ window.exportDailyClosingExcel = async function () {
     link.href = URL.createObjectURL(blob);
     link.download = "daily_closing_report.csv";
     link.click();
+};
+window.applyRolePermissions = function () {
+    const role = currentRole || localStorage.getItem("role");
+
+    const allButtons = [
+        "dashboardMenuBtn",
+        "branchDashboardMenuBtn",
+        "productsMenuBtn",
+        "posMenuBtn",
+        "receivingMenuBtn",
+        "reportsMenuBtn",
+        "customersMenuBtn",
+        "expensesMenuBtn",
+        "closingMenuBtn",
+        "branchesMenuBtn",
+        "suppliersMenuBtn",
+        "usersMenuBtn"
+    ];
+
+    allButtons.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.display = "none";
+    });
+
+    const permissions = {
+        admin: [
+            "dashboardMenuBtn",
+            "branchDashboardMenuBtn",
+            "productsMenuBtn",
+            "posMenuBtn",
+            "receivingMenuBtn",
+            "reportsMenuBtn",
+            "customersMenuBtn",
+            "expensesMenuBtn",
+            "closingMenuBtn",
+            "branchesMenuBtn",
+            "suppliersMenuBtn",
+            "usersMenuBtn"
+        ],
+
+        cashier: [
+            "posMenuBtn",
+            "customersMenuBtn"
+        ],
+
+        warehouse: [
+            "productsMenuBtn",
+            "receivingMenuBtn",
+            "branchesMenuBtn",
+            "suppliersMenuBtn"
+        ],
+
+        manager: [
+            "dashboardMenuBtn",
+            "branchDashboardMenuBtn",
+            "reportsMenuBtn",
+            "customersMenuBtn",
+            "expensesMenuBtn",
+            "closingMenuBtn"
+        ]
+    };
+
+    const allowed = permissions[role] || [];
+
+    allowed.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.display = "block";
+    });
 };
