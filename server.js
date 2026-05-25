@@ -68,7 +68,7 @@ app.post("/login", async (req, res) => {
 });
 
 // USERS
-app.post("/create-user", async (req, res) => {
+app.post("/create-user", verifyToken, adminOnly, async (req, res) => {
     const { username, password, role } = req.body;
 
     try {
