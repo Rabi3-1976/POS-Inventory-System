@@ -2866,3 +2866,19 @@ window.printSavedInvoice = function (invoice, items) {
     reportWindow.document.write(html);
     reportWindow.document.close();
 };
+window.backfillInvoices = async function () {
+    if (!confirm("Convert old sales into invoice records? Run this only once.")) return;
+
+    const res = await fetch(API + "/backfill-invoices", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+
+    alert(data.message + "\nInvoices created: " + (data.invoicesCreated || 0));
+
+    loadInvoices();
+};
