@@ -1185,6 +1185,159 @@ app.get("/daily-closing", async (req, res) => {
         res.status(500).json({ error: "Daily closing failed" });
     }
 });
+// CREATE INVOICE WITH BRANCH SALES
+app.post("/checkout-invoice", verifyToken, async (req, res) => {
+    const { branch_id, customer_id, payment_method, items } = req.body;
+
+    if (!branch_id || !items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "Invalid invoice data" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const invoiceNo = "INV-" + Date.now();
+
+        let invoiceTotal = 0;
+
+        for (const item of items) {
+            const productResult = await client.query(
+                "SELECT * FROM products WHERE id = $1",
+                [item.product_id]
+            );
+
+            const product = productResult.rows[0];
+
+            if (!product) {
+                await client.query("ROLLBACK");
+                return res.status(404).json({
+                    error: "Product not found"
+                });
+            }
+
+            const branchStockResult = await client.query(
+                "SELECT stock FROM branch_stock WHERE branch_id = $1 AND product_id = $2",
+                [branch_id, item.product_id]
+            );
+
+            if (
+                branchStockResult.rows.length === 0 ||
+                Number(branchStockResult.rows[0].stock) < Number(item.qty)
+            ) {
+                await client.query("ROLLBACK");
+                return res.status(400).json({
+                    error: `Not enough stock for ${product.name}`
+                });
+            }
+
+            invoiceTotal += Number(product.price) * Number(item.qty);
+        }
+
+        const invoiceResult = await client.query(
+            `INSERT INTO invoices 
+             (invoice_no, customer_id, branch_id, user_id, payment_method, total)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, invoice_no`,
+            [
+                invoiceNo,
+                customer_id || null,
+                branch_id,
+                req.user.id,
+                payment_method || "Cash",
+                invoiceTotal
+            ]
+        );
+
+        const invoice = invoiceResult.rows[0];
+
+        for (const item of items) {
+            const productResult = await client.query(
+                "SELECT * FROM products WHERE id = $1",
+                [item.product_id]
+            );
+
+            const product = productResult.rows[0];
+
+            const qty = Number(item.qty);
+            const unitPrice = Number(product.price);
+            const lineTotal = unitPrice * qty;
+            const totalCost = Number(product.cost || 0) * qty;
+            const profit = lineTotal - totalCost;
+
+            await client.query(
+                "UPDATE branch_stock SET stock = stock - $1 WHERE branch_id = $2 AND product_id = $3",
+                [qty, branch_id, item.product_id]
+            );
+
+            await client.query(
+                "UPDATE products SET stock = stock - $1 WHERE id = $2",
+                [qty, item.product_id]
+            );
+
+            await client.query(
+                `INSERT INTO branch_sales 
+                 (branch_id, product_id, customer_id, qty, price, cost, profit)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                    branch_id,
+                    item.product_id,
+                    customer_id || null,
+                    qty,
+                    lineTotal,
+                    totalCost,
+                    profit
+                ]
+            );
+
+            await client.query(
+                `INSERT INTO sales 
+                 (product_id, customer_id, qty, price, cost, profit)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [
+                    item.product_id,
+                    customer_id || null,
+                    qty,
+                    lineTotal,
+                    totalCost,
+                    profit
+                ]
+            );
+
+            await client.query(
+                `INSERT INTO invoice_items 
+                 (invoice_id, product_id, product_name, barcode, qty, unit_price, line_total)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                    invoice.id,
+                    item.product_id,
+                    product.name,
+                    product.barcode,
+                    qty,
+                    unitPrice,
+                    lineTotal
+                ]
+            );
+        }
+
+        await client.query("COMMIT");
+
+        res.json({
+            message: "Invoice created successfully",
+            invoice_id: invoice.id,
+            invoice_no: invoice.invoice_no,
+            total: invoiceTotal
+        });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("CHECKOUT INVOICE ERROR:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
