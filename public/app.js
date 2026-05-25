@@ -209,24 +209,27 @@ window.createUser = async function () {
     const role = document.getElementById("newRole").value;
 
     if (!username || !password || !role) {
-        alert("Please enter username, password and role");
+        alert("Please enter username, password, and role");
         return;
     }
 
-    try {
-        const data = await fetchJson("/create-user", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ username, password, role })
-        });
+    const res = await fetch(API + "/create-user", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({ username, password, role })
+    });
 
-        alert(data.message || "User created");
-        document.getElementById("newUsername").value = "";
-        document.getElementById("newPassword").value = "";
-        loadUsers();
-    } catch (err) {
-        alert(err.message);
-    }
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("newUsername").value = "";
+    document.getElementById("newPassword").value = "";
+
+    loadUsers();
 };
 
 window.loadUsers = async function () {
