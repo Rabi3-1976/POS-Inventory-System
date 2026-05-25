@@ -28,6 +28,7 @@
             <button onclick="showPage('branchDashboardPage')">Branch Dashboard</button>
             <button onclick="showPage('productsPage')">Products</button>
             <button onclick="showPage('customersPage')">Customers</button>
+            <button onclick="showPage('expensesPage')">Expenses</button>
             <button onclick="showPage('posPage')">POS</button>
             <button onclick="showPage('receivingPage')">Receiving</button>
             <button onclick="showPage('reportsPage')">Reports</button>
@@ -192,6 +193,41 @@
                 </tr>
             </thead>
             <tbody id="customersTable"></tbody>
+        </table>
+    </div>
+</section>
+<section id="expensesPage" class="page" style="display:none;">
+    <h1>Expenses</h1>
+
+    <div class="box">
+        <h2>Add Expense</h2>
+
+        <input id="expenseCategory" placeholder="Category">
+        <input id="expenseAmount" type="number" placeholder="Amount">
+        <input id="expenseNotes" placeholder="Notes">
+
+        <button onclick="addExpense()">Add Expense</button>
+    </div>
+
+    <div class="box">
+        <h2>Expense List</h2>
+
+        <button onclick="loadExpenses()">Load Expenses</button>
+        <button onclick="printExpensesReport()">Print Expenses Report</button>
+        <button onclick="exportExpensesExcel()">Export Expenses Excel</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Notes</th>
+                    <th>Date</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody id="expensesTable"></tbody>
         </table>
     </div>
 </section>

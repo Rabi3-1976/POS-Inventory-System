@@ -130,6 +130,9 @@ window.showPage = function (pageId) {
     loadCustomers();
     loadHistoryCustomerOptions();
 }
+    if (pageId === "expensesPage") {
+    loadExpenses();
+}
     if (pageId === "posPage") {
     loadSaleBranchOptions();
     loadSaleCustomerOptions();
@@ -1824,5 +1827,163 @@ window.exportCustomerHistoryExcel = async function () {
 
     link.href = URL.createObjectURL(blob);
     link.download = "customer_purchase_history.csv";
+    link.click();
+};
+window.addExpense = async function () {
+    const category = document.getElementById("expenseCategory").value.trim();
+    const amount = Number(document.getElementById("expenseAmount").value);
+    const notes = document.getElementById("expenseNotes").value.trim();
+
+    if (!category || amount <= 0) {
+        alert("Please enter category and valid amount");
+        return;
+    }
+
+    const res = await fetch(API + "/expenses", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({ category, amount, notes })
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    document.getElementById("expenseCategory").value = "";
+    document.getElementById("expenseAmount").value = "";
+    document.getElementById("expenseNotes").value = "";
+
+    loadExpenses();
+};
+
+window.loadExpenses = async function () {
+    const res = await fetch(API + "/expenses");
+    const expenses = await res.json();
+
+    const table = document.getElementById("expensesTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    expenses.forEach(e => {
+        table.innerHTML += `
+            <tr>
+                <td>${e.id}</td>
+                <td>${e.category}</td>
+                <td>${Number(e.amount || 0).toFixed(2)}</td>
+                <td>${e.notes || ""}</td>
+                <td>${e.date}</td>
+                <td>
+                    ${
+                        currentRole === "admin"
+                        ? `<button onclick="deleteExpense(${e.id})">Delete</button>`
+                        : ""
+                    }
+                </td>
+            </tr>
+        `;
+    });
+};
+
+window.deleteExpense = async function (id) {
+    if (!confirm("Delete this expense?")) return;
+
+    const res = await fetch(API + "/expenses/" + id, {
+        method: "DELETE",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    loadExpenses();
+};
+
+window.printExpensesReport = async function () {
+    const res = await fetch(API + "/expenses");
+    const expenses = await res.json();
+
+    let reportWindow = window.open("", "_blank");
+
+    let total = 0;
+
+    let rows = "";
+
+    expenses.forEach(e => {
+        total += Number(e.amount || 0);
+
+        rows += `
+            <tr>
+                <td>${e.id}</td>
+                <td>${e.category}</td>
+                <td>${Number(e.amount || 0).toFixed(2)}</td>
+                <td>${e.notes || ""}</td>
+                <td>${e.date}</td>
+            </tr>
+        `;
+    });
+
+    const html = `
+        <html>
+        <head>
+            <title>Expenses Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+                .total { font-size: 20px; font-weight: bold; margin-top: 20px; text-align: right; }
+            </style>
+        </head>
+        <body>
+            <h1>Expenses Report</h1>
+            <p>Date: ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Notes</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+
+            <div class="total">Total Expenses: $${total.toFixed(2)}</div>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportExpensesExcel = async function () {
+    const res = await fetch(API + "/expenses");
+    const expenses = await res.json();
+
+    let csv = "ID,Category,Amount,Notes,Date\n";
+
+    expenses.forEach(e => {
+        csv += `${e.id},${e.category},${Number(e.amount || 0).toFixed(2)},${e.notes || ""},${e.date}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "expenses_report.csv";
     link.click();
 };
