@@ -1338,6 +1338,76 @@ app.post("/checkout-invoice", verifyToken, async (req, res) => {
         client.release();
     }
 });
+// INVOICE REPORT
+app.get("/invoices", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                i.id,
+                i.invoice_no,
+                i.total,
+                i.payment_method,
+                i.date,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                b.name AS branch_name,
+                u.username AS cashier_name
+            FROM invoices i
+            LEFT JOIN customers c ON i.customer_id = c.id
+            LEFT JOIN branches b ON i.branch_id = b.id
+            LEFT JOIN users u ON i.user_id = u.id
+            ORDER BY i.date DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("INVOICE REPORT ERROR:", err);
+        res.status(500).json({ error: "Invoice report failed" });
+    }
+});
+
+app.get("/invoices/:id", async (req, res) => {
+    try {
+        const invoiceResult = await pool.query(`
+            SELECT 
+                i.id,
+                i.invoice_no,
+                i.total,
+                i.payment_method,
+                i.date,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                b.name AS branch_name,
+                u.username AS cashier_name
+            FROM invoices i
+            LEFT JOIN customers c ON i.customer_id = c.id
+            LEFT JOIN branches b ON i.branch_id = b.id
+            LEFT JOIN users u ON i.user_id = u.id
+            WHERE i.id = $1
+        `, [req.params.id]);
+
+        if (invoiceResult.rows.length === 0) {
+            return res.status(404).json({ error: "Invoice not found" });
+        }
+
+        const itemsResult = await pool.query(`
+            SELECT *
+            FROM invoice_items
+            WHERE invoice_id = $1
+            ORDER BY id
+        `, [req.params.id]);
+
+        res.json({
+            invoice: invoiceResult.rows[0],
+            items: itemsResult.rows
+        });
+
+    } catch (err) {
+        console.error("INVOICE DETAILS ERROR:", err);
+        res.status(500).json({ error: "Invoice details failed" });
+    }
+});
+
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
