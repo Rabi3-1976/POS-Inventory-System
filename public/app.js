@@ -121,6 +121,7 @@ const pagePermissions = {
     posPage: ["admin", "cashier"],
     receivingPage: ["admin", "warehouse"],
     reportsPage: ["admin", "manager"],
+    invoiceReportPage: ["admin", "manager"],
     customersPage: ["admin", "cashier", "manager"],
     expensesPage: ["admin", "manager"],
     closingPage: ["admin", "manager"],
@@ -198,7 +199,9 @@ if (pageId === "closingPage") {
         loadTransferOptions();
         loadStockTransfers();
     }
-
+    if (pageId === "invoiceReportPage") {
+        loadInvoices();
+}
     if (pageId === "usersPage") {
         loadUsers();
     }
@@ -2447,6 +2450,7 @@ window.applyRolePermissions = function () {
         "posMenuBtn",
         "receivingMenuBtn",
         "reportsMenuBtn",
+        "invoiceReportMenuBtn",
         "customersMenuBtn",
         "expensesMenuBtn",
         "closingMenuBtn",
@@ -2468,6 +2472,7 @@ window.applyRolePermissions = function () {
             "posMenuBtn",
             "receivingMenuBtn",
             "reportsMenuBtn",
+            "invoiceReportMenuBtn",
             "customersMenuBtn",
             "expensesMenuBtn",
             "closingMenuBtn",
@@ -2492,6 +2497,7 @@ window.applyRolePermissions = function () {
             "dashboardMenuBtn",
             "branchDashboardMenuBtn",
             "reportsMenuBtn",
+            "invoiceReportMenuBtn",
             "customersMenuBtn",
             "expensesMenuBtn",
             "closingMenuBtn"
@@ -2504,4 +2510,359 @@ window.applyRolePermissions = function () {
         const btn = document.getElementById(id);
         if (btn) btn.style.display = "block";
     });
+};
+window.loadInvoices = async function () {
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
+
+    displayInvoices(invoices);
+};
+
+window.displayInvoices = function (invoices) {
+    const table = document.getElementById("invoicesTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    invoices.forEach(inv => {
+        table.innerHTML += `
+            <tr>
+                <td>${inv.id}</td>
+                <td>${inv.invoice_no}</td>
+                <td>${inv.customer_name || "Walk-in Customer"}</td>
+                <td>${inv.customer_phone || ""}</td>
+                <td>${inv.branch_name || ""}</td>
+                <td>${inv.cashier_name || ""}</td>
+                <td>${inv.payment_method || "Cash"}</td>
+                <td>${Number(inv.total || 0).toFixed(2)}</td>
+                <td>${inv.date}</td>
+                <td><button onclick="reprintInvoice(${inv.id})">Reprint</button></td>
+            </tr>
+        `;
+    });
+};
+
+window.searchInvoices = async function () {
+    const search = document.getElementById("invoiceSearch").value.toLowerCase();
+
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
+
+    const filtered = invoices.filter(inv =>
+        String(inv.invoice_no || "").toLowerCase().includes(search) ||
+        String(inv.customer_name || "").toLowerCase().includes(search) ||
+        String(inv.customer_phone || "").toLowerCase().includes(search)
+    );
+
+    displayInvoices(filtered);
+};
+
+window.exportInvoicesExcel = async function () {
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
+
+    let csv = "ID,Invoice No,Customer,Phone,Branch,Cashier,Payment,Total,Date\n";
+
+    invoices.forEach(inv => {
+        csv += `${inv.id},${inv.invoice_no},${inv.customer_name || "Walk-in Customer"},${inv.customer_phone || ""},${inv.branch_name || ""},${inv.cashier_name || ""},${inv.payment_method || "Cash"},${Number(inv.total || 0).toFixed(2)},${inv.date}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "invoice_report.csv";
+    link.click();
+};
+
+window.reprintInvoice = async function (invoiceId) {
+    const res = await fetch(API + "/invoices/" + invoiceId);
+    const data = await res.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    printSavedInvoice(data.invoice, data.items);
+};
+
+window.printSavedInvoice = function (invoice, items) {
+    let rows = "";
+    let total = 0;
+
+    items.forEach(item => {
+        total += Number(item.line_total || 0);
+
+        rows += `
+            <tr>
+                <td>${item.product_name}</td>
+                <td>${item.barcode}</td>
+                <td>${item.qty}</td>
+                <td>$${Number(item.unit_price || 0).toFixed(2)}</td>
+                <td>$${Number(item.line_total || 0).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>${invoice.invoice_no}</title>
+            <style>
+                @page {
+                    size: A4;
+                    margin: 12mm;
+                }
+
+                body {
+                    font-family: Arial, sans-serif;
+                    color: #111827;
+                    margin: 0;
+                    padding: 0;
+                    background: white;
+                }
+
+                .invoice {
+                    max-width: 800px;
+                    margin: auto;
+                    padding: 20px;
+                    border: 1px solid #e5e7eb;
+                }
+
+                .header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-bottom: 3px solid #111827;
+                    padding-bottom: 15px;
+                    margin-bottom: 20px;
+                }
+
+                .company {
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                }
+
+                .company img {
+                    width: 75px;
+                    height: 75px;
+                    object-fit: contain;
+                }
+
+                .company h1 {
+                    margin: 0;
+                    font-size: 24px;
+                    color: #111827;
+                }
+
+                .company p {
+                    margin: 3px 0;
+                    font-size: 13px;
+                    color: #4b5563;
+                }
+
+                .invoice-title {
+                    text-align: right;
+                }
+
+                .invoice-title h2 {
+                    margin: 0;
+                    font-size: 28px;
+                    color: #111827;
+                }
+
+                .invoice-title p {
+                    margin: 5px 0;
+                    font-size: 14px;
+                }
+
+                .info-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 15px;
+                    margin-bottom: 20px;
+                }
+
+                .info-box {
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    padding: 12px;
+                    background: #f9fafb;
+                }
+
+                .info-box h3 {
+                    margin: 0 0 8px 0;
+                    font-size: 15px;
+                    border-bottom: 1px solid #d1d5db;
+                    padding-bottom: 5px;
+                }
+
+                .info-box p {
+                    margin: 5px 0;
+                    font-size: 14px;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 15px;
+                }
+
+                th {
+                    background: #111827;
+                    color: white;
+                    padding: 10px;
+                    font-size: 14px;
+                    border: 1px solid #111827;
+                }
+
+                td {
+                    padding: 10px;
+                    font-size: 14px;
+                    border: 1px solid #d1d5db;
+                    text-align: center;
+                }
+
+                td:first-child {
+                    text-align: left;
+                }
+
+                .totals {
+                    margin-top: 20px;
+                    display: flex;
+                    justify-content: flex-end;
+                }
+
+                .totals-box {
+                    width: 300px;
+                    border: 1px solid #111827;
+                }
+
+                .totals-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 10px;
+                    border-bottom: 1px solid #d1d5db;
+                    font-size: 15px;
+                }
+
+                .totals-row:last-child {
+                    border-bottom: none;
+                    background: #111827;
+                    color: white;
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+
+                .footer {
+                    margin-top: 30px;
+                    text-align: center;
+                    font-size: 13px;
+                    color: #6b7280;
+                    border-top: 1px solid #e5e7eb;
+                    padding-top: 15px;
+                }
+
+                @media print {
+                    body {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+
+                    .invoice {
+                        border: none;
+                        padding: 0;
+                    }
+                }
+            </style>
+        </head>
+
+        <body>
+            <div class="invoice">
+
+                <div class="header">
+                    <div class="company">
+                        <img src="logo.png" alt="Logo">
+
+                        <div>
+                            <h1>POS Inventory System</h1>
+                            <p>Beirut, Lebanon</p>
+                            <p>Phone: +961 XX XXX XXX</p>
+                            <p>Email: info@company.com</p>
+                        </div>
+                    </div>
+
+                    <div class="invoice-title">
+                        <h2>INVOICE</h2>
+                        <p><strong>No:</strong> ${invoice.invoice_no}</p>
+                        <p><strong>Date:</strong> ${invoice.date}</p>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-box">
+                        <h3>Customer Information</h3>
+                        <p><strong>Customer:</strong> ${invoice.customer_name || "Walk-in Customer"}</p>
+                        <p><strong>Phone:</strong> ${invoice.customer_phone || ""}</p>
+                    </div>
+
+                    <div class="info-box">
+                        <h3>Sale Information</h3>
+                        <p><strong>Branch:</strong> ${invoice.branch_name || ""}</p>
+                        <p><strong>Cashier:</strong> ${invoice.cashier_name || ""}</p>
+                        <p><strong>Payment:</strong> ${invoice.payment_method || "Cash"}</p>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Barcode</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+
+                <div class="totals">
+                    <div class="totals-box">
+                        <div class="totals-row">
+                            <span>Subtotal</span>
+                            <span>$${total.toFixed(2)}</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Discount</span>
+                            <span>$0.00</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Grand Total</span>
+                            <span>$${Number(invoice.total || total).toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    Thank you for your business<br>
+                    Reprinted from saved invoice record.
+                </div>
+
+            </div>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
 };

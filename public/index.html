@@ -30,6 +30,7 @@
             <button id="posMenuBtn" onclick="showPage('posPage')">POS</button>
             <button id="receivingMenuBtn" onclick="showPage('receivingPage')">Receiving</button>
             <button id="reportsMenuBtn" onclick="showPage('reportsPage')">Reports</button>
+            <button id="invoiceReportMenuBtn" onclick="showPage('invoiceReportPage')">Invoice Report</button>
             <button id="customersMenuBtn" onclick="showPage('customersPage')">Customers</button>
             <button id="expensesMenuBtn" onclick="showPage('expensesPage')">Expenses</button>
             <button id="closingMenuBtn" onclick="showPage('closingPage')">Daily Closing</button>
@@ -457,7 +458,36 @@
                     <button onclick="exportTransferExcel()">Export Transfer Excel</button>
                 </div>
             </section>
+<section id="invoiceReportPage" class="page" style="display:none;">
+    <h1>Invoice Report</h1>
 
+    <div class="box">
+        <h2>Search Invoices</h2>
+
+        <input id="invoiceSearch" placeholder="Search invoice/customer/phone">
+        <button onclick="searchInvoices()">Search</button>
+        <button onclick="loadInvoices()">Show All</button>
+        <button onclick="exportInvoicesExcel()">Export Excel</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Invoice No</th>
+                    <th>Customer</th>
+                    <th>Phone</th>
+                    <th>Branch</th>
+                    <th>Cashier</th>
+                    <th>Payment</th>
+                    <th>Total</th>
+                    <th>Date</th>
+                    <th>Reprint</th>
+                </tr>
+            </thead>
+            <tbody id="invoicesTable"></tbody>
+        </table>
+    </div>
+</section>
             <section id="usersPage" class="page" style="display:none;">
                 <h1>User Management</h1>
 
