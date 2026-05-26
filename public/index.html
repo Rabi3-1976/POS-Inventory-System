@@ -442,7 +442,31 @@
                     </table>
                 </div>
             </section>
+<div class="box">
+    <h2>Supplier Purchase History</h2>
 
+    <select id="historySupplier"></select>
+
+    <button onclick="loadSupplierHistory()">Load History</button>
+    <button onclick="printSupplierHistory()">Print History</button>
+    <button onclick="exportSupplierHistoryExcel()">Export Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Supplier</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Branch</th>
+                <th>Qty</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="supplierHistoryTable"></tbody>
+    </table>
+</div>
             <section id="reportsPage" class="page" style="display:none;">
                 <h1>Reports</h1>
                 <div class="box">

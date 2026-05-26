@@ -192,7 +192,10 @@ if (pageId === "closingPage") {
     if (pageId === "suppliersPage") {
         loadSupplierOptions();
         loadPurchaseOrders();
-    }
+        loadHistorySupplierOptions();
+        loadSupplierReturnOptions();
+        loadSupplierReturns();
+}
 
     if (pageId === "branchesPage") {
         loadBranches();
@@ -2975,5 +2978,148 @@ window.exportPurchaseOrderExcel = async function () {
 
     link.href = URL.createObjectURL(blob);
     link.download = "purchase_order_report.csv";
+    link.click();
+};
+window.loadHistorySupplierOptions = async function () {
+    const res = await fetch(API + "/suppliers");
+    const suppliers = await res.json();
+
+    const select = document.getElementById("historySupplier");
+    if (!select) return;
+
+    select.innerHTML = "";
+
+    suppliers.forEach(s => {
+        select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+    });
+};
+
+window.loadSupplierHistory = async function () {
+    const supplierId = document.getElementById("historySupplier").value;
+
+    if (!supplierId) {
+        alert("Please select supplier");
+        return;
+    }
+
+    const res = await fetch(API + "/supplier-history/" + supplierId);
+    const rows = await res.json();
+
+    const table = document.getElementById("supplierHistoryTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.supplier_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name || ""}</td>
+                <td>${r.qty}</td>
+                <td>${r.status}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printSupplierHistory = async function () {
+    const supplierId = document.getElementById("historySupplier").value;
+
+    if (!supplierId) {
+        alert("Please select supplier");
+        return;
+    }
+
+    const res = await fetch(API + "/supplier-history/" + supplierId);
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(r => {
+        htmlRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.supplier_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name || ""}</td>
+                <td>${r.qty}</td>
+                <td>${r.status}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Supplier Purchase History</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Supplier Purchase History</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Supplier</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${htmlRows}
+                </tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportSupplierHistoryExcel = async function () {
+    const supplierId = document.getElementById("historySupplier").value;
+
+    if (!supplierId) {
+        alert("Please select supplier");
+        return;
+    }
+
+    const res = await fetch(API + "/supplier-history/" + supplierId);
+    const rows = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+
+    rows.forEach(r => {
+        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name || ""},${r.qty},${r.status},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "supplier_purchase_history.csv";
     link.click();
 };
