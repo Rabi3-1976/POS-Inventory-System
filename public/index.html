@@ -502,6 +502,65 @@
         <tbody id="supplierReturnsTable"></tbody>
     </table>
 </div>
+<div class="box">
+    <h2>Purchase Control Reports</h2>
+
+    <select id="poReportStatus">
+        <option value="">All PO Status</option>
+        <option value="Open">Pending / Open</option>
+        <option value="Received">Received</option>
+    </select>
+
+    <select id="poReportSupplier"></select>
+    <select id="poReportBranch"></select>
+
+    <button onclick="loadFilteredPOReport()">Load PO Report</button>
+    <button onclick="printFilteredPOReport()">Print PO Report</button>
+    <button onclick="exportFilteredPOReportExcel()">Export PO Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Supplier</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Branch</th>
+                <th>Qty</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="filteredPOReportTable"></tbody>
+    </table>
+</div>
+
+<div class="box">
+    <h2>Filtered Supplier Returns</h2>
+
+    <select id="returnReportSupplier"></select>
+    <select id="returnReportBranch"></select>
+
+    <button onclick="loadFilteredReturnsReport()">Load Returns Report</button>
+    <button onclick="printFilteredReturnsReport()">Print Returns Report</button>
+    <button onclick="exportFilteredReturnsExcel()">Export Returns Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Supplier</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Branch</th>
+                <th>Qty</th>
+                <th>Reason</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="filteredReturnsReportTable"></tbody>
+    </table>
+</div>
             <section id="reportsPage" class="page" style="display:none;">
                 <h1>Reports</h1>
                 <div class="box">

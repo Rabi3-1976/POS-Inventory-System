@@ -189,12 +189,13 @@ if (pageId === "closingPage") {
         }, 100);
     }
 
-if (pageId === "suppliersPage") {
-    loadSupplierOptions();
-    loadPurchaseOrders();
-    loadHistorySupplierOptions();
-    loadSupplierReturnOptions();
-    loadSupplierReturns();
+    if (pageId === "suppliersPage") {
+        loadSupplierOptions();
+        loadPurchaseOrders();
+        loadHistorySupplierOptions();
+        loadSupplierReturnOptions();
+        loadSupplierReturns();
+        loadPurchaseControlOptions();
 }
 
     if (pageId === "branchesPage") {
@@ -3309,5 +3310,283 @@ window.exportSupplierReturnsExcel = async function () {
 
     link.href = URL.createObjectURL(blob);
     link.download = "supplier_returns_report.csv";
+    link.click();
+};
+window.loadPurchaseControlOptions = async function () {
+    const suppliersRes = await fetch(API + "/suppliers");
+    const suppliers = await suppliersRes.json();
+
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const poSupplier = document.getElementById("poReportSupplier");
+    const poBranch = document.getElementById("poReportBranch");
+    const returnSupplier = document.getElementById("returnReportSupplier");
+    const returnBranch = document.getElementById("returnReportBranch");
+
+    if (poSupplier) poSupplier.innerHTML = `<option value="">All Suppliers</option>`;
+    if (returnSupplier) returnSupplier.innerHTML = `<option value="">All Suppliers</option>`;
+
+    if (poBranch) poBranch.innerHTML = `<option value="">All Branches</option>`;
+    if (returnBranch) returnBranch.innerHTML = `<option value="">All Branches</option>`;
+
+    suppliers.forEach(s => {
+        if (poSupplier) poSupplier.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        if (returnSupplier) returnSupplier.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+    });
+
+    branches.forEach(b => {
+        if (poBranch) poBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+        if (returnBranch) returnBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
+};
+window.getPOReportQuery = function () {
+    const status = document.getElementById("poReportStatus").value;
+    const supplier = document.getElementById("poReportSupplier").value;
+    const branch = document.getElementById("poReportBranch").value;
+
+    const params = new URLSearchParams();
+
+    if (status) params.append("status", status);
+    if (supplier) params.append("supplier_id", supplier);
+    if (branch) params.append("branch_id", branch);
+
+    return params.toString();
+};
+
+window.loadFilteredPOReport = async function () {
+    const query = getPOReportQuery();
+
+    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    const table = document.getElementById("filteredPOReportTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(o => {
+        table.innerHTML += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${o.supplier_name}</td>
+                <td>${o.product_name}</td>
+                <td>${o.barcode}</td>
+                <td>${o.branch_name || ""}</td>
+                <td>${o.qty}</td>
+                <td>${o.status}</td>
+                <td>${new Date(o.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printFilteredPOReport = async function () {
+    const query = getPOReportQuery();
+
+    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(o => {
+        htmlRows += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${o.supplier_name}</td>
+                <td>${o.product_name}</td>
+                <td>${o.barcode}</td>
+                <td>${o.branch_name || ""}</td>
+                <td>${o.qty}</td>
+                <td>${o.status}</td>
+                <td>${new Date(o.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Filtered Purchase Order Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Filtered Purchase Order Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Supplier</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${htmlRows}</tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportFilteredPOReportExcel = async function () {
+    const query = getPOReportQuery();
+
+    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+
+    rows.forEach(o => {
+        csv += `${o.id},${o.supplier_name},${o.product_name},${o.barcode},${o.branch_name || ""},${o.qty},${o.status},${new Date(o.date).toLocaleString()}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "filtered_purchase_order_report.csv";
+    link.click();
+};
+window.getReturnsReportQuery = function () {
+    const supplier = document.getElementById("returnReportSupplier").value;
+    const branch = document.getElementById("returnReportBranch").value;
+
+    const params = new URLSearchParams();
+
+    if (supplier) params.append("supplier_id", supplier);
+    if (branch) params.append("branch_id", branch);
+
+    return params.toString();
+};
+
+window.loadFilteredReturnsReport = async function () {
+    const query = getReturnsReportQuery();
+
+    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    const table = document.getElementById("filteredReturnsReportTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.supplier_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.qty}</td>
+                <td>${r.reason || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printFilteredReturnsReport = async function () {
+    const query = getReturnsReportQuery();
+
+    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(r => {
+        htmlRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.supplier_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.qty}</td>
+                <td>${r.reason || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Filtered Supplier Returns Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Filtered Supplier Returns Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Supplier</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${htmlRows}</tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportFilteredReturnsExcel = async function () {
+    const query = getReturnsReportQuery();
+
+    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Reason,Date\n";
+
+    rows.forEach(r => {
+        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "filtered_supplier_returns_report.csv";
     link.click();
 };
