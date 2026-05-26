@@ -165,6 +165,18 @@ await pool.query(`
         line_total NUMERIC DEFAULT 0
     )
 `);
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS supplier_returns (
+        id SERIAL PRIMARY KEY,
+        supplier_id INTEGER,
+        product_id INTEGER,
+        branch_id INTEGER,
+        qty INTEGER,
+        reason TEXT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
 
     console.log("PostgreSQL tables ready");
 }

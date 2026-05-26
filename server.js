@@ -1462,6 +1462,100 @@ app.get("/supplier-history/:id", async (req, res) => {
         res.status(500).json({ error: "Supplier history failed" });
     }
 });
+// RETURN TO SUPPLIER
+app.post("/supplier-returns", verifyToken, async (req, res) => {
+    const { supplier_id, product_id, branch_id, qty, reason } = req.body;
+
+    if (!supplier_id || !product_id || !branch_id || !qty || Number(qty) <= 0) {
+        return res.status(400).json({ error: "Please select supplier/product/branch and valid quantity" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const productResult = await client.query(
+            "SELECT * FROM products WHERE id = $1",
+            [product_id]
+        );
+
+        const product = productResult.rows[0];
+
+        if (!product) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        const branchStockResult = await client.query(
+            "SELECT stock FROM branch_stock WHERE branch_id = $1 AND product_id = $2",
+            [branch_id, product_id]
+        );
+
+        if (
+            branchStockResult.rows.length === 0 ||
+            Number(branchStockResult.rows[0].stock) < Number(qty)
+        ) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Not enough stock in selected branch" });
+        }
+
+        await client.query(
+            "UPDATE branch_stock SET stock = stock - $1 WHERE branch_id = $2 AND product_id = $3",
+            [Number(qty), branch_id, product_id]
+        );
+
+        await client.query(
+            "UPDATE products SET stock = stock - $1 WHERE id = $2",
+            [Number(qty), product_id]
+        );
+
+        await client.query(
+            `INSERT INTO supplier_returns 
+             (supplier_id, product_id, branch_id, qty, reason)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [supplier_id, product_id, branch_id, Number(qty), reason || ""]
+        );
+
+        await client.query("COMMIT");
+
+        res.json({ message: "Return to supplier completed" });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("SUPPLIER RETURN ERROR:", err);
+        res.status(500).json({ error: "Supplier return failed" });
+    } finally {
+        client.release();
+    }
+});
+
+app.get("/supplier-returns", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                sr.id,
+                s.name AS supplier_name,
+                p.name AS product_name,
+                p.barcode,
+                b.name AS branch_name,
+                sr.qty,
+                sr.reason,
+                sr.date
+            FROM supplier_returns sr
+            JOIN suppliers s ON sr.supplier_id = s.id
+            JOIN products p ON sr.product_id = p.id
+            JOIN branches b ON sr.branch_id = b.id
+            ORDER BY sr.date DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("SUPPLIER RETURNS LOAD ERROR:", err);
+        res.status(500).json({ error: "Supplier returns failed to load" });
+    }
+});
+
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
