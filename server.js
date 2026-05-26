@@ -1433,7 +1433,35 @@ app.get("/purchase-orders-report", async (req, res) => {
         res.status(500).json({ error: "Purchase order report failed" });
     }
 });
+// SUPPLIER PURCHASE HISTORY
+app.get("/supplier-history/:id", async (req, res) => {
+    const supplierId = req.params.id;
 
+    try {
+        const result = await pool.query(`
+            SELECT 
+                po.id,
+                s.name AS supplier_name,
+                p.name AS product_name,
+                p.barcode,
+                b.name AS branch_name,
+                po.qty,
+                po.status,
+                po.date
+            FROM purchase_orders po
+            JOIN suppliers s ON po.supplier_id = s.id
+            JOIN products p ON po.product_id = p.id
+            LEFT JOIN branches b ON po.branch_id = b.id
+            WHERE po.supplier_id = $1
+            ORDER BY po.date DESC
+        `, [supplierId]);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("SUPPLIER HISTORY ERROR:", err);
+        res.status(500).json({ error: "Supplier history failed" });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
