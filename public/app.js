@@ -2894,3 +2894,86 @@ window.printSavedInvoice = function (invoice, items) {
     reportWindow.document.write(html);
     reportWindow.document.close();
 };
+window.printPurchaseOrderReport = async function () {
+    const res = await fetch(API + "/purchase-orders-report");
+    const orders = await res.json();
+
+    let rows = "";
+
+    orders.forEach(o => {
+        rows += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${o.supplier_name}</td>
+                <td>${o.product_name}</td>
+                <td>${o.barcode}</td>
+                <td>${o.branch_name || ""}</td>
+                <td>${o.qty}</td>
+                <td>${o.status}</td>
+                <td>${new Date(o.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Purchase Order Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Purchase Order Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Supplier</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportPurchaseOrderExcel = async function () {
+    const res = await fetch(API + "/purchase-orders-report");
+    const orders = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+
+    orders.forEach(o => {
+        csv += `${o.id},${o.supplier_name},${o.product_name},${o.barcode},${o.branch_name || ""},${o.qty},${o.status},${new Date(o.date).toLocaleString()}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "purchase_order_report.csv";
+    link.click();
+};
