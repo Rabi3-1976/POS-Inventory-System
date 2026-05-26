@@ -179,7 +179,9 @@ if (pageId === "closingPage") {
         if (barcode) barcode.focus();
     }, 100);
 }
-
+    if (pageId === "invoiceReportPage") {
+        loadInvoices();
+}
     if (pageId === "receivingPage") {
         setTimeout(() => {
             const receiveBarcode = document.getElementById("receiveBarcode");
@@ -1631,7 +1633,23 @@ window.printBranchSalesReport = async function () {
         </table>
     `);
 };
+window.exportInvoicesExcel = async function () {
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
 
+    let csv = "ID,Invoice No,Customer,Phone,Branch,Cashier,Payment,Total,Date\n";
+
+    invoices.forEach(inv => {
+        csv += `${inv.id},${inv.invoice_no},${inv.customer_name || "Walk-in Customer"},${inv.customer_phone || ""},${inv.branch_name || ""},${inv.cashier_name || ""},${inv.payment_method || "Cash"},${Number(inv.total || 0).toFixed(2)},${new Date(inv.date).toLocaleString()}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "invoice_report.csv";
+    link.click();
+};
 window.exportBranchSalesExcel = async function () {
     const sales = await fetchJson("/branch-sales-report");
     let csv = "ID,Branch,Customer,Phone,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
@@ -2535,7 +2553,7 @@ window.displayInvoices = function (invoices) {
                 <td>${inv.cashier_name || ""}</td>
                 <td>${inv.payment_method || "Cash"}</td>
                 <td>${Number(inv.total || 0).toFixed(2)}</td>
-                <td>${inv.date}</td>
+                <td>${new Date(inv.date).toLocaleString()}</td>
                 <td><button onclick="reprintInvoice(${inv.id})">Reprint</button></td>
             </tr>
         `;
@@ -2544,37 +2562,47 @@ window.displayInvoices = function (invoices) {
 
 window.searchInvoices = async function () {
     const search = document.getElementById("invoiceSearch").value.toLowerCase();
+    const dateFrom = document.getElementById("invoiceDateFrom").value;
+    const dateTo = document.getElementById("invoiceDateTo").value;
 
     const res = await fetch(API + "/invoices");
     const invoices = await res.json();
 
-    const filtered = invoices.filter(inv =>
-        String(inv.invoice_no || "").toLowerCase().includes(search) ||
-        String(inv.customer_name || "").toLowerCase().includes(search) ||
-        String(inv.customer_phone || "").toLowerCase().includes(search)
-    );
+    const filtered = invoices.filter(inv => {
+        const textMatch =
+            String(inv.invoice_no || "").toLowerCase().includes(search) ||
+            String(inv.customer_name || "").toLowerCase().includes(search) ||
+            String(inv.customer_phone || "").toLowerCase().includes(search) ||
+            String(inv.branch_name || "").toLowerCase().includes(search) ||
+            String(inv.cashier_name || "").toLowerCase().includes(search);
+
+        const invoiceDate = new Date(inv.date);
+
+        let fromMatch = true;
+        let toMatch = true;
+
+        if (dateFrom) {
+            const fromDate = new Date(dateFrom + "T00:00:00");
+            fromMatch = invoiceDate >= fromDate;
+        }
+
+        if (dateTo) {
+            const toDate = new Date(dateTo + "T23:59:59");
+            toMatch = invoiceDate <= toDate;
+        }
+
+        return textMatch && fromMatch && toMatch;
+    });
 
     displayInvoices(filtered);
 };
+window.clearInvoiceFilters = function () {
+    document.getElementById("invoiceSearch").value = "";
+    document.getElementById("invoiceDateFrom").value = "";
+    document.getElementById("invoiceDateTo").value = "";
 
-window.exportInvoicesExcel = async function () {
-    const res = await fetch(API + "/invoices");
-    const invoices = await res.json();
-
-    let csv = "ID,Invoice No,Customer,Phone,Branch,Cashier,Payment,Total,Date\n";
-
-    invoices.forEach(inv => {
-        csv += `${inv.id},${inv.invoice_no},${inv.customer_name || "Walk-in Customer"},${inv.customer_phone || ""},${inv.branch_name || ""},${inv.cashier_name || ""},${inv.payment_method || "Cash"},${Number(inv.total || 0).toFixed(2)},${inv.date}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "invoice_report.csv";
-    link.click();
+    loadInvoices();
 };
-
 window.reprintInvoice = async function (invoiceId) {
     const res = await fetch(API + "/invoices/" + invoiceId);
     const data = await res.json();
@@ -2866,19 +2894,3 @@ window.printSavedInvoice = function (invoice, items) {
     reportWindow.document.write(html);
     reportWindow.document.close();
 };
-//window.backfillInvoices = async function () {
-//    if (!confirm("Convert old sales into invoice records? Run this only once.")) return;
-
-//    const res = await fetch(API + "/backfill-invoices", {
-//        method: "POST",
-//        headers: {
-//            "Authorization": "Bearer " + localStorage.getItem("token")
-//        }
-//    });
-
-//    const data = await res.json();
-
-//    alert(data.message + "\nInvoices created: " + (data.invoicesCreated || 0));
-
-    loadInvoices();
-// };

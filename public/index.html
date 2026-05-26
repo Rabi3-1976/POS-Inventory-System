@@ -456,38 +456,42 @@
                     <button onclick="exportBranchSalesExcel()">Export Branch Sales Excel</button>
                     <button onclick="printTransferReport()">Print Transfer Report</button>
                     <button onclick="exportTransferExcel()">Export Transfer Excel</button>
-                    <!--<button onclick="backfillInvoices()">Convert Old Sales to Invoices</button>-->
                 </div>
             </section>
 <section id="invoiceReportPage" class="page" style="display:none;">
     <h1>Invoice Report</h1>
 
     <div class="box">
-        <h2>Search Invoices</h2>
+    <h2>Search Invoices</h2>
 
-        <input id="invoiceSearch" placeholder="Search invoice/customer/phone">
-        <button onclick="searchInvoices()">Search</button>
-        <button onclick="loadInvoices()">Show All</button>
-        <button onclick="exportInvoicesExcel()">Export Excel</button>
+    <input id="invoiceSearch" placeholder="Search invoice/customer/phone">
 
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Invoice No</th>
-                    <th>Customer</th>
-                    <th>Phone</th>
-                    <th>Branch</th>
-                    <th>Cashier</th>
-                    <th>Payment</th>
-                    <th>Total</th>
-                    <th>Date</th>
-                    <th>Reprint</th>
-                </tr>
-            </thead>
-            <tbody id="invoicesTable"></tbody>
-        </table>
-    </div>
+    <input id="invoiceDateFrom" type="date">
+    <input id="invoiceDateTo" type="date">
+
+    <button onclick="searchInvoices()">Search</button>
+    <button onclick="clearInvoiceFilters()">Clear</button>
+    <button onclick="loadInvoices()">Show All</button>
+    <button onclick="exportInvoicesExcel()">Export Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Invoice No</th>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Branch</th>
+                <th>Cashier</th>
+                <th>Payment</th>
+                <th>Total</th>
+                <th>Date</th>
+                <th>Reprint</th>
+            </tr>
+        </thead>
+        <tbody id="invoicesTable"></tbody>
+    </table>
+</div>
 </section>
             <section id="usersPage" class="page" style="display:none;">
                 <h1>User Management</h1>
