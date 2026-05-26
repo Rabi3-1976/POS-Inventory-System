@@ -189,12 +189,12 @@ if (pageId === "closingPage") {
         }, 100);
     }
 
-    if (pageId === "suppliersPage") {
-        loadSupplierOptions();
-        loadPurchaseOrders();
-        loadHistorySupplierOptions();
-        loadSupplierReturnOptions();
-        loadSupplierReturns();
+if (pageId === "suppliersPage") {
+    loadSupplierOptions();
+    loadPurchaseOrders();
+    loadHistorySupplierOptions();
+    loadSupplierReturnOptions();
+    loadSupplierReturns();
 }
 
     if (pageId === "branchesPage") {
@@ -3121,5 +3121,193 @@ window.exportSupplierHistoryExcel = async function () {
 
     link.href = URL.createObjectURL(blob);
     link.download = "supplier_purchase_history.csv";
+    link.click();
+};
+window.loadSupplierReturnOptions = async function () {
+    const suppliersRes = await fetch(API + "/suppliers");
+    const suppliers = await suppliersRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const supplierSelect = document.getElementById("returnSupplier");
+    const productSelect = document.getElementById("returnProduct");
+    const branchSelect = document.getElementById("returnBranch");
+
+    if (!supplierSelect || !productSelect || !branchSelect) return;
+
+    supplierSelect.innerHTML = "";
+    productSelect.innerHTML = "";
+    branchSelect.innerHTML = "";
+
+    suppliers.forEach(s => {
+        supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+    });
+
+    products.forEach(p => {
+        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+    });
+
+    branches.forEach(b => {
+        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
+};
+
+window.returnToSupplier = async function () {
+    const supplier_id = document.getElementById("returnSupplier").value;
+    const product_id = document.getElementById("returnProduct").value;
+    const branch_id = document.getElementById("returnBranch").value;
+    const qty = Number(document.getElementById("returnQty").value);
+    const reason = document.getElementById("returnReason").value.trim();
+
+    if (!supplier_id || !product_id || !branch_id || qty <= 0) {
+        alert("Please select supplier/product/branch and valid quantity");
+        return;
+    }
+
+    const res = await fetch(API + "/supplier-returns", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            supplier_id,
+            product_id,
+            branch_id,
+            qty,
+            reason
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("returnQty").value = "";
+    document.getElementById("returnReason").value = "";
+
+    loadSupplierReturns();
+    loadProducts();
+    loadDashboard();
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
+    }
+
+    if (typeof loadBranchDashboard === "function") {
+        loadBranchDashboard();
+    }
+};
+
+window.loadSupplierReturns = async function () {
+    const res = await fetch(API + "/supplier-returns");
+    const returns = await res.json();
+
+    const table = document.getElementById("supplierReturnsTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    returns.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.supplier_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.qty}</td>
+                <td>${r.reason || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printSupplierReturns = async function () {
+    const res = await fetch(API + "/supplier-returns");
+    const returns = await res.json();
+
+    let rows = "";
+
+    returns.forEach(r => {
+        rows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.supplier_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.qty}</td>
+                <td>${r.reason || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Supplier Returns Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Supplier Returns Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Supplier</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportSupplierReturnsExcel = async function () {
+    const res = await fetch(API + "/supplier-returns");
+    const returns = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Reason,Date\n";
+
+    returns.forEach(r => {
+        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "supplier_returns_report.csv";
     link.click();
 };

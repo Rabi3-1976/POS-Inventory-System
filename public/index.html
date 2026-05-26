@@ -467,6 +467,41 @@
         <tbody id="supplierHistoryTable"></tbody>
     </table>
 </div>
+<div class="box">
+    <h2>Return to Supplier</h2>
+
+    <select id="returnSupplier"></select>
+    <select id="returnProduct"></select>
+    <select id="returnBranch"></select>
+    <input id="returnQty" type="number" placeholder="Return Qty">
+    <input id="returnReason" placeholder="Reason">
+
+    <button onclick="returnToSupplier()">Return to Supplier</button>
+</div>
+
+<div class="box">
+    <h2>Supplier Returns</h2>
+
+    <button onclick="loadSupplierReturns()">Load Returns</button>
+    <button onclick="printSupplierReturns()">Print Returns</button>
+    <button onclick="exportSupplierReturnsExcel()">Export Returns Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Supplier</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Branch</th>
+                <th>Qty</th>
+                <th>Reason</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="supplierReturnsTable"></tbody>
+    </table>
+</div>
             <section id="reportsPage" class="page" style="display:none;">
                 <h1>Reports</h1>
                 <div class="box">
