@@ -1555,6 +1555,103 @@ app.get("/supplier-returns", async (req, res) => {
         res.status(500).json({ error: "Supplier returns failed to load" });
     }
 });
+// FILTERED PURCHASE ORDER REPORT
+app.get("/purchase-orders-filtered", async (req, res) => {
+    const { status, supplier_id, branch_id } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                po.id,
+                s.id AS supplier_id,
+                s.name AS supplier_name,
+                p.name AS product_name,
+                p.barcode,
+                b.id AS branch_id,
+                b.name AS branch_name,
+                po.qty,
+                po.status,
+                po.date
+            FROM purchase_orders po
+            JOIN suppliers s ON po.supplier_id = s.id
+            JOIN products p ON po.product_id = p.id
+            LEFT JOIN branches b ON po.branch_id = b.id
+            WHERE 1=1
+        `;
+
+        const params = [];
+
+        if (status) {
+            params.push(status);
+            query += ` AND po.status = $${params.length}`;
+        }
+
+        if (supplier_id) {
+            params.push(supplier_id);
+            query += ` AND po.supplier_id = $${params.length}`;
+        }
+
+        if (branch_id) {
+            params.push(branch_id);
+            query += ` AND po.branch_id = $${params.length}`;
+        }
+
+        query += ` ORDER BY po.date DESC`;
+
+        const result = await pool.query(query, params);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("FILTERED PO REPORT ERROR:", err);
+        res.status(500).json({ error: "Filtered PO report failed" });
+    }
+});
+// FILTERED SUPPLIER RETURNS REPORT
+app.get("/supplier-returns-filtered", async (req, res) => {
+    const { supplier_id, branch_id } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                sr.id,
+                s.id AS supplier_id,
+                s.name AS supplier_name,
+                p.name AS product_name,
+                p.barcode,
+                b.id AS branch_id,
+                b.name AS branch_name,
+                sr.qty,
+                sr.reason,
+                sr.date
+            FROM supplier_returns sr
+            JOIN suppliers s ON sr.supplier_id = s.id
+            JOIN products p ON sr.product_id = p.id
+            JOIN branches b ON sr.branch_id = b.id
+            WHERE 1=1
+        `;
+
+        const params = [];
+
+        if (supplier_id) {
+            params.push(supplier_id);
+            query += ` AND sr.supplier_id = $${params.length}`;
+        }
+
+        if (branch_id) {
+            params.push(branch_id);
+            query += ` AND sr.branch_id = $${params.length}`;
+        }
+
+        query += ` ORDER BY sr.date DESC`;
+
+        const result = await pool.query(query, params);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("FILTERED SUPPLIER RETURNS ERROR:", err);
+        res.status(500).json({ error: "Filtered supplier returns failed" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
