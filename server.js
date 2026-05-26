@@ -1407,6 +1407,32 @@ app.get("/invoices/:id", async (req, res) => {
         res.status(500).json({ error: "Invoice details failed" });
     }
 });
+// PURCHASE ORDER REPORT
+app.get("/purchase-orders-report", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                po.id,
+                s.name AS supplier_name,
+                p.name AS product_name,
+                p.barcode,
+                b.name AS branch_name,
+                po.qty,
+                po.status,
+                po.date
+            FROM purchase_orders po
+            JOIN suppliers s ON po.supplier_id = s.id
+            JOIN products p ON po.product_id = p.id
+            LEFT JOIN branches b ON po.branch_id = b.id
+            ORDER BY po.date DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("PO REPORT ERROR:", err);
+        res.status(500).json({ error: "Purchase order report failed" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
