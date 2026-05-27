@@ -1652,6 +1652,56 @@ app.get("/supplier-returns-filtered", async (req, res) => {
         res.status(500).json({ error: "Filtered supplier returns failed" });
     }
 });
+// SUPPLIER BALANCE / NET PURCHASE REPORT
+app.get("/supplier-balance-report", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                s.id AS supplier_id,
+                s.name AS supplier_name,
+
+                COALESCE(received.total_received_qty, 0) AS total_received_qty,
+                COALESCE(received.total_received_value, 0) AS total_received_value,
+
+                COALESCE(returns.total_returned_qty, 0) AS total_returned_qty,
+                COALESCE(returns.total_returned_value, 0) AS total_returned_value,
+
+                COALESCE(received.total_received_qty, 0) - COALESCE(returns.total_returned_qty, 0) AS net_qty,
+                COALESCE(received.total_received_value, 0) - COALESCE(returns.total_returned_value, 0) AS net_value
+
+            FROM suppliers s
+
+            LEFT JOIN (
+                SELECT
+                    po.supplier_id,
+                    SUM(po.qty) AS total_received_qty,
+                    SUM(po.qty * COALESCE(p.cost, 0)) AS total_received_value
+                FROM purchase_orders po
+                JOIN products p ON po.product_id = p.id
+                WHERE po.status = 'Received'
+                GROUP BY po.supplier_id
+            ) received ON s.id = received.supplier_id
+
+            LEFT JOIN (
+                SELECT
+                    sr.supplier_id,
+                    SUM(sr.qty) AS total_returned_qty,
+                    SUM(sr.qty * COALESCE(p.cost, 0)) AS total_returned_value
+                FROM supplier_returns sr
+                JOIN products p ON sr.product_id = p.id
+                GROUP BY sr.supplier_id
+            ) returns ON s.id = returns.supplier_id
+
+            ORDER BY s.name
+        `);
+
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error("SUPPLIER BALANCE REPORT ERROR:", err);
+        res.status(500).json({ error: "Supplier balance report failed" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
