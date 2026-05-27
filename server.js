@@ -406,6 +406,8 @@ app.get("/purchase-orders", async (req, res) => {
                 p.barcode,
                 b.name AS branch_name,
                 po.qty,
+                COALESCE(po.received_qty, 0) AS received_qty,
+                (po.qty - COALESCE(po.received_qty, 0)) AS remaining_qty,
                 po.status,
                 po.date
             FROM purchase_orders po
@@ -424,10 +426,17 @@ app.get("/purchase-orders", async (req, res) => {
 
 app.put("/purchase-orders/:id/receive", verifyToken, adminOnly, async (req, res) => {
     const poId = req.params.id;
+    const { received_qty } = req.body;
+
+    if (!received_qty || Number(received_qty) <= 0) {
+        return res.status(400).json({ error: "Please enter valid received quantity" });
+    }
 
     const client = await pool.connect();
 
     try {
+        await client.query("BEGIN");
+
         const result = await client.query(
             "SELECT * FROM purchase_orders WHERE id = $1",
             [poId]
@@ -436,53 +445,78 @@ app.put("/purchase-orders/:id/receive", verifyToken, adminOnly, async (req, res)
         const po = result.rows[0];
 
         if (!po) {
+            await client.query("ROLLBACK");
             return res.status(404).json({ error: "Purchase order not found" });
         }
 
         if (po.status === "Received") {
-            return res.status(400).json({ error: "Purchase order already received" });
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Purchase order already fully received" });
         }
 
         if (!po.branch_id) {
+            await client.query("ROLLBACK");
             return res.status(400).json({ error: "Purchase order has no branch assigned" });
         }
 
-        await client.query("BEGIN");
+        const orderedQty = Number(po.qty || 0);
+        const alreadyReceived = Number(po.received_qty || 0);
+        const receiveNow = Number(received_qty);
+        const newReceivedTotal = alreadyReceived + receiveNow;
+
+        if (newReceivedTotal > orderedQty) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+                error: `Received quantity exceeds remaining quantity. Remaining: ${orderedQty - alreadyReceived}`
+            });
+        }
+
+        let newStatus = "Partially Received";
+
+        if (newReceivedTotal === orderedQty) {
+            newStatus = "Received";
+        }
 
         await client.query(`
             INSERT INTO branch_stock (branch_id, product_id, stock)
             VALUES ($1, $2, $3)
             ON CONFLICT (branch_id, product_id)
             DO UPDATE SET stock = branch_stock.stock + EXCLUDED.stock
-        `, [po.branch_id, po.product_id, Number(po.qty)]);
+        `, [po.branch_id, po.product_id, receiveNow]);
 
         await client.query(
             "UPDATE products SET stock = stock + $1 WHERE id = $2",
-            [Number(po.qty), po.product_id]
+            [receiveNow, po.product_id]
         );
 
         await client.query(
             "INSERT INTO receiving (product_id, qty) VALUES ($1, $2)",
-            [po.product_id, Number(po.qty)]
+            [po.product_id, receiveNow]
         );
 
         await client.query(
-            "UPDATE purchase_orders SET status = 'Received' WHERE id = $1",
-            [poId]
+            "UPDATE purchase_orders SET received_qty = $1, status = $2 WHERE id = $3",
+            [newReceivedTotal, newStatus, poId]
         );
 
         await client.query("COMMIT");
 
-        res.json({ message: "Purchase order received into assigned branch" });
+        res.json({
+            message: `Purchase order received successfully. Received now: ${receiveNow}. Remaining: ${orderedQty - newReceivedTotal}`,
+            status: newStatus,
+            received_qty: newReceivedTotal,
+            remaining_qty: orderedQty - newReceivedTotal
+        });
 
     } catch (err) {
         await client.query("ROLLBACK");
         console.error("RECEIVE PO ERROR:", err);
-        res.status(500).json({ error: "Receive PO failed" });
+        res.status(500).json({ error: "Receive PO failed: " + err.message });
     } finally {
         client.release();
     }
 });
+
 
 // CHARTS
 app.get("/charts/sales-profit", async (req, res) => {

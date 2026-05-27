@@ -189,7 +189,10 @@ await pool.query(`
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
-
+await pool.query(`
+    ALTER TABLE purchase_orders
+    ADD COLUMN IF NOT EXISTS received_qty INTEGER DEFAULT 0
+`);
     console.log("PostgreSQL tables ready");
 }
 initializeDatabase().catch(err => {
