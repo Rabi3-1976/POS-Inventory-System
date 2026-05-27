@@ -1430,53 +1430,89 @@ window.createPurchaseOrder = async function () {
 };
 
 window.loadPurchaseOrders = async function () {
-    try {
-        const orders = await fetchJson("/purchase-orders");
-        const table = document.getElementById("purchaseOrdersTable");
+    const res = await fetch(API + "/purchase-orders");
+    const orders = await res.json();
 
-        if (!table) return;
+    const table = document.getElementById("purchaseOrdersTable");
+    if (!table) return;
 
-        table.innerHTML = "";
+    table.innerHTML = "";
 
-        orders.forEach(o => {
-            table.innerHTML += `
-                <tr>
-                    <td>${o.id}</td>
-                    <td>${safeHtml(o.supplier_name)}</td>
-                    <td>${safeHtml(o.product_name)}</td>
-                    <td>${safeHtml(o.barcode)}</td>
-                    <td>${safeHtml(o.branch_name || "")}</td>
-                    <td>${o.qty}</td>
-                    <td>${safeHtml(o.status)}</td>
-                    <td>${safeHtml(o.date)}</td>
-                    <td>${o.status === "Received" ? "Received" : `<button onclick="receivePurchaseOrder(${o.id})">Receive</button>`}</td>
-                </tr>
-            `;
-        });
-    } catch (err) {
-        alert(err.message);
-    }
+    orders.forEach(o => {
+        table.innerHTML += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${o.supplier_name}</td>
+                <td>${o.product_name}</td>
+                <td>${o.barcode}</td>
+                <td>${o.branch_name || ""}</td>
+                <td>${o.qty}</td>
+                <td>${o.received_qty || 0}</td>
+                <td>${o.remaining_qty || 0}</td>
+                <td>${o.status}</td>
+                <td>${new Date(o.date).toLocaleString()}</td>
+                <td>
+                    ${
+                        o.status === "Received"
+                        ? "Received"
+                        : `<button onclick="receivePurchaseOrder(${o.id}, ${o.remaining_qty || o.qty})">Receive</button>`
+                    }
+                </td>
+            </tr>
+        `;
+    });
 };
 
-window.receivePurchaseOrder = async function (id) {
-    if (!confirm("Receive this purchase order and update stock in assigned branch?")) return;
+window.receivePurchaseOrder = async function (id, remainingQty) {
+    const qty = prompt(`Enter received quantity. Remaining quantity: ${remainingQty}`);
 
-    try {
-        const data = await fetchJson("/purchase-orders/" + id + "/receive", {
-            method: "PUT",
-            headers: authHeaders()
-        });
+    if (!qty) return;
 
-        alert(data.message || "Purchase order received");
+    const receivedQty = Number(qty);
 
-        loadPurchaseOrders();
-        loadProducts();
-        loadDashboard();
+    if (receivedQty <= 0) {
+        alert("Please enter valid received quantity");
+        return;
+    }
+
+    if (receivedQty > Number(remainingQty)) {
+        alert("Received quantity cannot exceed remaining quantity");
+        return;
+    }
+
+    const res = await fetch(API + "/purchase-orders/" + id + "/receive", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            received_qty: receivedQty
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadPurchaseOrders();
+    loadProducts();
+    loadDashboard();
+
+    if (typeof loadBranchStock === "function") {
         loadBranchStock();
-        loadBranchStockOptions();
+    }
+
+    if (typeof loadBranchDashboard === "function") {
         loadBranchDashboard();
-    } catch (err) {
-        alert(err.message);
+    }
+
+    if (typeof loadSupplierHistory === "function") {
+        loadSupplierHistory();
+    }
+
+    if (typeof loadSupplierBalanceReport === "function") {
+        loadSupplierBalanceReport();
     }
 };
 
