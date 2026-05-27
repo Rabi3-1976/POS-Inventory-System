@@ -1702,6 +1702,99 @@ app.get("/supplier-balance-report", async (req, res) => {
         res.status(500).json({ error: "Supplier balance report failed" });
     }
 });
+// CUSTOMER RETURNS
+app.post("/customer-returns", verifyToken, async (req, res) => {
+    const { customer_id, invoice_id, product_id, branch_id, qty, refund_amount, reason } = req.body;
+
+    if (!product_id || !branch_id || !qty || Number(qty) <= 0) {
+        return res.status(400).json({ error: "Please select product, branch, and valid return quantity" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const productResult = await client.query(
+            "SELECT * FROM products WHERE id = $1",
+            [product_id]
+        );
+
+        const product = productResult.rows[0];
+
+        if (!product) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        await client.query(`
+            INSERT INTO branch_stock (branch_id, product_id, stock)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (branch_id, product_id)
+            DO UPDATE SET stock = branch_stock.stock + EXCLUDED.stock
+        `, [branch_id, product_id, Number(qty)]);
+
+        await client.query(
+            "UPDATE products SET stock = stock + $1 WHERE id = $2",
+            [Number(qty), product_id]
+        );
+
+        await client.query(`
+            INSERT INTO customer_returns 
+            (customer_id, invoice_id, product_id, branch_id, qty, refund_amount, reason)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+            customer_id || null,
+            invoice_id || null,
+            product_id,
+            branch_id,
+            Number(qty),
+            Number(refund_amount || 0),
+            reason || ""
+        ]);
+
+        await client.query("COMMIT");
+
+        res.json({ message: "Customer return completed successfully" });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("CUSTOMER RETURN ERROR:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.get("/customer-returns", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                cr.id,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                i.invoice_no,
+                p.name AS product_name,
+                p.barcode,
+                b.name AS branch_name,
+                cr.qty,
+                cr.refund_amount,
+                cr.reason,
+                cr.date
+            FROM customer_returns cr
+            LEFT JOIN customers c ON cr.customer_id = c.id
+            LEFT JOIN invoices i ON cr.invoice_id = i.id
+            JOIN products p ON cr.product_id = p.id
+            JOIN branches b ON cr.branch_id = b.id
+            ORDER BY cr.date DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("CUSTOMER RETURNS LOAD ERROR:", err);
+        res.status(500).json({ error: "Customer returns failed to load" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {

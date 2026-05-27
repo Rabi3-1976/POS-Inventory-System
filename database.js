@@ -176,7 +176,19 @@ await pool.query(`
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
-
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS customer_returns (
+        id SERIAL PRIMARY KEY,
+        customer_id INTEGER,
+        invoice_id INTEGER,
+        product_id INTEGER,
+        branch_id INTEGER,
+        qty INTEGER,
+        refund_amount NUMERIC DEFAULT 0,
+        reason TEXT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
 
     console.log("PostgreSQL tables ready");
 }
