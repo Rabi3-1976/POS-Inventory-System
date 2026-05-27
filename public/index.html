@@ -560,6 +560,28 @@
         <tbody id="filteredReturnsReportTable"></tbody>
         </table>
     </div>
+    <div class="box">
+    <h2>Supplier Balance / Net Purchase Report</h2>
+
+    <button onclick="loadSupplierBalanceReport()">Load Supplier Balance</button>
+    <button onclick="printSupplierBalanceReport()">Print Supplier Balance</button>
+    <button onclick="exportSupplierBalanceExcel()">Export Supplier Balance Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Supplier</th>
+                <th>Received Qty</th>
+                <th>Received Value</th>
+                <th>Returned Qty</th>
+                <th>Returned Value</th>
+                <th>Net Qty</th>
+                <th>Net Value</th>
+            </tr>
+        </thead>
+        <tbody id="supplierBalanceTable"></tbody>
+    </table>
+</div>
   </section>
             <section id="reportsPage" class="page" style="display:none;">
                 <h1>Reports</h1>

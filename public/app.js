@@ -189,13 +189,14 @@ if (pageId === "closingPage") {
         }, 100);
     }
 
-    if (pageId === "suppliersPage") {
-        loadSupplierOptions();
-        loadPurchaseOrders();
-        loadHistorySupplierOptions();
-        loadSupplierReturnOptions();
-        loadSupplierReturns();
-        loadPurchaseControlOptions();
+if (pageId === "suppliersPage") {
+    loadSupplierOptions();
+    loadPurchaseOrders();
+    loadHistorySupplierOptions();
+    loadSupplierReturnOptions();
+    loadSupplierReturns();
+    loadPurchaseControlOptions();
+    loadSupplierBalanceReport();
 }
 
     if (pageId === "branchesPage") {
@@ -3588,5 +3589,110 @@ window.exportFilteredReturnsExcel = async function () {
 
     link.href = URL.createObjectURL(blob);
     link.download = "filtered_supplier_returns_report.csv";
+    link.click();
+};
+window.loadSupplierBalanceReport = async function () {
+    const res = await fetch(API + "/supplier-balance-report");
+    const rows = await res.json();
+
+    const table = document.getElementById("supplierBalanceTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.supplier_name}</td>
+                <td>${r.total_received_qty}</td>
+                <td>${Number(r.total_received_value || 0).toFixed(2)}</td>
+                <td>${r.total_returned_qty}</td>
+                <td>${Number(r.total_returned_value || 0).toFixed(2)}</td>
+                <td>${r.net_qty}</td>
+                <td>${Number(r.net_value || 0).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printSupplierBalanceReport = async function () {
+    const res = await fetch(API + "/supplier-balance-report");
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(r => {
+        htmlRows += `
+            <tr>
+                <td>${r.supplier_name}</td>
+                <td>${r.total_received_qty}</td>
+                <td>${Number(r.total_received_value || 0).toFixed(2)}</td>
+                <td>${r.total_returned_qty}</td>
+                <td>${Number(r.total_returned_value || 0).toFixed(2)}</td>
+                <td>${r.net_qty}</td>
+                <td>${Number(r.net_value || 0).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Supplier Balance Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Supplier Balance / Net Purchase Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Supplier</th>
+                        <th>Received Qty</th>
+                        <th>Received Value</th>
+                        <th>Returned Qty</th>
+                        <th>Returned Value</th>
+                        <th>Net Qty</th>
+                        <th>Net Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${htmlRows}
+                </tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportSupplierBalanceExcel = async function () {
+    const res = await fetch(API + "/supplier-balance-report");
+    const rows = await res.json();
+
+    let csv = "Supplier,Received Qty,Received Value,Returned Qty,Returned Value,Net Qty,Net Value\n";
+
+    rows.forEach(r => {
+        csv += `${r.supplier_name},${r.total_received_qty},${Number(r.total_received_value || 0).toFixed(2)},${r.total_returned_qty},${Number(r.total_returned_value || 0).toFixed(2)},${r.net_qty},${Number(r.net_value || 0).toFixed(2)}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "supplier_balance_report.csv";
     link.click();
 };
