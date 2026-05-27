@@ -123,6 +123,7 @@ const pagePermissions = {
     reportsPage: ["admin", "manager"],
     invoiceReportPage: ["admin", "manager"],
     customersPage: ["admin", "cashier", "manager"],
+    customerReturnsPage: ["admin", "manager"],
     expensesPage: ["admin", "manager"],
     closingPage: ["admin", "manager"],
     branchesPage: ["admin", "warehouse"],
@@ -162,6 +163,10 @@ if (pagePermissions[pageId] && !pagePermissions[pageId].includes(role)) {
     if (pageId === "customersPage") {
     loadCustomers();
     loadHistoryCustomerOptions();
+}
+if (pageId === "customerReturnsPage") {
+    loadCustomerReturnOptions();
+    loadCustomerReturns();
 }
     if (pageId === "expensesPage") {
     loadExpenses();
@@ -2475,6 +2480,7 @@ window.applyRolePermissions = function () {
         "reportsMenuBtn",
         "invoiceReportMenuBtn",
         "customersMenuBtn",
+        "customerReturnsMenuBtn",
         "expensesMenuBtn",
         "closingMenuBtn",
         "branchesMenuBtn",
@@ -2497,6 +2503,7 @@ window.applyRolePermissions = function () {
             "reportsMenuBtn",
             "invoiceReportMenuBtn",
             "customersMenuBtn",
+            "customerReturnsMenuBtn",
             "expensesMenuBtn",
             "closingMenuBtn",
             "branchesMenuBtn",
@@ -2522,6 +2529,7 @@ window.applyRolePermissions = function () {
             "reportsMenuBtn",
             "invoiceReportMenuBtn",
             "customersMenuBtn",
+            "customerReturnsMenuBtn",
             "expensesMenuBtn",
             "closingMenuBtn"
         ]
@@ -3694,5 +3702,223 @@ window.exportSupplierBalanceExcel = async function () {
 
     link.href = URL.createObjectURL(blob);
     link.download = "supplier_balance_report.csv";
+    link.click();
+};
+window.loadCustomerReturnOptions = async function () {
+    const customersRes = await fetch(API + "/customers");
+    const customers = await customersRes.json();
+
+    const invoicesRes = await fetch(API + "/invoices");
+    const invoices = await invoicesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const customerSelect = document.getElementById("returnCustomer");
+    const invoiceSelect = document.getElementById("returnInvoice");
+    const productSelect = document.getElementById("returnCustomerProduct");
+    const branchSelect = document.getElementById("returnCustomerBranch");
+
+    if (customerSelect) {
+        customerSelect.innerHTML = `<option value="">Walk-in Customer</option>`;
+        customers.forEach(c => {
+            customerSelect.innerHTML += `<option value="${c.id}">${c.name} - ${c.phone}</option>`;
+        });
+    }
+
+    if (invoiceSelect) {
+        invoiceSelect.innerHTML = `<option value="">No Invoice Selected</option>`;
+        invoices.forEach(i => {
+            invoiceSelect.innerHTML += `
+                <option value="${i.id}">
+                    ${i.invoice_no} - ${i.customer_name || "Walk-in"} - ${Number(i.total || 0).toFixed(2)}
+                </option>
+            `;
+        });
+    }
+
+    if (productSelect) {
+        productSelect.innerHTML = "";
+        products.forEach(p => {
+            productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+        });
+    }
+
+    if (branchSelect) {
+        branchSelect.innerHTML = "";
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+        });
+    }
+};
+
+window.saveCustomerReturn = async function () {
+    const customer_id = document.getElementById("returnCustomer").value;
+    const invoice_id = document.getElementById("returnInvoice").value;
+    const product_id = document.getElementById("returnCustomerProduct").value;
+    const branch_id = document.getElementById("returnCustomerBranch").value;
+    const qty = Number(document.getElementById("customerReturnQty").value);
+    const refund_amount = Number(document.getElementById("customerRefundAmount").value || 0);
+    const reason = document.getElementById("customerReturnReason").value.trim();
+
+    if (!product_id || !branch_id || qty <= 0) {
+        alert("Please select product, branch, and valid return quantity");
+        return;
+    }
+
+    const res = await fetch(API + "/customer-returns", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            customer_id: customer_id || null,
+            invoice_id: invoice_id || null,
+            product_id,
+            branch_id,
+            qty,
+            refund_amount,
+            reason
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("customerReturnQty").value = "";
+    document.getElementById("customerRefundAmount").value = "";
+    document.getElementById("customerReturnReason").value = "";
+
+    loadCustomerReturns();
+    loadProducts();
+    loadDashboard();
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
+    }
+
+    if (typeof loadBranchDashboard === "function") {
+        loadBranchDashboard();
+    }
+};
+
+window.loadCustomerReturns = async function () {
+    const res = await fetch(API + "/customer-returns");
+    const returns = await res.json();
+
+    const table = document.getElementById("customerReturnsTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    returns.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.customer_name || "Walk-in Customer"}</td>
+                <td>${r.customer_phone || ""}</td>
+                <td>${r.invoice_no || ""}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.qty}</td>
+                <td>${Number(r.refund_amount || 0).toFixed(2)}</td>
+                <td>${r.reason || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printCustomerReturns = async function () {
+    const res = await fetch(API + "/customer-returns");
+    const returns = await res.json();
+
+    let rows = "";
+
+    returns.forEach(r => {
+        rows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.customer_name || "Walk-in Customer"}</td>
+                <td>${r.customer_phone || ""}</td>
+                <td>${r.invoice_no || ""}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.qty}</td>
+                <td>${Number(r.refund_amount || 0).toFixed(2)}</td>
+                <td>${r.reason || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Customer Returns Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Customer Returns Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer</th>
+                        <th>Phone</th>
+                        <th>Invoice</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Refund</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportCustomerReturnsExcel = async function () {
+    const res = await fetch(API + "/customer-returns");
+    const returns = await res.json();
+
+    let csv = "ID,Customer,Phone,Invoice,Product,Barcode,Branch,Qty,Refund,Reason,Date\n";
+
+    returns.forEach(r => {
+        csv += `${r.id},${r.customer_name || "Walk-in Customer"},${r.customer_phone || ""},${r.invoice_no || ""},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${Number(r.refund_amount || 0).toFixed(2)},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "customer_returns_report.csv";
     link.click();
 };
