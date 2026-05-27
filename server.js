@@ -1829,6 +1829,26 @@ app.get("/customer-returns", async (req, res) => {
         res.status(500).json({ error: "Customer returns failed to load" });
     }
 });
+// TEMP: FIX OLD RECEIVED PURCHASE ORDERS
+app.post("/fix-old-received-pos", verifyToken, adminOnly, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            UPDATE purchase_orders
+            SET received_qty = qty
+            WHERE status = 'Received'
+            AND COALESCE(received_qty, 0) = 0
+        `);
+
+        res.json({
+            message: "Old received purchase orders fixed",
+            updated: result.rowCount
+        });
+
+    } catch (err) {
+        console.error("FIX OLD PO ERROR:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
