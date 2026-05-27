@@ -3958,3 +3958,19 @@ window.exportCustomerReturnsExcel = async function () {
     link.download = "customer_returns_report.csv";
     link.click();
 };
+window.fixOldReceivedPOs = async function () {
+    if (!confirm("Fix old received purchase orders? Run this only once.")) return;
+
+    const res = await fetch(API + "/fix-old-received-pos", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+
+    alert((data.message || data.error) + "\nUpdated: " + (data.updated || 0));
+
+    loadPurchaseOrders();
+};
