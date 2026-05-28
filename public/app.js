@@ -2651,6 +2651,7 @@ window.applyRolePermissions = function () {
             "expensesMenuBtn",
             "closingMenuBtn",
             "branchesMenuBtn",
+            "stockControlMenuBtn",
             "suppliersMenuBtn",
             "usersMenuBtn",
             "currencyMenuBtn"
@@ -2665,6 +2666,7 @@ window.applyRolePermissions = function () {
             "productsMenuBtn",
             "receivingMenuBtn",
             "branchesMenuBtn",
+            "stockControlMenuBtn",
             "suppliersMenuBtn"
         ],
 
@@ -2675,6 +2677,7 @@ window.applyRolePermissions = function () {
             "invoiceReportMenuBtn",
             "customersMenuBtn",
             "customerReturnsMenuBtn",
+            "stockControlMenuBtn",
             "expensesMenuBtn",
             "closingMenuBtn"
         ]
