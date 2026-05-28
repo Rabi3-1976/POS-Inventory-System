@@ -6,13 +6,13 @@
     <link rel="manifest" href="manifest.json">
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <title>POS Mart & Wholesales</title>
+    <title>Mart & Wholesales</title>
     <link rel="stylesheet" href="style.css?v=2200">
 </head>
 <body>
 
 <div id="loginSection" class="login-box">
-    <h1>POS Mart & Wholesales</h1>
+    <h1>Mart & Wholesales</h1>
     <h2>Login</h2>
     <input id="username" placeholder="Username">
     <input id="password" type="password" placeholder="Password">
@@ -35,6 +35,7 @@
             <button id="customerReturnsMenuBtn" onclick="showPage('customerReturnsPage')">Customer Returns</button>
             <button id="expensesMenuBtn" onclick="showPage('expensesPage')">Expenses</button>
             <button id="closingMenuBtn" onclick="showPage('closingPage')">Daily Closing</button>
+            <button id="currencyMenuBtn" onclick="showPage('currencyPage')">Currency Settings</button>
             <button id="branchesMenuBtn" onclick="showPage('branchesPage')">Branches</button>
             <button id="suppliersMenuBtn" onclick="showPage('suppliersPage')">Suppliers</button>
             <button id="usersMenuBtn" onclick="showPage('usersPage')">Users</button>
@@ -285,6 +286,41 @@
         </table>
     </div>
 </section>
+
+<section id="currencyPage" class="page" style="display:none;">
+    <h1>Currency Settings</h1>
+
+    <div class="box">
+        <h2>System Currency</h2>
+
+        <label>Default Currency</label>
+        <select id="defaultCurrency">
+            <option value="USD">USD ($)</option>
+            <option value="LBP">LBP (L.L.)</option>
+        </select>
+
+        <label>USD to LBP Rate</label>
+        <input id="usdToLbpRate" type="number" placeholder="Example: 89500">
+
+        <button onclick="saveCurrencySettings()">Save Currency Settings</button>
+        <button onclick="loadCurrencySettings()">Refresh</button>
+    </div>
+
+    <div class="box">
+        <h2>Current Settings</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Default Currency</th>
+                    <th>USD to LBP Rate</th>
+                </tr>
+            </thead>
+            <tbody id="currencySettingsTable"></tbody>
+        </table>
+    </div>
+</section>
+
 <section id="closingPage" class="page" style="display:none;">
     <h1>Daily Closing Report</h1>
 <div class="box">

@@ -128,6 +128,7 @@ const pagePermissions = {
     closingPage: ["admin", "manager"],
     branchesPage: ["admin", "warehouse"],
     suppliersPage: ["admin", "warehouse"],
+    currencyPage: ["admin"],
     usersPage: ["admin"]
 };
 
@@ -177,6 +178,9 @@ if (pageId === "closingPage") {
         input.value = new Date().toISOString().slice(0, 10);
     }
     loadDailyClosing();
+}
+if (pageId === "currencyPage") {
+    loadCurrencySettings();
 }
     if (pageId === "posPage") {
     loadSaleBranchOptions();
@@ -977,10 +981,10 @@ window.printCartReceipt = function (invoiceNo) {
                         <img src="logo.png" alt="Logo">
 
                         <div>
-                            <h1>POS Mart & Wholesales</h1>
+                            <h1>Mart & Wholesales</h1>
                             <p>Beirut, Lebanon</p>
                             <p>Phone: +961 3 743 351</p>
-                            <p>Email: posmartwholesales@gmail.com</p>
+                            <p>Email: martwholesales@gmail.com</p>
                         </div>
                     </div>
 
@@ -2611,6 +2615,7 @@ window.applyRolePermissions = function () {
         "customersMenuBtn",
         "customerReturnsMenuBtn",
         "expensesMenuBtn",
+        "currencyMenuBtn",
         "closingMenuBtn",
         "branchesMenuBtn",
         "suppliersMenuBtn",
@@ -2637,7 +2642,8 @@ window.applyRolePermissions = function () {
             "closingMenuBtn",
             "branchesMenuBtn",
             "suppliersMenuBtn",
-            "usersMenuBtn"
+            "usersMenuBtn",
+            "currencyMenuBtn"
         ],
 
         cashier: [
@@ -2959,10 +2965,10 @@ window.printSavedInvoice = function (invoice, items) {
                         <img src="logo.png" alt="Logo">
 
                         <div>
-                            <h1>POS Mart & Wholesales</h1>
+                            <h1>Mart & Wholesales</h1>
                             <p>Beirut, Lebanon</p>
                             <p>Phone: +961 3 743 351</p>
-                            <p>Email: posmartwholesales@gmail.com</p>
+                            <p>Email: martwholesales@gmail.com</p>
                         </div>
                     </div>
 
@@ -4050,4 +4056,57 @@ window.exportCustomerReturnsExcel = async function () {
     link.href = URL.createObjectURL(blob);
     link.download = "customer_returns_report.csv";
     link.click();
+};
+window.loadCurrencySettings = async function () {
+    const res = await fetch(API + "/currency-settings");
+    const settings = await res.json();
+
+    if (settings.error) {
+        alert(settings.error);
+        return;
+    }
+
+    const currencySelect = document.getElementById("defaultCurrency");
+    const rateInput = document.getElementById("usdToLbpRate");
+    const table = document.getElementById("currencySettingsTable");
+
+    if (currencySelect) currencySelect.value = settings.default_currency || "USD";
+    if (rateInput) rateInput.value = settings.usd_to_lbp_rate || 89500;
+
+    if (table) {
+        table.innerHTML = `
+            <tr>
+                <td>${settings.default_currency || "USD"}</td>
+                <td>${Number(settings.usd_to_lbp_rate || 89500).toLocaleString()}</td>
+            </tr>
+        `;
+    }
+};
+
+window.saveCurrencySettings = async function () {
+    const default_currency = document.getElementById("defaultCurrency").value;
+    const usd_to_lbp_rate = Number(document.getElementById("usdToLbpRate").value);
+
+    if (!default_currency || usd_to_lbp_rate <= 0) {
+        alert("Please select currency and enter valid exchange rate");
+        return;
+    }
+
+    const res = await fetch(API + "/currency-settings", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            default_currency,
+            usd_to_lbp_rate
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadCurrencySettings();
 };
