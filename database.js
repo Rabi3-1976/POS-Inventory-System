@@ -208,6 +208,18 @@ await pool.query(`
         ('usd_to_lbp_rate', '90000')
     ON CONFLICT (setting_key) DO NOTHING
 `);
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS stock_adjustments (
+        id SERIAL PRIMARY KEY,
+        branch_id INTEGER,
+        product_id INTEGER,
+        adjustment_type TEXT,
+        qty INTEGER,
+        reason TEXT,
+        user_id INTEGER,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
     console.log("PostgreSQL tables ready");
 }
 initializeDatabase().catch(err => {

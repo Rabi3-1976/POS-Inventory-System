@@ -1920,18 +1920,7 @@ app.put("/currency-settings", verifyToken, adminOnly, async (req, res) => {
         res.status(500).json({ error: "Currency settings update failed" });
     }
 });
-await pool.query(`
-    CREATE TABLE IF NOT EXISTS stock_adjustments (
-        id SERIAL PRIMARY KEY,
-        branch_id INTEGER,
-        product_id INTEGER,
-        adjustment_type TEXT,
-        qty INTEGER,
-        reason TEXT,
-        user_id INTEGER,
-        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-`);
+
 // STOCK ADJUSTMENTS
 app.post("/stock-adjustments", verifyToken, async (req, res) => {
     const { branch_id, product_id, adjustment_type, qty, reason } = req.body;
