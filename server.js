@@ -1177,41 +1177,74 @@ app.delete("/expenses/:id", verifyToken, adminOnly, async (req, res) => {
 // DAILY CLOSING REPORT
 app.get("/daily-closing", async (req, res) => {
     try {
+        const selectedDate = req.query.date || new Date().toISOString().slice(0, 10);
+
         const sales = await pool.query(`
             SELECT 
                 COALESCE(SUM(price), 0) AS total_sales,
                 COALESCE(SUM(profit), 0) AS total_profit,
                 COUNT(*) AS total_transactions
             FROM sales
-            WHERE DATE(date) = CURRENT_DATE
-        `);
+            WHERE DATE(date) = $1
+        `, [selectedDate]);
 
         const expenses = await pool.query(`
             SELECT 
                 COALESCE(SUM(amount), 0) AS total_expenses
             FROM expenses
-            WHERE DATE(date) = CURRENT_DATE
-        `);
+            WHERE DATE(date) = $1
+        `, [selectedDate]);
 
         const expenseList = await pool.query(`
             SELECT *
             FROM expenses
-            WHERE DATE(date) = CURRENT_DATE
+            WHERE DATE(date) = $1
             ORDER BY date DESC
-        `);
+        `, [selectedDate]);
+
+        const returns = await pool.query(`
+            SELECT 
+                COALESCE(SUM(refund_amount), 0) AS total_refunds,
+                COUNT(*) AS total_returns
+            FROM customer_returns
+            WHERE DATE(date) = $1
+        `, [selectedDate]);
+
+        const returnList = await pool.query(`
+            SELECT 
+                cr.id,
+                c.name AS customer_name,
+                p.name AS product_name,
+                p.barcode,
+                b.name AS branch_name,
+                cr.qty,
+                cr.refund_amount,
+                cr.reason,
+                cr.date
+            FROM customer_returns cr
+            LEFT JOIN customers c ON cr.customer_id = c.id
+            JOIN products p ON cr.product_id = p.id
+            JOIN branches b ON cr.branch_id = b.id
+            WHERE DATE(cr.date) = $1
+            ORDER BY cr.date DESC
+        `, [selectedDate]);
 
         const salesValue = Number(sales.rows[0].total_sales || 0);
         const profitValue = Number(sales.rows[0].total_profit || 0);
         const expensesValue = Number(expenses.rows[0].total_expenses || 0);
+        const refundsValue = Number(returns.rows[0].total_refunds || 0);
 
         res.json({
-            date: new Date().toISOString(),
+            date: selectedDate,
             total_sales: salesValue,
             total_profit: profitValue,
             total_expenses: expensesValue,
-            net_profit: profitValue - expensesValue,
+            total_refunds: refundsValue,
+            net_profit: profitValue - expensesValue - refundsValue,
             total_transactions: Number(sales.rows[0].total_transactions || 0),
-            expenses: expenseList.rows
+            total_returns: Number(returns.rows[0].total_returns || 0),
+            expenses: expenseList.rows,
+            returns: returnList.rows
         });
 
     } catch (err) {
