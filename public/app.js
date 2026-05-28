@@ -4240,6 +4240,8 @@ window.loadStockAdjustments = async function () {
                 <td>${r.barcode}</td>
                 <td>${r.adjustment_type}</td>
                 <td>${r.qty}</td>
+                <td>${formatMoney(r.unit_cost || 0)}</td>
+                <td>${formatMoney(r.total_cost_value || 0)}</td>
                 <td>${r.reason || ""}</td>
                 <td>${r.username || ""}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
