@@ -1920,6 +1920,140 @@ app.put("/currency-settings", verifyToken, adminOnly, async (req, res) => {
         res.status(500).json({ error: "Currency settings update failed" });
     }
 });
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS stock_adjustments (
+        id SERIAL PRIMARY KEY,
+        branch_id INTEGER,
+        product_id INTEGER,
+        adjustment_type TEXT,
+        qty INTEGER,
+        reason TEXT,
+        user_id INTEGER,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+// STOCK ADJUSTMENTS
+app.post("/stock-adjustments", verifyToken, async (req, res) => {
+    const { branch_id, product_id, adjustment_type, qty, reason } = req.body;
+
+    if (!branch_id || !product_id || !adjustment_type || !qty || Number(qty) <= 0) {
+        return res.status(400).json({ error: "Please select branch, product, adjustment type, and valid quantity" });
+    }
+
+    if (!["increase", "decrease"].includes(adjustment_type)) {
+        return res.status(400).json({ error: "Adjustment type must be increase or decrease" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const productResult = await client.query(
+            "SELECT * FROM products WHERE id = $1",
+            [product_id]
+        );
+
+        const product = productResult.rows[0];
+
+        if (!product) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        const qtyNumber = Number(qty);
+
+        if (adjustment_type === "decrease") {
+            const branchStockResult = await client.query(
+                "SELECT stock FROM branch_stock WHERE branch_id = $1 AND product_id = $2",
+                [branch_id, product_id]
+            );
+
+            if (
+                branchStockResult.rows.length === 0 ||
+                Number(branchStockResult.rows[0].stock) < qtyNumber
+            ) {
+                await client.query("ROLLBACK");
+                return res.status(400).json({ error: "Not enough stock in selected branch to decrease" });
+            }
+
+            await client.query(
+                "UPDATE branch_stock SET stock = stock - $1 WHERE branch_id = $2 AND product_id = $3",
+                [qtyNumber, branch_id, product_id]
+            );
+
+            await client.query(
+                "UPDATE products SET stock = stock - $1 WHERE id = $2",
+                [qtyNumber, product_id]
+            );
+        }
+
+        if (adjustment_type === "increase") {
+            await client.query(`
+                INSERT INTO branch_stock (branch_id, product_id, stock)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (branch_id, product_id)
+                DO UPDATE SET stock = branch_stock.stock + EXCLUDED.stock
+            `, [branch_id, product_id, qtyNumber]);
+
+            await client.query(
+                "UPDATE products SET stock = stock + $1 WHERE id = $2",
+                [qtyNumber, product_id]
+            );
+        }
+
+        await client.query(`
+            INSERT INTO stock_adjustments
+            (branch_id, product_id, adjustment_type, qty, reason, user_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+            branch_id,
+            product_id,
+            adjustment_type,
+            qtyNumber,
+            reason || "",
+            req.user.id
+        ]);
+
+        await client.query("COMMIT");
+
+        res.json({ message: "Stock adjustment saved successfully" });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("STOCK ADJUSTMENT ERROR:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.get("/stock-adjustments", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                sa.id,
+                b.name AS branch_name,
+                p.name AS product_name,
+                p.barcode,
+                sa.adjustment_type,
+                sa.qty,
+                sa.reason,
+                u.username AS username,
+                sa.date
+            FROM stock_adjustments sa
+            JOIN branches b ON sa.branch_id = b.id
+            JOIN products p ON sa.product_id = p.id
+            LEFT JOIN users u ON sa.user_id = u.id
+            ORDER BY sa.date DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("LOAD STOCK ADJUSTMENTS ERROR:", err);
+        res.status(500).json({ error: "Stock adjustments failed to load" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
