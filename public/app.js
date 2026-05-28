@@ -129,6 +129,7 @@ const pagePermissions = {
     expensesPage: ["admin", "manager"],
     closingPage: ["admin", "manager"],
     branchesPage: ["admin", "warehouse"],
+    stockControlPage: ["admin", "warehouse", "manager"],
     suppliersPage: ["admin", "warehouse"],
     currencyPage: ["admin"],
     usersPage: ["admin"]
@@ -221,6 +222,10 @@ if (pageId === "suppliersPage") {
         loadTransferOptions();
         loadStockTransfers();
     }
+    if (pageId === "stockControlPage") {
+    loadStockControlOptions();
+    loadStockAdjustments();
+}
     if (pageId === "invoiceReportPage") {
         loadInvoices();
 }
@@ -2622,6 +2627,7 @@ window.applyRolePermissions = function () {
         "currencyMenuBtn",
         "closingMenuBtn",
         "branchesMenuBtn",
+        "stockControlMenuBtn",
         "suppliersMenuBtn",
         "usersMenuBtn"
     ];
@@ -4138,4 +4144,103 @@ window.formatMoney = function (amount) {
     }
 
     return "$" + value.toFixed(2);
+};
+window.loadStockControlOptions = async function () {
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchSelect = document.getElementById("adjustBranch");
+    const productSelect = document.getElementById("adjustProduct");
+
+    if (!branchSelect || !productSelect) return;
+
+    branchSelect.innerHTML = "";
+    productSelect.innerHTML = "";
+
+    branches.forEach(b => {
+        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
+
+    products.forEach(p => {
+        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+    });
+};
+
+window.saveStockAdjustment = async function () {
+    const branch_id = document.getElementById("adjustBranch").value;
+    const product_id = document.getElementById("adjustProduct").value;
+    const adjustment_type = document.getElementById("adjustmentType").value;
+    const qty = Number(document.getElementById("adjustQty").value);
+    const reason = document.getElementById("adjustReason").value;
+    const notes = document.getElementById("adjustNotes").value.trim();
+
+    if (!branch_id || !product_id || !adjustment_type || qty <= 0) {
+        alert("Please select branch/product/type and enter valid quantity");
+        return;
+    }
+
+    const fullReason = notes ? `${reason} - ${notes}` : reason;
+
+    const res = await fetch(API + "/stock-adjustments", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            branch_id,
+            product_id,
+            adjustment_type,
+            qty,
+            reason: fullReason
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("adjustQty").value = "";
+    document.getElementById("adjustNotes").value = "";
+
+    loadStockAdjustments();
+    loadProducts();
+    loadDashboard();
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
+    }
+
+    if (typeof loadBranchDashboard === "function") {
+        loadBranchDashboard();
+    }
+};
+
+window.loadStockAdjustments = async function () {
+    const res = await fetch(API + "/stock-adjustments");
+    const rows = await res.json();
+
+    const table = document.getElementById("stockAdjustmentsTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.adjustment_type}</td>
+                <td>${r.qty}</td>
+                <td>${r.reason || ""}</td>
+                <td>${r.username || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
 };

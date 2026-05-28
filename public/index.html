@@ -37,6 +37,7 @@
             <button id="closingMenuBtn" onclick="showPage('closingPage')">Daily Closing</button>
             <button id="currencyMenuBtn" onclick="showPage('currencyPage')">Currency Settings</button>
             <button id="branchesMenuBtn" onclick="showPage('branchesPage')">Branches</button>
+            <button id="stockControlMenuBtn" onclick="showPage('stockControlPage')">Stock Control</button>
             <button id="suppliersMenuBtn" onclick="showPage('suppliersPage')">Suppliers</button>
             <button id="usersMenuBtn" onclick="showPage('usersPage')">Users</button>
             <button onclick="logout()">Logout</button>
@@ -93,7 +94,58 @@
                     </table>
                 </div>
             </section>
+            <section id="stockControlPage" class="page" style="display:none;">
+                <h1>Stock Control</h1>
 
+    <div class="box">
+        <h2>Stock Adjustment</h2>
+
+        <select id="adjustBranch"></select>
+        <select id="adjustProduct"></select>
+
+        <select id="adjustmentType">
+            <option value="increase">Increase Stock</option>
+            <option value="decrease">Decrease Stock</option>
+        </select>
+
+        <input id="adjustQty" type="number" placeholder="Qty">
+
+        <select id="adjustReason">
+            <option value="Stock Count Correction">Stock Count Correction</option>
+            <option value="Damaged">Damaged</option>
+            <option value="Expired">Expired</option>
+            <option value="Lost">Lost</option>
+            <option value="Other">Other</option>
+        </select>
+
+        <input id="adjustNotes" placeholder="Additional notes">
+
+        <button onclick="saveStockAdjustment()">Save Adjustment</button>
+    </div>
+
+    <div class="box">
+        <h2>Stock Adjustment History</h2>
+
+        <button onclick="loadStockAdjustments()">Load Adjustments</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Branch</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Type</th>
+                    <th>Qty</th>
+                    <th>Reason</th>
+                    <th>User</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="stockAdjustmentsTable"></tbody>
+        </table>
+    </div>
+</section>
             <section id="productsPage" class="page" style="display:none;">
                 <h1>Products</h1>
 
