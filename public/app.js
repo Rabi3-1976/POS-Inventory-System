@@ -973,10 +973,10 @@ window.printCartReceipt = function (invoiceNo) {
                         <img src="logo.png" alt="Logo">
 
                         <div>
-                            <h1>POS Inventory System</h1>
+                            <h1>POS Mart & Wholesales</h1>
                             <p>Beirut, Lebanon</p>
-                            <p>Phone: +961 XX XXX XXX</p>
-                            <p>Email: info@company.com</p>
+                            <p>Phone: +961 3 743 351</p>
+                            <p>Email: posmartwholesales@gmail.com</p>
                         </div>
                     </div>
 
