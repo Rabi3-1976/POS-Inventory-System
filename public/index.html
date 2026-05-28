@@ -287,18 +287,45 @@
 </section>
 <section id="closingPage" class="page" style="display:none;">
     <h1>Daily Closing Report</h1>
+<div class="box">
+    <h2>Closing Date</h2>
+    <input id="closingDateInput" type="date">
+    <button onclick="loadDailyClosing()">Load Closing</button>
+</div>
 
-    <div class="dashboard">
+<h2>Closing Date: <span id="closingSelectedDate"></span></h2>
+        <div class="dashboard">
         <div class="card">Today Sales<br>$<span id="closingSales">0.00</span></div>
         <div class="card">Today Profit<br>$<span id="closingProfit">0.00</span></div>
         <div class="card">Today Expenses<br>$<span id="closingExpenses">0.00</span></div>
+        <div class="card">Customer Refunds<br>$<span id="closingRefunds">0.00</span></div>
         <div class="card">Net Profit<br>$<span id="closingNetProfit">0.00</span></div>
         <div class="card">Transactions<br><span id="closingTransactions">0</span></div>
+        <div class="card">Returns Count<br><span id="closingReturnsCount">0</span></div>
     </div>
 
     <div class="box">
         <h2>Today Expenses</h2>
+<div class="box">
+    <h2>Customer Returns / Refunds</h2>
 
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Customer</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Branch</th>
+                <th>Qty</th>
+                <th>Refund</th>
+                <th>Reason</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="closingReturnsTable"></tbody>
+    </table>
+</div>
         <button onclick="loadDailyClosing()">Refresh Closing</button>
         <button onclick="printDailyClosing()">Print Closing Report</button>
         <button onclick="exportDailyClosingExcel()">Export Closing Excel</button>

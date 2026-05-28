@@ -172,6 +172,10 @@ if (pageId === "customerReturnsPage") {
     loadExpenses();
 }
 if (pageId === "closingPage") {
+    const input = document.getElementById("closingDateInput");
+    if (input && !input.value) {
+        input.value = new Date().toISOString().slice(0, 10);
+    }
     loadDailyClosing();
 }
     if (pageId === "posPage") {
@@ -2363,8 +2367,25 @@ window.exportExpensesExcel = async function () {
     link.download = "expenses_report.csv";
     link.click();
 };
+window.getClosingDate = function () {
+    const input = document.getElementById("closingDateInput");
+
+    if (input && input.value) {
+        return input.value;
+    }
+
+    return new Date().toISOString().slice(0, 10);
+};
+
 window.loadDailyClosing = async function () {
-    const res = await fetch(API + "/daily-closing");
+    const date = getClosingDate();
+
+    const dateInput = document.getElementById("closingDateInput");
+    if (dateInput && !dateInput.value) {
+        dateInput.value = date;
+    }
+
+    const res = await fetch(API + "/daily-closing?date=" + date);
     const data = await res.json();
 
     if (data.error) {
@@ -2372,35 +2393,61 @@ window.loadDailyClosing = async function () {
         return;
     }
 
+    setText("closingSelectedDate", data.date);
     setText("closingSales", Number(data.total_sales || 0).toFixed(2));
     setText("closingProfit", Number(data.total_profit || 0).toFixed(2));
     setText("closingExpenses", Number(data.total_expenses || 0).toFixed(2));
+    setText("closingRefunds", Number(data.total_refunds || 0).toFixed(2));
     setText("closingNetProfit", Number(data.net_profit || 0).toFixed(2));
     setText("closingTransactions", data.total_transactions || 0);
+    setText("closingReturnsCount", data.total_returns || 0);
 
-    const table = document.getElementById("closingExpensesTable");
-    if (!table) return;
+    const expensesTable = document.getElementById("closingExpensesTable");
+    if (expensesTable) {
+        expensesTable.innerHTML = "";
 
-    table.innerHTML = "";
+        data.expenses.forEach(e => {
+            expensesTable.innerHTML += `
+                <tr>
+                    <td>${e.id}</td>
+                    <td>${e.category}</td>
+                    <td>${Number(e.amount || 0).toFixed(2)}</td>
+                    <td>${e.notes || ""}</td>
+                    <td>${new Date(e.date).toLocaleString()}</td>
+                </tr>
+            `;
+        });
+    }
 
-    data.expenses.forEach(e => {
-        table.innerHTML += `
-            <tr>
-                <td>${e.id}</td>
-                <td>${e.category}</td>
-                <td>${Number(e.amount || 0).toFixed(2)}</td>
-                <td>${e.notes || ""}</td>
-                <td>${e.date}</td>
-            </tr>
-        `;
-    });
+    const returnsTable = document.getElementById("closingReturnsTable");
+    if (returnsTable) {
+        returnsTable.innerHTML = "";
+
+        data.returns.forEach(r => {
+            returnsTable.innerHTML += `
+                <tr>
+                    <td>${r.id}</td>
+                    <td>${r.customer_name || "Walk-in Customer"}</td>
+                    <td>${r.product_name}</td>
+                    <td>${r.barcode}</td>
+                    <td>${r.branch_name}</td>
+                    <td>${r.qty}</td>
+                    <td>${Number(r.refund_amount || 0).toFixed(2)}</td>
+                    <td>${r.reason || ""}</td>
+                    <td>${new Date(r.date).toLocaleString()}</td>
+                </tr>
+            `;
+        });
+    }
 };
-
 window.printDailyClosing = async function () {
-    const res = await fetch(API + "/daily-closing");
+    const date = getClosingDate();
+
+    const res = await fetch(API + "/daily-closing?date=" + date);
     const data = await res.json();
 
     let expenseRows = "";
+    let returnRows = "";
 
     data.expenses.forEach(e => {
         expenseRows += `
@@ -2409,7 +2456,23 @@ window.printDailyClosing = async function () {
                 <td>${e.category}</td>
                 <td>${Number(e.amount || 0).toFixed(2)}</td>
                 <td>${e.notes || ""}</td>
-                <td>${e.date}</td>
+                <td>${new Date(e.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    data.returns.forEach(r => {
+        returnRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.customer_name || "Walk-in Customer"}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.qty}</td>
+                <td>${Number(r.refund_amount || 0).toFixed(2)}</td>
+                <td>${r.reason || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
     });
@@ -2419,7 +2482,7 @@ window.printDailyClosing = async function () {
     const html = `
         <html>
         <head>
-            <title>Daily Closing Report</title>
+            <title>Daily Closing Report - ${data.date}</title>
             <style>
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
@@ -2442,18 +2505,20 @@ window.printDailyClosing = async function () {
         </head>
         <body>
             <h1>Daily Closing Report</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Closing Date:</strong> ${data.date}</p>
+            <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
 
             <div class="summary">
-                <div class="card">Today Sales: $${Number(data.total_sales || 0).toFixed(2)}</div>
-                <div class="card">Today Profit: $${Number(data.total_profit || 0).toFixed(2)}</div>
-                <div class="card">Today Expenses: $${Number(data.total_expenses || 0).toFixed(2)}</div>
+                <div class="card">Sales: $${Number(data.total_sales || 0).toFixed(2)}</div>
+                <div class="card">Profit: $${Number(data.total_profit || 0).toFixed(2)}</div>
+                <div class="card">Expenses: $${Number(data.total_expenses || 0).toFixed(2)}</div>
+                <div class="card">Refunds: $${Number(data.total_refunds || 0).toFixed(2)}</div>
                 <div class="card">Net Profit: $${Number(data.net_profit || 0).toFixed(2)}</div>
                 <div class="card">Transactions: ${data.total_transactions || 0}</div>
+                <div class="card">Returns Count: ${data.total_returns || 0}</div>
             </div>
 
-            <h2>Today Expenses</h2>
-
+            <h2>Expenses</h2>
             <table>
                 <thead>
                     <tr>
@@ -2464,9 +2529,25 @@ window.printDailyClosing = async function () {
                         <th>Date</th>
                     </tr>
                 </thead>
-                <tbody>
-                    ${expenseRows}
-                </tbody>
+                <tbody>${expenseRows}</tbody>
+            </table>
+
+            <h2>Customer Returns / Refunds</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Refund</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${returnRows}</tbody>
             </table>
 
             <script>window.print();</script>
@@ -2477,31 +2558,43 @@ window.printDailyClosing = async function () {
     reportWindow.document.write(html);
     reportWindow.document.close();
 };
-
 window.exportDailyClosingExcel = async function () {
-    const res = await fetch(API + "/daily-closing");
+    const date = getClosingDate();
+
+    const res = await fetch(API + "/daily-closing?date=" + date);
     const data = await res.json();
 
     let csv = "Daily Closing Report\n";
-    csv += `Date,${new Date().toLocaleString()}\n\n`;
-    csv += `Today Sales,${Number(data.total_sales || 0).toFixed(2)}\n`;
-    csv += `Today Profit,${Number(data.total_profit || 0).toFixed(2)}\n`;
-    csv += `Today Expenses,${Number(data.total_expenses || 0).toFixed(2)}\n`;
+    csv += `Closing Date,${data.date}\n`;
+    csv += `Exported At,${new Date().toLocaleString()}\n\n`;
+
+    csv += `Sales,${Number(data.total_sales || 0).toFixed(2)}\n`;
+    csv += `Profit,${Number(data.total_profit || 0).toFixed(2)}\n`;
+    csv += `Expenses,${Number(data.total_expenses || 0).toFixed(2)}\n`;
+    csv += `Refunds,${Number(data.total_refunds || 0).toFixed(2)}\n`;
     csv += `Net Profit,${Number(data.net_profit || 0).toFixed(2)}\n`;
-    csv += `Transactions,${data.total_transactions || 0}\n\n`;
+    csv += `Transactions,${data.total_transactions || 0}\n`;
+    csv += `Returns Count,${data.total_returns || 0}\n\n`;
 
     csv += "Expenses\n";
     csv += "ID,Category,Amount,Notes,Date\n";
 
     data.expenses.forEach(e => {
-        csv += `${e.id},${e.category},${Number(e.amount || 0).toFixed(2)},${e.notes || ""},${e.date}\n`;
+        csv += `${e.id},${e.category},${Number(e.amount || 0).toFixed(2)},${e.notes || ""},${new Date(e.date).toLocaleString()}\n`;
+    });
+
+    csv += "\nCustomer Returns / Refunds\n";
+    csv += "ID,Customer,Product,Barcode,Branch,Qty,Refund,Reason,Date\n";
+
+    data.returns.forEach(r => {
+        csv += `${r.id},${r.customer_name || "Walk-in Customer"},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${Number(r.refund_amount || 0).toFixed(2)},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv" });
     const link = document.createElement("a");
 
     link.href = URL.createObjectURL(blob);
-    link.download = "daily_closing_report.csv";
+    link.download = "daily_closing_" + data.date + ".csv";
     link.click();
 };
 window.applyRolePermissions = function () {
