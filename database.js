@@ -193,6 +193,21 @@ await pool.query(`
     ALTER TABLE purchase_orders
     ADD COLUMN IF NOT EXISTS received_qty INTEGER DEFAULT 0
 `);
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS system_settings (
+        id SERIAL PRIMARY KEY,
+        setting_key TEXT UNIQUE,
+        setting_value TEXT
+    )
+`);
+
+await pool.query(`
+    INSERT INTO system_settings (setting_key, setting_value)
+    VALUES 
+        ('default_currency', 'USD'),
+        ('usd_to_lbp_rate', '90000')
+    ON CONFLICT (setting_key) DO NOTHING
+`);
     console.log("PostgreSQL tables ready");
 }
 initializeDatabase().catch(err => {

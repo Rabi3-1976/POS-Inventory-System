@@ -1862,7 +1862,64 @@ app.get("/customer-returns", async (req, res) => {
         res.status(500).json({ error: "Customer returns failed to load" });
     }
 });
+// CURRENCY SETTINGS
+app.get("/currency-settings", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT setting_key, setting_value
+            FROM system_settings
+        `);
 
+        const settings = {};
+
+        result.rows.forEach(row => {
+            settings[row.setting_key] = row.setting_value;
+        });
+
+        res.json({
+            default_currency: settings.default_currency || "USD",
+            usd_to_lbp_rate: Number(settings.usd_to_lbp_rate || 89500)
+        });
+
+    } catch (err) {
+        console.error("CURRENCY SETTINGS ERROR:", err);
+        res.status(500).json({ error: "Currency settings failed to load" });
+    }
+});
+
+app.put("/currency-settings", verifyToken, adminOnly, async (req, res) => {
+    const { default_currency, usd_to_lbp_rate } = req.body;
+
+    if (!["USD", "LBP"].includes(default_currency)) {
+        return res.status(400).json({ error: "Currency must be USD or LBP" });
+    }
+
+    if (!usd_to_lbp_rate || Number(usd_to_lbp_rate) <= 0) {
+        return res.status(400).json({ error: "Exchange rate must be valid" });
+    }
+
+    try {
+        await pool.query(`
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES ('default_currency', $1)
+            ON CONFLICT (setting_key)
+            DO UPDATE SET setting_value = EXCLUDED.setting_value
+        `, [default_currency]);
+
+        await pool.query(`
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES ('usd_to_lbp_rate', $1)
+            ON CONFLICT (setting_key)
+            DO UPDATE SET setting_value = EXCLUDED.setting_value
+        `, [String(usd_to_lbp_rate)]);
+
+        res.json({ message: "Currency settings updated" });
+
+    } catch (err) {
+        console.error("UPDATE CURRENCY SETTINGS ERROR:", err);
+        res.status(500).json({ error: "Currency settings update failed" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
