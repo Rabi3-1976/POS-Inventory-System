@@ -7,6 +7,8 @@ let branchesCache = [];
 let salesProfitChart = null;
 let stockChart = null;
 let html5QrCode = null;
+let systemCurrency = "USD";
+let usdToLbpRate = 89500;
 
 function authHeaders(extra = {}) {
     const savedToken = localStorage.getItem("token") || token || "";
@@ -324,9 +326,9 @@ window.loadDashboard = async function () {
 
         setText("totalProducts", data.totalProducts ?? data.total_products ?? 0);
         setText("totalStock", data.totalStock ?? data.total_stock ?? 0);
-        setText("totalSales", money(data.totalSales ?? data.total_sales));
+        setText("totalSales", formatMoney(data.total_sales || data.totalSales || 0));
         setText("lowStock", data.lowStock ?? data.low_stock ?? 0);
-        setText("totalProfit", money(data.totalProfit ?? data.total_profit));
+        setText("totalProfit", formatMoney(data.total_profit || data.totalProfit || 0));
     } catch (err) {
         console.error("Dashboard error:", err);
     }
@@ -656,14 +658,14 @@ window.displayCart = function () {
                 <td>${safeHtml(item.name)}</td>
                 <td>${safeHtml(item.barcode)}</td>
                 <td>${item.qty}</td>
-                <td>${money(item.price)}</td>
-                <td>${money(lineTotal)}</td>
+                <td>${formatMoney(item.price)}</td>
+                <td>${formatMoney(lineTotal)}</td>
                 <td><button onclick="removeFromCart(${index})">Remove</button></td>
             </tr>
         `;
     });
 
-    totalBox.innerText = money(total);
+    totalBox.innerText = formatMoney(total);
 };
 
 window.removeFromCart = function (index) {
@@ -761,8 +763,8 @@ window.printCartReceipt = function (invoiceNo) {
                 <td>${item.name}</td>
                 <td>${item.barcode}</td>
                 <td>${item.qty}</td>
-                <td>$${Number(item.price).toFixed(2)}</td>
-                <td>$${lineTotal.toFixed(2)}</td>
+                <td>${formatMoney(item.price)}</td>
+                <td>${formatMoney(lineTotal)}</td>
             </tr>
         `;
     });
@@ -1006,6 +1008,7 @@ window.printCartReceipt = function (invoiceNo) {
                         <p><strong>Branch:</strong> ${branchName}</p>
                         <p><strong>Cashier:</strong> ${cashier}</p>
                         <p><strong>Payment:</strong> ${paymentMethod}</p>
+                        <p><strong>Currency:</strong> ${systemCurrency}</p>
                     </div>
                 </div>
 
@@ -1029,7 +1032,7 @@ window.printCartReceipt = function (invoiceNo) {
                     <div class="totals-box">
                         <div class="totals-row">
                             <span>Subtotal</span>
-                            <span>$${total.toFixed(2)}</span>
+                            <span>${formatMoney(total)}</span>
                         </div>
                         <div class="totals-row">
                             <span>Discount</span>
@@ -1037,7 +1040,7 @@ window.printCartReceipt = function (invoiceNo) {
                         </div>
                         <div class="totals-row">
                             <span>Grand Total</span>
-                            <span>$${total.toFixed(2)}</span>
+                            <span>${formatMoney(total)}</span>
                         </div>
                     </div>
                 </div>
@@ -1866,6 +1869,7 @@ window.stopScanner = function () {
 
 // INIT
 window.addEventListener("load", async () => {
+    await loadSystemCurrency();
     const savedToken = localStorage.getItem("token");
     const savedRole = localStorage.getItem("role");
 
@@ -2256,7 +2260,7 @@ window.loadExpenses = async function () {
             <tr>
                 <td>${e.id}</td>
                 <td>${e.category}</td>
-                <td>${Number(e.amount || 0).toFixed(2)}</td>
+                <td>${formatMoney(e.amount || 0)}</td>
                 <td>${e.notes || ""}</td>
                 <td>${e.date}</td>
                 <td>
@@ -2343,7 +2347,7 @@ window.printExpensesReport = async function () {
                 </tbody>
             </table>
 
-            <div class="total">Total Expenses: $${total.toFixed(2)}</div>
+            <div class="total">Total Expenses: ${formatMoney(total)}</div>
 
             <script>window.print();</script>
         </body>
@@ -2398,11 +2402,11 @@ window.loadDailyClosing = async function () {
     }
 
     setText("closingSelectedDate", data.date);
-    setText("closingSales", Number(data.total_sales || 0).toFixed(2));
-    setText("closingProfit", Number(data.total_profit || 0).toFixed(2));
-    setText("closingExpenses", Number(data.total_expenses || 0).toFixed(2));
-    setText("closingRefunds", Number(data.total_refunds || 0).toFixed(2));
-    setText("closingNetProfit", Number(data.net_profit || 0).toFixed(2));
+    setText("closingSales", formatMoney(data.total_sales || 0));
+    setText("closingProfit", formatMoney(data.total_profit || 0));
+    setText("closingExpenses", formatMoney(data.total_expenses || 0));
+    setText("closingRefunds", formatMoney(data.total_refunds || 0));
+    setText("closingNetProfit", formatMoney(data.net_profit || 0));
     setText("closingTransactions", data.total_transactions || 0);
     setText("closingReturnsCount", data.total_returns || 0);
 
@@ -2700,7 +2704,7 @@ window.displayInvoices = function (invoices) {
                 <td>${inv.branch_name || ""}</td>
                 <td>${inv.cashier_name || ""}</td>
                 <td>${inv.payment_method || "Cash"}</td>
-                <td>${Number(inv.total || 0).toFixed(2)}</td>
+                <td>${formatMoney(inv.total || 0)}</td>
                 <td>${new Date(inv.date).toLocaleString()}</td>
                 <td><button onclick="reprintInvoice(${inv.id})">Reprint</button></td>
             </tr>
@@ -2775,8 +2779,8 @@ window.printSavedInvoice = function (invoice, items) {
                 <td>${item.product_name}</td>
                 <td>${item.barcode}</td>
                 <td>${item.qty}</td>
-                <td>$${Number(item.unit_price || 0).toFixed(2)}</td>
-                <td>$${Number(item.line_total || 0).toFixed(2)}</td>
+                <td>${formatMoney(item.unit_price || 0)}</td>
+                <td>${formatMoney(item.line_total || 0)}</td>
             </tr>
         `;
     });
@@ -2991,6 +2995,7 @@ window.printSavedInvoice = function (invoice, items) {
                         <p><strong>Branch:</strong> ${invoice.branch_name || ""}</p>
                         <p><strong>Cashier:</strong> ${invoice.cashier_name || ""}</p>
                         <p><strong>Payment:</strong> ${invoice.payment_method || "Cash"}</p>
+                        <p><strong>Currency:</strong> ${systemCurrency}</p>
                     </div>
                 </div>
 
@@ -3014,7 +3019,7 @@ window.printSavedInvoice = function (invoice, items) {
                     <div class="totals-box">
                         <div class="totals-row">
                             <span>Subtotal</span>
-                            <span>$${total.toFixed(2)}</span>
+                            <span>${formatMoney(total)}</span>
                         </div>
                         <div class="totals-row">
                             <span>Discount</span>
@@ -3022,7 +3027,7 @@ window.printSavedInvoice = function (invoice, items) {
                         </div>
                         <div class="totals-row">
                             <span>Grand Total</span>
-                            <span>$${Number(invoice.total || total).toFixed(2)}</span>
+                            <span>${formatMoney(Number(invoice.total || total))}</span>
                         </div>
                     </div>
                 </div>
@@ -3748,11 +3753,11 @@ window.loadSupplierBalanceReport = async function () {
             <tr>
                 <td>${r.supplier_name}</td>
                 <td>${r.total_received_qty}</td>
-                <td>${Number(r.total_received_value || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.total_received_value || 0)}</td>
                 <td>${r.total_returned_qty}</td>
-                <td>${Number(r.total_returned_value || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.total_returned_value || 0)}</td>
                 <td>${r.net_qty}</td>
-                <td>${Number(r.net_value || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.net_value || 0)}</td>
             </tr>
         `;
     });
@@ -4107,6 +4112,30 @@ window.saveCurrencySettings = async function () {
     const data = await res.json();
 
     alert(data.message || data.error);
+        await loadSystemCurrency();
+              loadCurrencySettings();
+};
+window.loadSystemCurrency = async function () {
+    try {
+        const res = await fetch(API + "/currency-settings");
+        const settings = await res.json();
 
-    loadCurrencySettings();
+        systemCurrency = settings.default_currency || "USD";
+        usdToLbpRate = Number(settings.usd_to_lbp_rate || 89500);
+
+    } catch (err) {
+        console.error("Currency settings load failed:", err);
+        systemCurrency = "USD";
+        usdToLbpRate = 89500;
+    }
+};
+
+window.formatMoney = function (amount) {
+    const value = Number(amount || 0);
+
+    if (systemCurrency === "LBP") {
+        return Math.round(value * usdToLbpRate).toLocaleString() + " L.L.";
+    }
+
+    return "$" + value.toFixed(2);
 };

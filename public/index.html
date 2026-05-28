@@ -23,7 +23,7 @@
 <div id="mainSection" style="display:none;">
     <div class="layout">
         <aside class="sidebar">
-            <h2>POS System</h2>
+            <h2>Mart & Wholesales Management</h2>
             <button id="dashboardMenuBtn" onclick="showPage('dashboardPage')">Dashboard</button>
             <button id="branchDashboardMenuBtn" onclick="showPage('branchDashboardPage')">Branch Dashboard</button>
             <button id="productsMenuBtn" onclick="showPage('productsPage')">Products</button>
@@ -49,9 +49,9 @@
                 <div class="dashboard">
                     <div class="card">Total Products<br><span id="totalProducts">0</span></div>
                     <div class="card">Total Stock<br><span id="totalStock">0</span></div>
-                    <div class="card">Total Sales<br>$<span id="totalSales">0</span></div>
+                    <div class="card">Total Sales<br><span id="totalSales">0</span></div>
                     <div class="card">Low Stock Items<br><span id="lowStock">0</span></div>
-                    <div class="card">Total Profit<br>$<span id="totalProfit">0</span></div>
+                    <div class="card">Total Profit<br><span id="totalProfit">0</span></div>
                     <div class="box">
                         <h2>Sales & Profit Chart</h2>
                         <canvas id="salesProfitChart"></canvas>
@@ -331,11 +331,11 @@
 
 <h2>Closing Date: <span id="closingSelectedDate"></span></h2>
         <div class="dashboard">
-        <div class="card">Today Sales<br>$<span id="closingSales">0.00</span></div>
-        <div class="card">Today Profit<br>$<span id="closingProfit">0.00</span></div>
-        <div class="card">Today Expenses<br>$<span id="closingExpenses">0.00</span></div>
-        <div class="card">Customer Refunds<br>$<span id="closingRefunds">0.00</span></div>
-        <div class="card">Net Profit<br>$<span id="closingNetProfit">0.00</span></div>
+        <div class="card">Today Sales<br><span id="closingSales">0.00</span></div>
+        <div class="card">Today Profit<br><span id="closingProfit">0.00</span></div>
+        <div class="card">Today Expenses<br><span id="closingExpenses">0.00</span></div>
+        <div class="card">Customer Refunds<br><span id="closingRefunds">0.00</span></div>
+        <div class="card">Net Profit<br><span id="closingNetProfit">0.00</span></div>
         <div class="card">Transactions<br><span id="closingTransactions">0</span></div>
         <div class="card">Returns Count<br><span id="closingReturnsCount">0</span></div>
     </div>
@@ -412,7 +412,7 @@
                         <tbody id="cartTable"></tbody>
                     </table>
 
-                    <h2>Total: $<span id="cartTotal">0.00</span></h2>
+                    <h2>Total: <span id="cartTotal">0.00</span></h2>
                     <button onclick="checkoutCart()">Checkout</button>
                     <button onclick="clearCart()">Clear Cart</button>
                 </div>
