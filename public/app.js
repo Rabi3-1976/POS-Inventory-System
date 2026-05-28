@@ -1562,7 +1562,7 @@ window.printInventoryReport = async function () {
             <td>${p.id}</td>
             <td>${safeHtml(p.name)}</td>
             <td>${safeHtml(p.barcode)}</td>
-            <td>${money(p.price)}</td>
+            <td>${formatMoney(p.price)}</td>
             <td>${p.stock}</td>
         </tr>
     `).join("");
@@ -1594,8 +1594,8 @@ window.printSalesReport = async function () {
             <td>${safeHtml(s.product_name)}</td>
             <td>${safeHtml(s.barcode)}</td>
             <td>${s.qty}</td>
-            <td>${money(Number(s.price) / Number(s.qty || 1))}</td>
-            <td>${money(s.price)}</td>
+            <td>${formatMoney(Number(s.price) / Number(s.qty || 1))}</td>
+            <td>${formatMoney(s.price)}</td>
             <td>${safeHtml(s.date)}</td>
         </tr>
     `).join("");
@@ -1663,9 +1663,9 @@ window.printBranchSalesReport = async function () {
                 <td>${safeHtml(s.product_name)}</td>
                 <td>${safeHtml(s.barcode)}</td>
                 <td>${s.qty}</td>
-                <td>${money(unitPrice)}</td>
-                <td>${money(s.price)}</td>
-                <td>${money(s.profit)}</td>
+                <td>${formatMoney(unitPrice)}</td>
+                <td>${formatMoney(s.price)}</td>
+                <td>${formatMoney(s.profit)}</td>
                 <td>${safeHtml(s.date)}</td>
             </tr>
         `;
@@ -2098,9 +2098,9 @@ window.loadCustomerHistory = async function () {
                 <td>${r.product_name}</td>
                 <td>${r.barcode}</td>
                 <td>${r.qty}</td>
-                <td>${unitPrice.toFixed(2)}</td>
-                <td>${total.toFixed(2)}</td>
-                <td>${profit.toFixed(2)}</td>
+                <td>${formatMoney(unitPrice)}</td>
+                <td>${formatMoney(total)}</td>
+                <td>${formatMoney(profit)}</td>
                 <td>${r.date}</td>
             </tr>
         `;
@@ -2169,9 +2169,9 @@ window.printCustomerHistory = async function () {
                 <td>${r.product_name}</td>
                 <td>${r.barcode}</td>
                 <td>${r.qty}</td>
-                <td>${unitPrice.toFixed(2)}</td>
-                <td>${total.toFixed(2)}</td>
-                <td>${profit.toFixed(2)}</td>
+                <td>${formatMoney(unitPrice)}</td>
+                <td>${formatMoney(total)}</td>
+                <td>${formatMoney(profit)}</td>
                 <td>${r.date}</td>
             </tr>
         `;
@@ -2308,7 +2308,7 @@ window.printExpensesReport = async function () {
             <tr>
                 <td>${e.id}</td>
                 <td>${e.category}</td>
-                <td>${Number(e.amount || 0).toFixed(2)}</td>
+                <td>${formatMoney(e.amount || 0)}</td>
                 <td>${e.notes || ""}</td>
                 <td>${e.date}</td>
             </tr>
@@ -2419,7 +2419,7 @@ window.loadDailyClosing = async function () {
                 <tr>
                     <td>${e.id}</td>
                     <td>${e.category}</td>
-                    <td>${Number(e.amount || 0).toFixed(2)}</td>
+                    <td>${formatMoney(e.amount || 0)}</td>
                     <td>${e.notes || ""}</td>
                     <td>${new Date(e.date).toLocaleString()}</td>
                 </tr>
@@ -2440,7 +2440,7 @@ window.loadDailyClosing = async function () {
                     <td>${r.barcode}</td>
                     <td>${r.branch_name}</td>
                     <td>${r.qty}</td>
-                    <td>${Number(r.refund_amount || 0).toFixed(2)}</td>
+                    <td>${formatMoney(r.refund_amount || 0)}</td>
                     <td>${r.reason || ""}</td>
                     <td>${new Date(r.date).toLocaleString()}</td>
                 </tr>
@@ -2462,7 +2462,7 @@ window.printDailyClosing = async function () {
             <tr>
                 <td>${e.id}</td>
                 <td>${e.category}</td>
-                <td>${Number(e.amount || 0).toFixed(2)}</td>
+                <td>${formatMoney(e.amount || 0)}</td>
                 <td>${e.notes || ""}</td>
                 <td>${new Date(e.date).toLocaleString()}</td>
             </tr>
@@ -2478,7 +2478,7 @@ window.printDailyClosing = async function () {
                 <td>${r.barcode}</td>
                 <td>${r.branch_name}</td>
                 <td>${r.qty}</td>
-                <td>${Number(r.refund_amount || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.refund_amount || 0)}</td>
                 <td>${r.reason || ""}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
@@ -2517,11 +2517,11 @@ window.printDailyClosing = async function () {
             <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
 
             <div class="summary">
-                <div class="card">Sales: $${Number(data.total_sales || 0).toFixed(2)}</div>
-                <div class="card">Profit: $${Number(data.total_profit || 0).toFixed(2)}</div>
-                <div class="card">Expenses: $${Number(data.total_expenses || 0).toFixed(2)}</div>
-                <div class="card">Refunds: $${Number(data.total_refunds || 0).toFixed(2)}</div>
-                <div class="card">Net Profit: $${Number(data.net_profit || 0).toFixed(2)}</div>
+                <div class="card">Sales: ${formatMoney(data.total_sales || 0)}</div>
+                <div class="card">Profit: ${formatMoney(data.total_profit || 0)}</div>
+                <div class="card">Expenses: ${formatMoney(data.total_expenses || 0)}</div>
+                <div class="card">Refunds: ${formatMoney(data.total_refunds || 0)}</div>
+                <div class="card">Net Profit: ${formatMoney(data.net_profit || 0)}</div>
                 <div class="card">Transactions: ${data.total_transactions || 0}</div>
                 <div class="card">Returns Count: ${data.total_returns || 0}</div>
             </div>
@@ -3774,11 +3774,11 @@ window.printSupplierBalanceReport = async function () {
             <tr>
                 <td>${r.supplier_name}</td>
                 <td>${r.total_received_qty}</td>
-                <td>${Number(r.total_received_value || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.total_received_value || 0)}</td>
                 <td>${r.total_returned_qty}</td>
-                <td>${Number(r.total_returned_value || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.total_returned_value || 0)}</td>
                 <td>${r.net_qty}</td>
-                <td>${Number(r.net_value || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.net_value || 0)}</td>
             </tr>
         `;
     });
@@ -3967,7 +3967,7 @@ window.loadCustomerReturns = async function () {
                 <td>${r.barcode}</td>
                 <td>${r.branch_name}</td>
                 <td>${r.qty}</td>
-                <td>${Number(r.refund_amount || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.refund_amount || 0)}</td>
                 <td>${r.reason || ""}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
@@ -3992,7 +3992,7 @@ window.printCustomerReturns = async function () {
                 <td>${r.barcode}</td>
                 <td>${r.branch_name}</td>
                 <td>${r.qty}</td>
-                <td>${Number(r.refund_amount || 0).toFixed(2)}</td>
+                <td>${formatMoney(r.refund_amount || 0)}</td>
                 <td>${r.reason || ""}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
