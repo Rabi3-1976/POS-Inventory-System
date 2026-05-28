@@ -1991,18 +1991,23 @@ app.post("/stock-adjustments", verifyToken, async (req, res) => {
             );
         }
 
-        await client.query(`
-            INSERT INTO stock_adjustments
-            (branch_id, product_id, adjustment_type, qty, reason, user_id)
-            VALUES ($1, $2, $3, $4, $5, $6)
-        `, [
-            branch_id,
-            product_id,
-            adjustment_type,
-            qtyNumber,
-            reason || "",
-            req.user.id
-        ]);
+const unitCost = Number(product.cost || 0);
+const totalCostValue = unitCost * qtyNumber;
+
+await client.query(`
+    INSERT INTO stock_adjustments
+    (branch_id, product_id, adjustment_type, qty, reason, user_id, unit_cost, total_cost_value)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`, [
+    branch_id,
+    product_id,
+    adjustment_type,
+    qtyNumber,
+    reason || "",
+    req.user.id,
+    unitCost,
+    totalCostValue
+]);
 
         await client.query("COMMIT");
 
@@ -2028,6 +2033,8 @@ app.get("/stock-adjustments", async (req, res) => {
                 sa.adjustment_type,
                 sa.qty,
                 sa.reason,
+                sa.unit_cost,
+                sa.total_cost_value,
                 u.username AS username,
                 sa.date
             FROM stock_adjustments sa

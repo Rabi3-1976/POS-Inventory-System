@@ -220,6 +220,15 @@ await pool.query(`
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
+await pool.query(`
+    ALTER TABLE stock_adjustments
+    ADD COLUMN IF NOT EXISTS unit_cost NUMERIC DEFAULT 0
+`);
+
+await pool.query(`
+    ALTER TABLE stock_adjustments
+    ADD COLUMN IF NOT EXISTS total_cost_value NUMERIC DEFAULT 0
+`);
     console.log("PostgreSQL tables ready");
 }
 initializeDatabase().catch(err => {
