@@ -401,6 +401,32 @@
     </table>
 </div>
 <div class="box">
+    <h2>Final Stock Audit</h2>
+
+    <button onclick="loadStockAuditReport()">Load Stock Audit</button>
+    <button onclick="printStockAuditReport()">Print Stock Audit</button>
+    <button onclick="exportStockAuditReportExcel()">Export Stock Audit Excel</button>
+    <button onclick="syncProductStockFromBranches()">Sync Product Stock from Branches</button>
+
+    <h3>Total Difference Value: <span id="stockAuditTotalDifferenceValue">0</span></h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Product Stock</th>
+                <th>Branch Stock Total</th>
+                <th>Difference</th>
+                <th>Unit Cost</th>
+                <th>Difference Value</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="stockAuditTable"></tbody>
+    </table>
+</div>
+<div class="box">
     <h2>Stock Adjustment Report</h2>
 
     <select id="adjustReportBranch"></select>

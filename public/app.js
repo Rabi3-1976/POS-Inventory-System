@@ -232,6 +232,7 @@ if (pageId === "suppliersPage") {
     loadLowStockBranchReport();
     loadReorderOptions();
     loadReorderSuggestions();
+    loadStockAuditReport();
 }
     if (pageId === "invoiceReportPage") {
         loadInvoices();
@@ -4829,4 +4830,167 @@ window.exportReorderSuggestionsExcel = async function () {
     link.href = URL.createObjectURL(blob);
     link.download = "reorder_suggestions.csv";
     link.click();
+};
+window.loadStockAuditReport = async function () {
+    const res = await fetch(API + "/stock-audit-report");
+    const rows = await res.json();
+
+    const table = document.getElementById("stockAuditTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    let totalDifferenceValue = 0;
+
+    rows.forEach(r => {
+        const diff = Number(r.difference || 0);
+        const diffValue = Number(r.difference_value || 0);
+
+        totalDifferenceValue += diffValue;
+
+        const status = diff === 0 ? "OK" : "Mismatch";
+
+        table.innerHTML += `
+            <tr>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.product_stock}</td>
+                <td>${r.branch_stock_total}</td>
+                <td>${diff}</td>
+                <td>${formatMoney(r.cost || 0)}</td>
+                <td>${formatMoney(diffValue)}</td>
+                <td>${status}</td>
+            </tr>
+        `;
+    });
+
+    setText("stockAuditTotalDifferenceValue", formatMoney(totalDifferenceValue));
+};
+window.printStockAuditReport = async function () {
+    const res = await fetch(API + "/stock-audit-report");
+    const rows = await res.json();
+
+    let htmlRows = "";
+    let totalDifferenceValue = 0;
+
+    rows.forEach(r => {
+        const diff = Number(r.difference || 0);
+        const diffValue = Number(r.difference_value || 0);
+
+        totalDifferenceValue += diffValue;
+
+        const status = diff === 0 ? "OK" : "Mismatch";
+
+        htmlRows += `
+            <tr>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.product_stock}</td>
+                <td>${r.branch_stock_total}</td>
+                <td>${diff}</td>
+                <td>${formatMoney(r.cost || 0)}</td>
+                <td>${formatMoney(diffValue)}</td>
+                <td>${status}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Final Stock Audit Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+                .ok { color: green; font-weight: bold; }
+                .bad { color: red; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <h1>Final Stock Audit Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Currency:</strong> ${systemCurrency}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Product Stock</th>
+                        <th>Branch Stock Total</th>
+                        <th>Difference</th>
+                        <th>Unit Cost</th>
+                        <th>Difference Value</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${htmlRows}
+                </tbody>
+            </table>
+
+            <div class="total">Total Difference Value: ${formatMoney(totalDifferenceValue)}</div>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+window.exportStockAuditReportExcel = async function () {
+    const res = await fetch(API + "/stock-audit-report");
+    const rows = await res.json();
+
+    let csv = "Product,Barcode,Product Stock,Branch Stock Total,Difference,Unit Cost,Difference Value,Status\n";
+
+    rows.forEach(r => {
+        const diff = Number(r.difference || 0);
+        const diffValue = Number(r.difference_value || 0);
+        const status = diff === 0 ? "OK" : "Mismatch";
+
+        csv += `${r.product_name},${r.barcode},${r.product_stock},${r.branch_stock_total},${diff},${Number(r.cost || 0).toFixed(2)},${diffValue.toFixed(2)},${status}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "final_stock_audit_report.csv";
+    link.click();
+};
+window.syncProductStockFromBranches = async function () {
+    if (!confirm("This will sync product total stock from branch stock totals. Continue?")) return;
+
+    const res = await fetch(API + "/sync-product-stock-from-branches", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadStockAuditReport();
+
+    if (typeof loadProducts === "function") {
+        loadProducts();
+    }
+
+    if (typeof loadDashboard === "function") {
+        loadDashboard();
+    }
+
+    if (typeof loadBranchDashboard === "function") {
+        loadBranchDashboard();
+    }
 };
