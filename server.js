@@ -2181,6 +2181,47 @@ app.get("/low-stock-branch-report", async (req, res) => {
         res.status(500).json({ error: "Low stock branch report failed" });
     }
 });
+// REORDER SUGGESTIONS BY BRANCH
+app.get("/reorder-suggestions", async (req, res) => {
+    const { branch_id } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                bs.branch_id,
+                b.name AS branch_name,
+                bs.product_id,
+                p.name AS product_name,
+                p.barcode,
+                p.cost,
+                bs.stock,
+                COALESCE(bs.min_stock, 0) AS min_stock,
+                GREATEST(COALESCE(bs.min_stock, 0) - COALESCE(bs.stock, 0), 0) AS suggested_qty
+            FROM branch_stock bs
+            JOIN branches b ON bs.branch_id = b.id
+            JOIN products p ON bs.product_id = p.id
+            WHERE COALESCE(bs.min_stock, 0) > 0
+            AND COALESCE(bs.stock, 0) <= COALESCE(bs.min_stock, 0)
+        `;
+
+        const params = [];
+
+        if (branch_id) {
+            params.push(branch_id);
+            query += ` AND bs.branch_id = $${params.length}`;
+        }
+
+        query += ` ORDER BY b.name, p.name`;
+
+        const result = await pool.query(query, params);
+
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error("REORDER SUGGESTIONS ERROR:", err);
+        res.status(500).json({ error: "Reorder suggestions failed" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
