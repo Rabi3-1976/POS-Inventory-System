@@ -654,7 +654,8 @@ app.get("/branch-stock", async (req, res) => {
                 b.name AS branch_name,
                 p.name AS product_name,
                 p.barcode,
-                bs.stock
+                bs.stock,
+                COALESCE(bs.min_stock, 0) AS min_stock
             FROM branch_stock bs
             JOIN branches b ON bs.branch_id = b.id
             JOIN products p ON bs.product_id = p.id
@@ -663,7 +664,8 @@ app.get("/branch-stock", async (req, res) => {
 
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: "Branch stock failed" });
+        console.error("BRANCH STOCK LOAD ERROR:", err);
+        res.status(500).json({ error: "Branch stock failed to load" });
     }
 });
 // STOCK TRANSFER
@@ -943,14 +945,13 @@ app.get("/branch-dashboard", async (req, res) => {
             SELECT 
                 b.id AS branch_id,
                 b.name AS branch_name,
-                COUNT(bs.id) AS low_stock_items
-            FROM branches b
-            LEFT JOIN branch_stock bs 
-                ON b.id = bs.branch_id
-                AND bs.stock <= 5
-            GROUP BY b.id, b.name
-            ORDER BY b.name
-        `);
+                COUNT(*) AS low_stock_items
+                FROM branch_stock bs
+                JOIN branches b ON bs.branch_id = b.id
+                WHERE COALESCE(bs.min_stock, 0) > 0
+                AND COALESCE(bs.stock, 0) <= COALESCE(bs.min_stock, 0)
+                GROUP BY b.id, b.name
+    `);
 
         res.json({
             sales: sales.rows,
@@ -2113,6 +2114,71 @@ app.get("/stock-adjustments-report", async (req, res) => {
     } catch (err) {
         console.error("STOCK ADJUSTMENT REPORT ERROR:", err);
         res.status(500).json({ error: "Stock adjustment report failed" });
+    }
+});
+// UPDATE BRANCH MIN STOCK
+app.put("/branch-stock/min-stock", verifyToken, async (req, res) => {
+    const { branch_id, product_id, min_stock } = req.body;
+
+    if (!branch_id || !product_id || min_stock === undefined || Number(min_stock) < 0) {
+        return res.status(400).json({ error: "Please select branch/product and valid minimum stock" });
+    }
+
+    try {
+        await pool.query(`
+            INSERT INTO branch_stock (branch_id, product_id, stock, min_stock)
+            VALUES ($1, $2, 0, $3)
+            ON CONFLICT (branch_id, product_id)
+            DO UPDATE SET min_stock = EXCLUDED.min_stock
+        `, [branch_id, product_id, Number(min_stock)]);
+
+        res.json({ message: "Minimum stock updated" });
+
+    } catch (err) {
+        console.error("MIN STOCK UPDATE ERROR:", err);
+        res.status(500).json({ error: "Minimum stock update failed" });
+    }
+});
+
+// LOW STOCK ALERTS BY BRANCH
+app.get("/low-stock-branch-report", async (req, res) => {
+    const { branch_id } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                bs.id,
+                b.id AS branch_id,
+                b.name AS branch_name,
+                p.id AS product_id,
+                p.name AS product_name,
+                p.barcode,
+                bs.stock,
+                COALESCE(bs.min_stock, 0) AS min_stock,
+                GREATEST(COALESCE(bs.min_stock, 0) - COALESCE(bs.stock, 0), 0) AS reorder_qty
+            FROM branch_stock bs
+            JOIN branches b ON bs.branch_id = b.id
+            JOIN products p ON bs.product_id = p.id
+            WHERE COALESCE(bs.stock, 0) <= COALESCE(bs.min_stock, 0)
+            AND COALESCE(bs.min_stock, 0) > 0
+        `;
+
+        const params = [];
+
+        if (branch_id) {
+            params.push(branch_id);
+            query += ` AND bs.branch_id = $${params.length}`;
+        }
+
+        query += ` ORDER BY b.name, p.name`;
+
+        const result = await pool.query(query, params);
+
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error("LOW STOCK BRANCH REPORT ERROR:", err);
+        res.status(500).json({ error: "Low stock branch report failed" });
     }
 });
 

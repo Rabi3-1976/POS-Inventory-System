@@ -229,6 +229,11 @@ await pool.query(`
     ALTER TABLE stock_adjustments
     ADD COLUMN IF NOT EXISTS total_cost_value NUMERIC DEFAULT 0
 `);
+await pool.query(`
+    ALTER TABLE branch_stock
+    ADD COLUMN IF NOT EXISTS min_stock INTEGER DEFAULT 0
+`);
+
     console.log("PostgreSQL tables ready");
 }
 initializeDatabase().catch(err => {
