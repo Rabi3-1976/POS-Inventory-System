@@ -412,7 +412,7 @@ window.displayProducts = function (products) {
                 <td>${p.id}</td>
                 <td>${safeHtml(p.name)}</td>
                 <td>${safeHtml(p.barcode)}</td>
-                <td>${formatmoney(p.price)}</td>
+                <td>${formatMoney(p.price)}</td>
                 <td>${p.stock}</td>
                 <td>
                     <select id="branch_${p.id}">
@@ -4076,6 +4076,9 @@ window.exportCustomerReturnsExcel = async function () {
     link.href = URL.createObjectURL(blob);
     link.download = "customer_returns_report.csv";
     link.click();
+};
+window.formatmoney = function (amount) {
+    return formatMoney(amount);
 };
 window.loadCurrencySettings = async function () {
     const res = await fetch(API + "/currency-settings");
