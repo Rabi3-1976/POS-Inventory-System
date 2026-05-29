@@ -318,7 +318,15 @@
 
         <button onclick="saveStockAdjustment()">Save Adjustment</button>
     </div>
+<div class="box">
+    <h2>Set Minimum Stock by Branch</h2>
 
+    <select id="minStockBranch"></select>
+    <select id="minStockProduct"></select>
+    <input id="minStockQty" type="number" placeholder="Minimum Stock Qty">
+
+    <button onclick="saveMinStock()">Save Minimum Stock</button>
+</div>
     <div class="box">
         <h2>Stock Adjustment History</h2>
 
@@ -343,7 +351,29 @@
             <tbody id="stockAdjustmentsTable"></tbody>
         </table>
     </div>
+<div class="box">
+    <h2>Low Stock Alerts by Branch</h2>
 
+    <select id="lowStockBranchFilter"></select>
+
+    <button onclick="loadLowStockBranchReport()">Load Low Stock</button>
+    <button onclick="printLowStockBranchReport()">Print Low Stock</button>
+    <button onclick="exportLowStockBranchReportExcel()">Export Low Stock Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Branch</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Current Stock</th>
+                <th>Min Stock</th>
+                <th>Suggested Reorder Qty</th>
+            </tr>
+        </thead>
+        <tbody id="lowStockBranchReportTable"></tbody>
+    </table>
+</div>
 <div class="box">
     <h2>Stock Adjustment Report</h2>
 
@@ -579,6 +609,7 @@
                                 <th>Product</th>
                                 <th>Barcode</th>
                                 <th>Stock</th>
+                                <th>Min Stock</th>
                             </tr>
                         </thead>
                         <tbody id="branchStockTable"></tbody>

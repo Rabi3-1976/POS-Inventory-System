@@ -164,6 +164,7 @@ if (pagePermissions[pageId] && !pagePermissions[pageId].includes(role)) {
     if (pageId === "productsPage") {
         loadProducts();
     }
+    
     if (pageId === "customersPage") {
     loadCustomers();
     loadHistoryCustomerOptions();
@@ -222,11 +223,13 @@ if (pageId === "suppliersPage") {
         loadTransferOptions();
         loadStockTransfers();
     }
-if (pageId === "stockControlPage") {
+    if (pageId === "stockControlPage") {
     loadStockControlOptions();
     loadStockAdjustments();
     loadStockAdjustmentReportOptions();
     loadStockAdjustmentReport();
+    loadMinStockOptions();
+    loadLowStockBranchReport();
 }
     if (pageId === "invoiceReportPage") {
         loadInvoices();
@@ -1245,6 +1248,7 @@ window.loadBranchStock = async function () {
                     <td>${safeHtml(r.product_name)}</td>
                     <td>${safeHtml(r.barcode)}</td>
                     <td>${r.stock}</td>
+                    <td>${r.min_stock || 0}</td>
                 </tr>
             `;
         });
@@ -4435,4 +4439,187 @@ window.loadStockAdjustmentReportOptions = async function () {
             productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
         });
     }
+};
+window.loadMinStockOptions = async function () {
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const minBranch = document.getElementById("minStockBranch");
+    const minProduct = document.getElementById("minStockProduct");
+    const lowBranch = document.getElementById("lowStockBranchFilter");
+
+    if (minBranch) {
+        minBranch.innerHTML = "";
+        branches.forEach(b => {
+            minBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+        });
+    }
+
+    if (minProduct) {
+        minProduct.innerHTML = "";
+        products.forEach(p => {
+            minProduct.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+        });
+    }
+
+    if (lowBranch) {
+        lowBranch.innerHTML = `<option value="">All Branches</option>`;
+        branches.forEach(b => {
+            lowBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+        });
+    }
+};
+window.saveMinStock = async function () {
+    const branch_id = document.getElementById("minStockBranch").value;
+    const product_id = document.getElementById("minStockProduct").value;
+    const min_stock = Number(document.getElementById("minStockQty").value);
+
+    if (!branch_id || !product_id || min_stock < 0) {
+        alert("Please select branch/product and valid minimum stock");
+        return;
+    }
+
+    const res = await fetch(API + "/branch-stock/min-stock", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            branch_id,
+            product_id,
+            min_stock
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("minStockQty").value = "";
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
+    }
+
+    loadLowStockBranchReport();
+};
+window.getLowStockBranchQuery = function () {
+    const branch = document.getElementById("lowStockBranchFilter").value;
+
+    const params = new URLSearchParams();
+
+    if (branch) params.append("branch_id", branch);
+
+    return params.toString();
+};
+
+window.loadLowStockBranchReport = async function () {
+    const query = getLowStockBranchQuery();
+
+    const res = await fetch(API + "/low-stock-branch-report" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    const table = document.getElementById("lowStockBranchReportTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.stock}</td>
+                <td>${r.min_stock}</td>
+                <td>${r.reorder_qty}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printLowStockBranchReport = async function () {
+    const query = getLowStockBranchQuery();
+
+    const res = await fetch(API + "/low-stock-branch-report" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(r => {
+        htmlRows += `
+            <tr>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.stock}</td>
+                <td>${r.min_stock}</td>
+                <td>${r.reorder_qty}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Low Stock Alerts by Branch</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Low Stock Alerts by Branch</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Branch</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Current Stock</th>
+                        <th>Min Stock</th>
+                        <th>Suggested Reorder Qty</th>
+                    </tr>
+                </thead>
+                <tbody>${htmlRows}</tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportLowStockBranchReportExcel = async function () {
+    const query = getLowStockBranchQuery();
+
+    const res = await fetch(API + "/low-stock-branch-report" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let csv = "Branch,Product,Barcode,Current Stock,Min Stock,Suggested Reorder Qty\n";
+
+    rows.forEach(r => {
+        csv += `${r.branch_name},${r.product_name},${r.barcode},${r.stock},${r.min_stock},${r.reorder_qty}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "low_stock_branch_report.csv";
+    link.click();
 };
