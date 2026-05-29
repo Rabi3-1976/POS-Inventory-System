@@ -222,9 +222,11 @@ if (pageId === "suppliersPage") {
         loadTransferOptions();
         loadStockTransfers();
     }
-    if (pageId === "stockControlPage") {
+if (pageId === "stockControlPage") {
     loadStockControlOptions();
     loadStockAdjustments();
+    loadStockAdjustmentReportOptions();
+    loadStockAdjustmentReport();
 }
     if (pageId === "invoiceReportPage") {
         loadInvoices();
@@ -4248,4 +4250,189 @@ window.loadStockAdjustments = async function () {
             </tr>
         `;
     });
+};
+window.getStockAdjustmentReportQuery = function () {
+    const branch = document.getElementById("adjustReportBranch").value;
+    const product = document.getElementById("adjustReportProduct").value;
+    const type = document.getElementById("adjustReportType").value;
+    const dateFrom = document.getElementById("adjustReportDateFrom").value;
+    const dateTo = document.getElementById("adjustReportDateTo").value;
+
+    const params = new URLSearchParams();
+
+    if (branch) params.append("branch_id", branch);
+    if (product) params.append("product_id", product);
+    if (type) params.append("adjustment_type", type);
+    if (dateFrom) params.append("date_from", dateFrom);
+    if (dateTo) params.append("date_to", dateTo);
+
+    return params.toString();
+};
+window.loadStockAdjustmentReport = async function () {
+    const query = getStockAdjustmentReportQuery();
+
+    const res = await fetch(API + "/stock-adjustments-report" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    const table = document.getElementById("stockAdjustmentReportTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    let totalValue = 0;
+
+    rows.forEach(r => {
+        totalValue += Number(r.total_cost_value || 0);
+
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.adjustment_type}</td>
+                <td>${r.qty}</td>
+                <td>${formatMoney(r.unit_cost || 0)}</td>
+                <td>${formatMoney(r.total_cost_value || 0)}</td>
+                <td>${r.reason || ""}</td>
+                <td>${r.username || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    setText("adjustReportTotalValue", formatMoney(totalValue));
+};
+window.printStockAdjustmentReport = async function () {
+    const query = getStockAdjustmentReportQuery();
+
+    const res = await fetch(API + "/stock-adjustments-report" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let htmlRows = "";
+    let totalValue = 0;
+
+    rows.forEach(r => {
+        totalValue += Number(r.total_cost_value || 0);
+
+        htmlRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.adjustment_type}</td>
+                <td>${r.qty}</td>
+                <td>${formatMoney(r.unit_cost || 0)}</td>
+                <td>${formatMoney(r.total_cost_value || 0)}</td>
+                <td>${r.reason || ""}</td>
+                <td>${r.username || ""}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Stock Adjustment Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+                th, td { border: 1px solid #000; padding: 6px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Stock Adjustment Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Currency:</strong> ${systemCurrency}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Branch</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Type</th>
+                        <th>Qty</th>
+                        <th>Unit Cost</th>
+                        <th>Total Cost Value</th>
+                        <th>Reason</th>
+                        <th>User</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${htmlRows}
+                </tbody>
+            </table>
+
+            <div class="total">Total Cost Value: ${formatMoney(totalValue)}</div>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+window.exportStockAdjustmentReportExcel = async function () {
+    const query = getStockAdjustmentReportQuery();
+
+    const res = await fetch(API + "/stock-adjustments-report" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let csv = "ID,Branch,Product,Barcode,Type,Qty,Unit Cost,Total Cost Value,Reason,User,Date\n";
+
+    rows.forEach(r => {
+        csv += `${r.id},${r.branch_name},${r.product_name},${r.barcode},${r.adjustment_type},${r.qty},${Number(r.unit_cost || 0).toFixed(2)},${Number(r.total_cost_value || 0).toFixed(2)},${r.reason || ""},${r.username || ""},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "stock_adjustment_report.csv";
+    link.click();
+};
+window.clearStockAdjustmentReportFilters = function () {
+    document.getElementById("adjustReportBranch").value = "";
+    document.getElementById("adjustReportProduct").value = "";
+    document.getElementById("adjustReportType").value = "";
+    document.getElementById("adjustReportDateFrom").value = "";
+    document.getElementById("adjustReportDateTo").value = "";
+
+    loadStockAdjustmentReport();
+};
+
+window.loadStockAdjustmentReportOptions = async function () {
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchSelect = document.getElementById("adjustReportBranch");
+    const productSelect = document.getElementById("adjustReportProduct");
+
+    if (branchSelect) {
+        branchSelect.innerHTML = `<option value="">All Branches</option>`;
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+        });
+    }
+
+    if (productSelect) {
+        productSelect.innerHTML = `<option value="">All Products</option>`;
+        products.forEach(p => {
+            productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+        });
+    }
 };

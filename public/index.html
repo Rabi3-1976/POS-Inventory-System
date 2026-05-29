@@ -345,6 +345,48 @@
     </div>
 </section>
 
+<div class="box">
+    <h2>Stock Adjustment Report</h2>
+
+    <select id="adjustReportBranch"></select>
+    <select id="adjustReportProduct"></select>
+
+    <select id="adjustReportType">
+        <option value="">All Types</option>
+        <option value="increase">Increase</option>
+        <option value="decrease">Decrease</option>
+    </select>
+
+    <input id="adjustReportDateFrom" type="date">
+    <input id="adjustReportDateTo" type="date">
+
+    <button onclick="loadStockAdjustmentReport()">Load Report</button>
+    <button onclick="printStockAdjustmentReport()">Print Report</button>
+    <button onclick="exportStockAdjustmentReportExcel()">Export Excel</button>
+    <button onclick="clearStockAdjustmentReportFilters()">Clear Filters</button>
+
+    <h3>Total Cost Value: <span id="adjustReportTotalValue">0</span></h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Branch</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Type</th>
+                <th>Qty</th>
+                <th>Unit Cost</th>
+                <th>Total Cost Value</th>
+                <th>Reason</th>
+                <th>User</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="stockAdjustmentReportTable"></tbody>
+    </table>
+</div>
+
 <section id="currencyPage" class="page" style="display:none;">
     <h1>Currency Settings</h1>
 
