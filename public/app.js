@@ -357,8 +357,8 @@ window.loadBranchDashboard = async function () {
             salesTable.innerHTML += `
                 <tr>
                     <td>${safeHtml(row.branch_name)}</td>
-                    <td>${money(row.total_sales)}</td>
-                    <td>${money(row.total_profit)}</td>
+                    <td>${formatMoney(row.total_sales || 0)}</td>
+                    <td>${formatMoney(row.total_profit || 0)}</td>
                 </tr>
             `;
         });
@@ -409,7 +409,7 @@ window.displayProducts = function (products) {
                 <td>${p.id}</td>
                 <td>${safeHtml(p.name)}</td>
                 <td>${safeHtml(p.barcode)}</td>
-                <td>${money(p.price)}</td>
+                <td>${formatmoney(p.price)}</td>
                 <td>${p.stock}</td>
                 <td>
                     <select id="branch_${p.id}">
