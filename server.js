@@ -2222,6 +2222,83 @@ app.get("/reorder-suggestions", async (req, res) => {
         res.status(500).json({ error: "Reorder suggestions failed" });
     }
 });
+// FINAL STOCK AUDIT REPORT
+app.get("/stock-audit-report", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                p.id AS product_id,
+                p.name AS product_name,
+                p.barcode,
+                COALESCE(p.stock, 0) AS product_stock,
+                COALESCE(branch_totals.branch_stock_total, 0) AS branch_stock_total,
+                COALESCE(p.stock, 0) - COALESCE(branch_totals.branch_stock_total, 0) AS difference,
+                p.cost,
+                (COALESCE(p.stock, 0) - COALESCE(branch_totals.branch_stock_total, 0)) * COALESCE(p.cost, 0) AS difference_value
+            FROM products p
+            LEFT JOIN (
+                SELECT 
+                    product_id,
+                    SUM(stock) AS branch_stock_total
+                FROM branch_stock
+                GROUP BY product_id
+            ) branch_totals ON p.id = branch_totals.product_id
+            ORDER BY ABS(COALESCE(p.stock, 0) - COALESCE(branch_totals.branch_stock_total, 0)) DESC, p.name
+        `);
+
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error("STOCK AUDIT REPORT ERROR:", err);
+        res.status(500).json({ error: "Stock audit report failed" });
+    }
+});
+
+// OPTIONAL: SYNC PRODUCT STOCK FROM BRANCH STOCK
+app.post("/sync-product-stock-from-branches", verifyToken, adminOnly, async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const result = await client.query(`
+            UPDATE products p
+            SET stock = COALESCE(branch_totals.branch_stock_total, 0)
+            FROM (
+                SELECT 
+                    product_id,
+                    SUM(stock) AS branch_stock_total
+                FROM branch_stock
+                GROUP BY product_id
+            ) branch_totals
+            WHERE p.id = branch_totals.product_id
+        `);
+
+        await client.query(`
+            UPDATE products p
+            SET stock = 0
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM branch_stock bs 
+                WHERE bs.product_id = p.id
+            )
+        `);
+
+        await client.query("COMMIT");
+
+        res.json({
+            message: "Product stock synced from branch stock successfully",
+            updated: result.rowCount
+        });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("SYNC PRODUCT STOCK ERROR:", err);
+        res.status(500).json({ error: "Stock sync failed: " + err.message });
+    } finally {
+        client.release();
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
