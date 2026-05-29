@@ -2050,6 +2050,71 @@ app.get("/stock-adjustments", async (req, res) => {
         res.status(500).json({ error: "Stock adjustments failed to load" });
     }
 });
+// FILTERED STOCK ADJUSTMENT REPORT
+app.get("/stock-adjustments-report", async (req, res) => {
+    const { branch_id, product_id, adjustment_type, date_from, date_to } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                sa.id,
+                b.id AS branch_id,
+                b.name AS branch_name,
+                p.id AS product_id,
+                p.name AS product_name,
+                p.barcode,
+                sa.adjustment_type,
+                sa.qty,
+                sa.unit_cost,
+                sa.total_cost_value,
+                sa.reason,
+                u.username AS username,
+                sa.date
+            FROM stock_adjustments sa
+            JOIN branches b ON sa.branch_id = b.id
+            JOIN products p ON sa.product_id = p.id
+            LEFT JOIN users u ON sa.user_id = u.id
+            WHERE 1=1
+        `;
+
+        const params = [];
+
+        if (branch_id) {
+            params.push(branch_id);
+            query += ` AND sa.branch_id = $${params.length}`;
+        }
+
+        if (product_id) {
+            params.push(product_id);
+            query += ` AND sa.product_id = $${params.length}`;
+        }
+
+        if (adjustment_type) {
+            params.push(adjustment_type);
+            query += ` AND sa.adjustment_type = $${params.length}`;
+        }
+
+        if (date_from) {
+            params.push(date_from);
+            query += ` AND DATE(sa.date) >= $${params.length}`;
+        }
+
+        if (date_to) {
+            params.push(date_to);
+            query += ` AND DATE(sa.date) <= $${params.length}`;
+        }
+
+        query += ` ORDER BY sa.date DESC`;
+
+        const result = await pool.query(query, params);
+
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error("STOCK ADJUSTMENT REPORT ERROR:", err);
+        res.status(500).json({ error: "Stock adjustment report failed" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
