@@ -375,6 +375,32 @@
     </table>
 </div>
 <div class="box">
+    <h2>Reorder Suggestions</h2>
+
+    <select id="reorderBranchFilter"></select>
+
+    <button onclick="loadReorderSuggestions()">Load Suggestions</button>
+    <button onclick="printReorderSuggestions()">Print Suggestions</button>
+    <button onclick="exportReorderSuggestionsExcel()">Export Suggestions Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Branch</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Current Stock</th>
+                <th>Min Stock</th>
+                <th>Suggested Qty</th>
+                <th>Cost Value</th>
+                <th>Supplier</th>
+                <th>Create PO</th>
+            </tr>
+        </thead>
+        <tbody id="reorderSuggestionsTable"></tbody>
+    </table>
+</div>
+<div class="box">
     <h2>Stock Adjustment Report</h2>
 
     <select id="adjustReportBranch"></select>

@@ -230,6 +230,8 @@ if (pageId === "suppliersPage") {
     loadStockAdjustmentReport();
     loadMinStockOptions();
     loadLowStockBranchReport();
+    loadReorderOptions();
+    loadReorderSuggestions();
 }
     if (pageId === "invoiceReportPage") {
         loadInvoices();
@@ -4624,5 +4626,207 @@ window.exportLowStockBranchReportExcel = async function () {
 
     link.href = URL.createObjectURL(blob);
     link.download = "low_stock_branch_report.csv";
+    link.click();
+};
+window.loadReorderOptions = async function () {
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const branchSelect = document.getElementById("reorderBranchFilter");
+
+    if (branchSelect) {
+        branchSelect.innerHTML = `<option value="">All Branches</option>`;
+
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+        });
+    }
+};
+window.getReorderSuggestionsQuery = function () {
+    const branch = document.getElementById("reorderBranchFilter").value;
+
+    const params = new URLSearchParams();
+
+    if (branch) params.append("branch_id", branch);
+
+    return params.toString();
+};
+window.loadReorderSuggestions = async function () {
+    const query = getReorderSuggestionsQuery();
+
+    const res = await fetch(API + "/reorder-suggestions" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    const suppliersRes = await fetch(API + "/suppliers");
+    const suppliers = await suppliersRes.json();
+
+    const table = document.getElementById("reorderSuggestionsTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach((r, index) => {
+        const costValue = Number(r.cost || 0) * Number(r.suggested_qty || 0);
+
+        const supplierOptions = suppliers.map(s => {
+            return `<option value="${s.id}">${s.name}</option>`;
+        }).join("");
+
+        table.innerHTML += `
+            <tr>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.stock}</td>
+                <td>${r.min_stock}</td>
+                <td>
+                    <input 
+                        id="reorderQty_${index}" 
+                        type="number" 
+                        value="${r.suggested_qty}" 
+                        min="1" 
+                        style="width:80px;"
+                    >
+                </td>
+                <td>${formatMoney(costValue)}</td>
+                <td>
+                    <select id="reorderSupplier_${index}">
+                        ${supplierOptions}
+                    </select>
+                </td>
+                <td>
+                    <button onclick="createPOFromReorder(${index}, ${r.product_id}, ${r.branch_id})">
+                        Create PO
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    window.reorderSuggestionsCache = rows;
+};
+window.createPOFromReorder = async function (index, productId, branchId) {
+    const supplier_id = document.getElementById("reorderSupplier_" + index).value;
+    const qty = Number(document.getElementById("reorderQty_" + index).value);
+
+    if (!supplier_id || qty <= 0) {
+        alert("Please select supplier and valid quantity");
+        return;
+    }
+
+    const res = await fetch(API + "/purchase-orders", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            supplier_id,
+            product_id: productId,
+            branch_id: branchId,
+            qty
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    if (typeof loadPurchaseOrders === "function") {
+        loadPurchaseOrders();
+    }
+
+    loadReorderSuggestions();
+};
+window.printReorderSuggestions = async function () {
+    const query = getReorderSuggestionsQuery();
+
+    const res = await fetch(API + "/reorder-suggestions" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let htmlRows = "";
+    let totalCostValue = 0;
+
+    rows.forEach(r => {
+        const costValue = Number(r.cost || 0) * Number(r.suggested_qty || 0);
+        totalCostValue += costValue;
+
+        htmlRows += `
+            <tr>
+                <td>${r.branch_name}</td>
+                <td>${r.product_name}</td>
+                <td>${r.barcode}</td>
+                <td>${r.stock}</td>
+                <td>${r.min_stock}</td>
+                <td>${r.suggested_qty}</td>
+                <td>${formatMoney(costValue)}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Reorder Suggestions</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Reorder Suggestions</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Currency:</strong> ${systemCurrency}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Branch</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Current Stock</th>
+                        <th>Min Stock</th>
+                        <th>Suggested Qty</th>
+                        <th>Cost Value</th>
+                    </tr>
+                </thead>
+                <tbody>${htmlRows}</tbody>
+            </table>
+
+            <div class="total">Total Suggested Cost Value: ${formatMoney(totalCostValue)}</div>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+window.exportReorderSuggestionsExcel = async function () {
+    const query = getReorderSuggestionsQuery();
+
+    const res = await fetch(API + "/reorder-suggestions" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let csv = "Branch,Product,Barcode,Current Stock,Min Stock,Suggested Qty,Unit Cost,Cost Value\n";
+
+    rows.forEach(r => {
+        const costValue = Number(r.cost || 0) * Number(r.suggested_qty || 0);
+
+        csv += `${r.branch_name},${r.product_name},${r.barcode},${r.stock},${r.min_stock},${r.suggested_qty},${Number(r.cost || 0).toFixed(2)},${costValue.toFixed(2)}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "reorder_suggestions.csv";
     link.click();
 };
