@@ -1915,7 +1915,20 @@ window.addEventListener("load", async () => {
         document.getElementById("mainSection").style.display = "none";
     }
 });
+const returnInvoice = document.getElementById("returnInvoice");
+if (returnInvoice) {
+    returnInvoice.addEventListener("change", loadReturnInvoiceItems);
+}
 
+const returnProduct = document.getElementById("returnCustomerProduct");
+if (returnProduct) {
+    returnProduct.addEventListener("change", calculateCustomerRefund);
+}
+
+const returnQty = document.getElementById("customerReturnQty");
+if (returnQty) {
+    returnQty.addEventListener("input", calculateCustomerRefund);
+}
 document.addEventListener("DOMContentLoaded", function () {
     const barcodeSearchInput = document.getElementById("barcodeSearchInput");
     if (barcodeSearchInput) {
@@ -3919,14 +3932,21 @@ window.saveCustomerReturn = async function () {
     const product_id = document.getElementById("returnCustomerProduct").value;
     const branch_id = document.getElementById("returnCustomerBranch").value;
     const qty = Number(document.getElementById("customerReturnQty").value);
-    const refund_amount = Number(document.getElementById("customerRefundAmount").value || 0);
     const reason = document.getElementById("customerReturnReason").value.trim();
 
     if (!product_id || !branch_id || qty <= 0) {
         alert("Please select product, branch, and valid return quantity");
         return;
     }
+    const productSelect = document.getElementById("returnCustomerProduct");
+    const selectedOption = productSelect.options[productSelect.selectedIndex];
 
+    const soldQty = Number(selectedOption.getAttribute("data-sold-qty") || 0);
+
+        if (invoice_id && soldQty > 0 && qty > soldQty) {
+            alert("Return quantity cannot exceed sold quantity in selected invoice");
+    return;
+}
     const res = await fetch(API + "/customer-returns", {
         method: "POST",
         headers: {
@@ -3939,7 +3959,6 @@ window.saveCustomerReturn = async function () {
             product_id,
             branch_id,
             qty,
-            refund_amount,
             reason
         })
     });
@@ -4993,4 +5012,54 @@ window.syncProductStockFromBranches = async function () {
     if (typeof loadBranchDashboard === "function") {
         loadBranchDashboard();
     }
+};
+window.loadReturnInvoiceItems = async function () {
+    const invoiceId = document.getElementById("returnInvoice").value;
+    const productSelect = document.getElementById("returnCustomerProduct");
+
+    if (!productSelect) return;
+
+    if (!invoiceId) {
+        await loadCustomerReturnOptions();
+        document.getElementById("customerRefundAmount").value = "";
+        return;
+    }
+
+    const res = await fetch(API + "/invoice-items/" + invoiceId);
+    const items = await res.json();
+
+    productSelect.innerHTML = "";
+
+    items.forEach(item => {
+        productSelect.innerHTML += `
+            <option 
+                value="${item.product_id}" 
+                data-unit-price="${item.unit_price}"
+                data-sold-qty="${item.qty}"
+            >
+                ${item.product_name} - ${item.barcode} - Sold Qty: ${item.qty} - Price: ${formatMoney(item.unit_price)}
+            </option>
+        `;
+    });
+
+    calculateCustomerRefund();
+};
+window.calculateCustomerRefund = function () {
+    const productSelect = document.getElementById("returnCustomerProduct");
+    const qtyInput = document.getElementById("customerReturnQty");
+    const refundInput = document.getElementById("customerRefundAmount");
+
+    if (!productSelect || !qtyInput || !refundInput) return;
+
+    const selectedOption = productSelect.options[productSelect.selectedIndex];
+
+    if (!selectedOption) {
+        refundInput.value = "";
+        return;
+    }
+
+    const unitPrice = Number(selectedOption.getAttribute("data-unit-price") || 0);
+    const qty = Number(qtyInput.value || 0);
+
+    refundInput.value = (unitPrice * qty).toFixed(2);
 };
