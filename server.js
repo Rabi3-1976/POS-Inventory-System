@@ -2373,7 +2373,30 @@ app.get("/invoice-items/:invoiceId", async (req, res) => {
         res.status(500).json({ error: "Invoice items failed to load" });
     }
 });
+// TEMP: FIX OLD CUSTOMER RETURNS REFUND AMOUNT
+app.post("/fix-old-customer-return-refunds", verifyToken, adminOnly, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            UPDATE customer_returns cr
+            SET refund_amount = cr.qty * ii.unit_price
+            FROM invoice_items ii
+            WHERE cr.invoice_id = ii.invoice_id
+            AND cr.product_id = ii.product_id
+            AND COALESCE(cr.refund_amount, 0) = 0
+            AND cr.invoice_id IS NOT NULL
+            AND COALESCE(ii.unit_price, 0) > 0
+        `);
 
+        res.json({
+            message: "Old customer return refunds fixed",
+            updated: result.rowCount
+        });
+
+    } catch (err) {
+        console.error("FIX OLD CUSTOMER RETURNS REFUND ERROR:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
