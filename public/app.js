@@ -47,7 +47,71 @@ function safeHtml(value) {
         "'": "&#039;"
     }[c]));
 }
+if (typeof window.applyRolePermissions !== "function") {
+    window.applyRolePermissions = function () {
+        console.warn("applyRolePermissions fallback loaded");
 
+        const role = currentRole || localStorage.getItem("role");
+
+        const allButtons = [
+            "dashboardMenuBtn",
+            "branchDashboardMenuBtn",
+            "productsMenuBtn",
+            "posMenuBtn",
+            "receivingMenuBtn",
+            "reportsMenuBtn",
+            "customersMenuBtn",
+            "customerReturnsMenuBtn",
+            "expensesMenuBtn",
+            "closingMenuBtn",
+            "invoiceReportMenuBtn",
+            "branchesMenuBtn",
+            "stockControlMenuBtn",
+            "suppliersMenuBtn",
+            "currencyMenuBtn",
+            "usersMenuBtn"
+        ];
+
+        const permissions = {
+            admin: allButtons,
+
+            cashier: [
+                "posMenuBtn",
+                "customersMenuBtn"
+            ],
+
+            warehouse: [
+                "productsMenuBtn",
+                "receivingMenuBtn",
+                "branchesMenuBtn",
+                "stockControlMenuBtn",
+                "suppliersMenuBtn"
+            ],
+
+            manager: [
+                "dashboardMenuBtn",
+                "branchDashboardMenuBtn",
+                "reportsMenuBtn",
+                "customersMenuBtn",
+                "customerReturnsMenuBtn",
+                "expensesMenuBtn",
+                "closingMenuBtn",
+                "invoiceReportMenuBtn",
+                "stockControlMenuBtn"
+            ]
+        };
+
+        allButtons.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.style.display = "none";
+        });
+
+        (permissions[role] || []).forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.style.display = "block";
+        });
+    };
+}
 // AUTH
 window.login = async function () {
     const username = document.getElementById("username").value.trim();
@@ -71,7 +135,7 @@ window.login = async function () {
         localStorage.setItem("token", token);
         localStorage.setItem("role", currentRole);
         localStorage.setItem("username", username);
-        applyRolePermissions();
+        window.applyRolePermissions();
 
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("mainSection").style.display = "block";
@@ -1890,7 +1954,7 @@ window.addEventListener("load", async () => {
     if (savedToken && savedRole) {
         token = savedToken;
         currentRole = savedRole;
-        applyRolePermissions();
+        window.applyRolePermissions();
 
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("mainSection").style.display = "block";
