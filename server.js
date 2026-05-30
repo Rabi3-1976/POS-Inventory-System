@@ -2397,6 +2397,49 @@ app.post("/fix-old-customer-return-refunds", verifyToken, adminOnly, async (req,
         res.status(500).json({ error: err.message });
     }
 });
+// TEMP: DIAGNOSE CUSTOMER RETURNS REFUND ISSUE
+app.get("/debug-customer-return-refunds", verifyToken, adminOnly, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                cr.id AS return_id,
+                cr.invoice_id AS return_invoice_id,
+                cr.product_id AS return_product_id,
+                cr.qty AS return_qty,
+                cr.refund_amount,
+
+                i.id AS invoice_table_id,
+                i.invoice_no,
+
+                ii.id AS invoice_item_id,
+                ii.invoice_id AS item_invoice_id,
+                ii.product_id AS item_product_id,
+                ii.unit_price,
+                ii.line_total,
+                ii.qty AS sold_qty,
+
+                p.name AS product_name,
+                p.price AS product_price
+
+            FROM customer_returns cr
+            LEFT JOIN invoices i 
+                ON cr.invoice_id = i.id
+            LEFT JOIN invoice_items ii 
+                ON cr.invoice_id = ii.invoice_id 
+                AND cr.product_id = ii.product_id
+            LEFT JOIN products p 
+                ON cr.product_id = p.id
+            WHERE COALESCE(cr.refund_amount, 0) = 0
+            ORDER BY cr.id DESC
+        `);
+
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error("DEBUG CUSTOMER RETURN REFUNDS ERROR:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 // START SERVER
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
