@@ -1770,10 +1770,10 @@ app.get("/supplier-balance-report", async (req, res) => {
         res.status(500).json({ error: "Supplier balance report failed" });
     }
 });
-// CUSTOMER RETURNS
+// CUSTOMER RETURNS - AUTO REFUND FROM INVOICE PRICE
 app.post("/customer-returns", verifyToken, async (req, res) => {
     const { customer_id, invoice_id, product_id, branch_id, qty, reason } = req.body;
-    let calculatedRefundAmount = 0;
+
     if (!product_id || !branch_id || !qty || Number(qty) <= 0) {
         return res.status(400).json({ error: "Please select product, branch, and valid return quantity" });
     }
@@ -1793,6 +1793,52 @@ app.post("/customer-returns", verifyToken, async (req, res) => {
         if (!product) {
             await client.query("ROLLBACK");
             return res.status(404).json({ error: "Product not found" });
+        }
+
+        let calculatedRefundAmount = 0;
+
+        if (invoice_id) {
+            const invoiceItemResult = await client.query(`
+                SELECT 
+                    unit_price,
+                    line_total,
+                    qty
+                FROM invoice_items
+                WHERE invoice_id = $1
+                AND product_id = $2
+                LIMIT 1
+            `, [invoice_id, product_id]);
+
+            if (invoiceItemResult.rows.length === 0) {
+                await client.query("ROLLBACK");
+                return res.status(400).json({
+                    error: "Selected product was not found in selected invoice"
+                });
+            }
+
+            const invoiceItem = invoiceItemResult.rows[0];
+
+            const unitPrice = Number(invoiceItem.unit_price || 0);
+
+            if (unitPrice <= 0) {
+                await client.query("ROLLBACK");
+                return res.status(400).json({
+                    error: "Invoice item price is missing or zero. Refund cannot be calculated."
+                });
+            }
+
+            calculatedRefundAmount = unitPrice * Number(qty);
+        } else {
+            const productPrice = Number(product.price || 0);
+
+            if (productPrice <= 0) {
+                await client.query("ROLLBACK");
+                return res.status(400).json({
+                    error: "Product price is missing or zero. Refund cannot be calculated."
+                });
+            }
+
+            calculatedRefundAmount = productPrice * Number(qty);
         }
 
         await client.query(`
@@ -1821,30 +1867,12 @@ app.post("/customer-returns", verifyToken, async (req, res) => {
             reason || ""
         ]);
 
-if (invoice_id) {
-    const invoiceItemResult = await client.query(`
-        SELECT unit_price
-        FROM invoice_items
-        WHERE invoice_id = $1
-        AND product_id = $2
-        LIMIT 1
-    `, [invoice_id, product_id]);
-
-    if (invoiceItemResult.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-            error: "Selected product was not found in selected invoice"
-        });
-    }
-
-    calculatedRefundAmount =
-        Number(invoiceItemResult.rows[0].unit_price || 0) * Number(qty);
-} else {
-    calculatedRefundAmount = Number(product.price || 0) * Number(qty);
-}
         await client.query("COMMIT");
 
-        res.json({ message: "Customer return completed successfully" });
+        res.json({
+            message: "Customer return completed successfully",
+            refund_amount: calculatedRefundAmount
+        });
 
     } catch (err) {
         await client.query("ROLLBACK");
