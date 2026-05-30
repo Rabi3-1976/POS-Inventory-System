@@ -5130,3 +5130,25 @@ window.syncProductStockFromBranches = async function () {
 console.log("app.js loaded successfully");
 console.log("Currency function:", typeof window.formatMoney);
 console.log("Role permission function:", typeof window.applyRolePermissions);
+window.fixOldCustomerReturnRefunds = async function () {
+    if (!confirm("Fix old customer returns with zero refund? Run this only once.")) return;
+
+    const res = await fetch(API + "/fix-old-customer-return-refunds", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+
+    alert((data.message || data.error) + "\nUpdated: " + (data.updated || 0));
+
+    if (typeof loadCustomerReturns === "function") {
+        loadCustomerReturns();
+    }
+
+    if (typeof loadDailyClosing === "function") {
+        loadDailyClosing();
+    }
+};
