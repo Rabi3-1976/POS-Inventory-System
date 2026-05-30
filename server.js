@@ -2373,28 +2373,63 @@ app.get("/invoice-items/:invoiceId", async (req, res) => {
         res.status(500).json({ error: "Invoice items failed to load" });
     }
 });
-// TEMP: FIX OLD CUSTOMER RETURNS REFUND AMOUNT
+// TEMP: FIX OLD CUSTOMER RETURNS REFUND AMOUNT WITH PRODUCT PRICE FALLBACK
 app.post("/fix-old-customer-return-refunds", verifyToken, adminOnly, async (req, res) => {
+    const client = await pool.connect();
+
     try {
-        const result = await pool.query(`
+        await client.query("BEGIN");
+
+        const result = await client.query(`
             UPDATE customer_returns cr
-            SET refund_amount = cr.qty * ii.unit_price
-            FROM invoice_items ii
-            WHERE cr.invoice_id = ii.invoice_id
-            AND cr.product_id = ii.product_id
-            AND COALESCE(cr.refund_amount, 0) = 0
-            AND cr.invoice_id IS NOT NULL
-            AND COALESCE(ii.unit_price, 0) > 0
+            SET refund_amount = cr.qty * COALESCE(
+                (
+                    SELECT ii.unit_price
+                    FROM invoice_items ii
+                    WHERE ii.invoice_id = cr.invoice_id
+                    AND ii.product_id = cr.product_id
+                    LIMIT 1
+                ),
+                (
+                    SELECT p.price
+                    FROM products p
+                    WHERE p.id = cr.product_id
+                    LIMIT 1
+                ),
+                0
+            )
+            WHERE COALESCE(cr.refund_amount, 0) = 0
+            AND COALESCE(
+                (
+                    SELECT ii.unit_price
+                    FROM invoice_items ii
+                    WHERE ii.invoice_id = cr.invoice_id
+                    AND ii.product_id = cr.product_id
+                    LIMIT 1
+                ),
+                (
+                    SELECT p.price
+                    FROM products p
+                    WHERE p.id = cr.product_id
+                    LIMIT 1
+                ),
+                0
+            ) > 0
         `);
 
+        await client.query("COMMIT");
+
         res.json({
-            message: "Old customer return refunds fixed",
+            message: "Old customer return refunds fixed using invoice price or product price fallback",
             updated: result.rowCount
         });
 
     } catch (err) {
+        await client.query("ROLLBACK");
         console.error("FIX OLD CUSTOMER RETURNS REFUND ERROR:", err);
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 // TEMP: DIAGNOSE CUSTOMER RETURNS REFUND ISSUE
