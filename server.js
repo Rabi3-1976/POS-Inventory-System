@@ -1773,7 +1773,7 @@ app.get("/supplier-balance-report", async (req, res) => {
 // CUSTOMER RETURNS
 app.post("/customer-returns", verifyToken, async (req, res) => {
     const { customer_id, invoice_id, product_id, branch_id, qty, reason } = req.body;
-
+    let calculatedRefundAmount = 0;
     if (!product_id || !branch_id || !qty || Number(qty) <= 0) {
         return res.status(400).json({ error: "Please select product, branch, and valid return quantity" });
     }
@@ -1820,7 +1820,6 @@ app.post("/customer-returns", verifyToken, async (req, res) => {
             calculatedRefundAmount,
             reason || ""
         ]);
-let calculatedRefundAmount = 0;
 
 if (invoice_id) {
     const invoiceItemResult = await client.query(`
