@@ -47,71 +47,100 @@ function safeHtml(value) {
         "'": "&#039;"
     }[c]));
 }
-if (typeof window.applyRolePermissions !== "function") {
-    window.applyRolePermissions = function () {
-        console.warn("applyRolePermissions fallback loaded");
 
-        const role = currentRole || localStorage.getItem("role");
+// CURRENCY HELPERS
+window.loadSystemCurrency = async function () {
+    try {
+        const res = await fetch(API + "/currency-settings");
+        const settings = await res.json();
 
-        const allButtons = [
+        systemCurrency = settings.default_currency || "USD";
+        usdToLbpRate = Number(settings.usd_to_lbp_rate || 89500);
+    } catch (err) {
+        console.error("Currency settings load failed:", err);
+        systemCurrency = "USD";
+        usdToLbpRate = 89500;
+    }
+};
+
+window.formatMoney = function (amount) {
+    const value = Number(amount || 0);
+
+    if (systemCurrency === "LBP") {
+        return Math.round(value * usdToLbpRate).toLocaleString() + " L.L.";
+    }
+
+    return "$" + value.toFixed(2);
+};
+
+// Safety alias for old lowercase calls
+window.formatmoney = function (amount) {
+    return window.formatMoney(amount);
+};
+
+// ROLE PERMISSIONS
+window.applyRolePermissions = function () {
+    const role = currentRole || localStorage.getItem("role");
+
+    const allButtons = [
+        "dashboardMenuBtn",
+        "branchDashboardMenuBtn",
+        "productsMenuBtn",
+        "posMenuBtn",
+        "receivingMenuBtn",
+        "reportsMenuBtn",
+        "customersMenuBtn",
+        "customerReturnsMenuBtn",
+        "expensesMenuBtn",
+        "closingMenuBtn",
+        "invoiceReportMenuBtn",
+        "branchesMenuBtn",
+        "stockControlMenuBtn",
+        "suppliersMenuBtn",
+        "currencyMenuBtn",
+        "usersMenuBtn"
+    ];
+
+    const permissions = {
+        admin: allButtons,
+
+        cashier: [
+            "posMenuBtn",
+            "customersMenuBtn"
+        ],
+
+        warehouse: [
+            "productsMenuBtn",
+            "receivingMenuBtn",
+            "branchesMenuBtn",
+            "stockControlMenuBtn",
+            "suppliersMenuBtn"
+        ],
+
+        manager: [
             "dashboardMenuBtn",
             "branchDashboardMenuBtn",
-            "productsMenuBtn",
-            "posMenuBtn",
-            "receivingMenuBtn",
             "reportsMenuBtn",
             "customersMenuBtn",
             "customerReturnsMenuBtn",
             "expensesMenuBtn",
             "closingMenuBtn",
             "invoiceReportMenuBtn",
-            "branchesMenuBtn",
-            "stockControlMenuBtn",
-            "suppliersMenuBtn",
-            "currencyMenuBtn",
-            "usersMenuBtn"
-        ];
-
-        const permissions = {
-            admin: allButtons,
-
-            cashier: [
-                "posMenuBtn",
-                "customersMenuBtn"
-            ],
-
-            warehouse: [
-                "productsMenuBtn",
-                "receivingMenuBtn",
-                "branchesMenuBtn",
-                "stockControlMenuBtn",
-                "suppliersMenuBtn"
-            ],
-
-            manager: [
-                "dashboardMenuBtn",
-                "branchDashboardMenuBtn",
-                "reportsMenuBtn",
-                "customersMenuBtn",
-                "customerReturnsMenuBtn",
-                "expensesMenuBtn",
-                "closingMenuBtn",
-                "invoiceReportMenuBtn",
-                "stockControlMenuBtn"
-            ]
-        };
-
-        allButtons.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) btn.style.display = "none";
-        });
-
-        (permissions[role] || []).forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) btn.style.display = "block";
-        });
+            "stockControlMenuBtn"
+        ]
     };
-}
+
+    allButtons.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.display = "none";
+    });
+
+    (permissions[role] || []).forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.display = "block";
+    });
+};
+
 // AUTH
 window.login = async function () {
     const username = document.getElementById("username").value.trim();
@@ -123,6 +152,8 @@ window.login = async function () {
     }
 
     try {
+        await window.loadSystemCurrency();
+
         const data = await fetchJson("/login", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
@@ -135,6 +166,7 @@ window.login = async function () {
         localStorage.setItem("token", token);
         localStorage.setItem("role", currentRole);
         localStorage.setItem("username", username);
+
         window.applyRolePermissions();
 
         document.getElementById("loginSection").style.display = "none";
@@ -147,14 +179,15 @@ window.login = async function () {
         if (usersMenuBtn) usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
 
         if (currentRole === "cashier") {
-                showPage("posPage");
-}                   else if (currentRole === "warehouse") {
-                        showPage("productsPage");
-}                               else if (currentRole === "manager") {
-                                    showPage("dashboardPage");
-}                                   else {
-                    showPage("dashboardPage");
-}
+            showPage("posPage");
+        } else if (currentRole === "warehouse") {
+            showPage("productsPage");
+        } else if (currentRole === "manager") {
+            showPage("dashboardPage");
+        } else {
+            showPage("dashboardPage");
+        }
+
     } catch (err) {
         console.error("LOGIN ERROR:", err);
         alert(err.message || "Login failed");
@@ -180,29 +213,30 @@ window.logout = function () {
 window.showPage = function (pageId) {
     const role = currentRole || localStorage.getItem("role");
 
-const pagePermissions = {
-    dashboardPage: ["admin", "manager"],
-    branchDashboardPage: ["admin", "manager"],
-    productsPage: ["admin", "warehouse"],
-    posPage: ["admin", "cashier"],
-    receivingPage: ["admin", "warehouse"],
-    reportsPage: ["admin", "manager"],
-    invoiceReportPage: ["admin", "manager"],
-    customersPage: ["admin", "cashier", "manager"],
-    customerReturnsPage: ["admin", "manager"],
-    expensesPage: ["admin", "manager"],
-    closingPage: ["admin", "manager"],
-    branchesPage: ["admin", "warehouse"],
-    stockControlPage: ["admin", "warehouse", "manager"],
-    suppliersPage: ["admin", "warehouse"],
-    currencyPage: ["admin"],
-    usersPage: ["admin"]
-};
+    const pagePermissions = {
+        dashboardPage: ["admin", "manager"],
+        branchDashboardPage: ["admin", "manager"],
+        productsPage: ["admin", "warehouse"],
+        posPage: ["admin", "cashier"],
+        receivingPage: ["admin", "warehouse"],
+        reportsPage: ["admin", "manager"],
+        invoiceReportPage: ["admin", "manager"],
+        customersPage: ["admin", "cashier", "manager"],
+        customerReturnsPage: ["admin", "manager"],
+        expensesPage: ["admin", "manager"],
+        closingPage: ["admin", "manager"],
+        branchesPage: ["admin", "warehouse"],
+        stockControlPage: ["admin", "warehouse", "manager"],
+        suppliersPage: ["admin", "warehouse"],
+        currencyPage: ["admin"],
+        usersPage: ["admin"]
+    };
 
-if (pagePermissions[pageId] && !pagePermissions[pageId].includes(role)) {
-    alert("Access denied for your role");
-    return;
-}
+    if (pagePermissions[pageId] && !pagePermissions[pageId].includes(role)) {
+        alert("Access denied for your role");
+        return;
+    }
+
     document.querySelectorAll(".page").forEach(page => {
         page.style.display = "none";
     });
@@ -228,41 +262,48 @@ if (pagePermissions[pageId] && !pagePermissions[pageId].includes(role)) {
     if (pageId === "productsPage") {
         loadProducts();
     }
-    
-    if (pageId === "customersPage") {
-    loadCustomers();
-    loadHistoryCustomerOptions();
-}
-if (pageId === "customerReturnsPage") {
-    loadCustomerReturnOptions();
-    loadCustomerReturns();
-}
-    if (pageId === "expensesPage") {
-    loadExpenses();
-}
-if (pageId === "closingPage") {
-    const input = document.getElementById("closingDateInput");
-    if (input && !input.value) {
-        input.value = new Date().toISOString().slice(0, 10);
-    }
-    loadDailyClosing();
-}
-if (pageId === "currencyPage") {
-    loadCurrencySettings();
-}
-    if (pageId === "posPage") {
-    loadSaleBranchOptions();
-    loadSaleCustomerOptions();
-    setText("availableBranchStock", "0");
 
-    setTimeout(() => {
-        const barcode = document.getElementById("posBarcode");
-        if (barcode) barcode.focus();
-    }, 100);
-}
+    if (pageId === "customersPage") {
+        loadCustomers();
+        loadHistoryCustomerOptions();
+    }
+
+    if (pageId === "customerReturnsPage") {
+        loadCustomerReturnOptions();
+        loadCustomerReturns();
+    }
+
+    if (pageId === "expensesPage") {
+        loadExpenses();
+    }
+
+    if (pageId === "closingPage") {
+        const input = document.getElementById("closingDateInput");
+        if (input && !input.value) {
+            input.value = new Date().toISOString().slice(0, 10);
+        }
+        loadDailyClosing();
+    }
+
+    if (pageId === "currencyPage") {
+        loadCurrencySettings();
+    }
+
+    if (pageId === "posPage") {
+        loadSaleBranchOptions();
+        loadSaleCustomerOptions();
+        setText("availableBranchStock", "0");
+
+        setTimeout(() => {
+            const barcode = document.getElementById("posBarcode");
+            if (barcode) barcode.focus();
+        }, 100);
+    }
+
     if (pageId === "invoiceReportPage") {
         loadInvoices();
-}
+    }
+
     if (pageId === "receivingPage") {
         setTimeout(() => {
             const receiveBarcode = document.getElementById("receiveBarcode");
@@ -270,15 +311,15 @@ if (pageId === "currencyPage") {
         }, 100);
     }
 
-if (pageId === "suppliersPage") {
-    loadSupplierOptions();
-    loadPurchaseOrders();
-    loadHistorySupplierOptions();
-    loadSupplierReturnOptions();
-    loadSupplierReturns();
-    loadPurchaseControlOptions();
-    loadSupplierBalanceReport();
-}
+    if (pageId === "suppliersPage") {
+        loadSupplierOptions();
+        loadPurchaseOrders();
+        loadHistorySupplierOptions();
+        loadSupplierReturnOptions();
+        loadSupplierReturns();
+        loadPurchaseControlOptions();
+        loadSupplierBalanceReport();
+    }
 
     if (pageId === "branchesPage") {
         loadBranches();
@@ -287,20 +328,19 @@ if (pageId === "suppliersPage") {
         loadTransferOptions();
         loadStockTransfers();
     }
+
     if (pageId === "stockControlPage") {
-    loadStockControlOptions();
-    loadStockAdjustments();
-    loadStockAdjustmentReportOptions();
-    loadStockAdjustmentReport();
-    loadMinStockOptions();
-    loadLowStockBranchReport();
-    loadReorderOptions();
-    loadReorderSuggestions();
-    loadStockAuditReport();
-}
-    if (pageId === "invoiceReportPage") {
-        loadInvoices();
-}
+        loadStockControlOptions();
+        loadStockAdjustments();
+        loadStockAdjustmentReportOptions();
+        loadStockAdjustmentReport();
+        loadMinStockOptions();
+        loadLowStockBranchReport();
+        loadReorderOptions();
+        loadReorderSuggestions();
+        loadStockAuditReport();
+    }
+
     if (pageId === "usersPage") {
         loadUsers();
     }
@@ -497,7 +537,6 @@ window.displayProducts = function (products) {
         `;
     });
 };
-
 window.addProduct = async function () {
     const name = document.getElementById("pname").value.trim();
     const barcode = document.getElementById("barcode").value.trim();
@@ -531,7 +570,8 @@ window.addProduct = async function () {
 };
 
 window.searchProduct = window.searchByBarcode = async function () {
-    const barcode = (document.getElementById("barcodeSearchInput") || document.getElementById("searchBarcode")).value.trim();
+    const barcodeInput = document.getElementById("barcodeSearchInput") || document.getElementById("searchBarcode");
+    const barcode = barcodeInput ? barcodeInput.value.trim() : "";
 
     if (!barcode) {
         alert("Please enter or scan barcode");
@@ -565,7 +605,10 @@ window.deleteProduct = async function (id) {
         alert(data.message || "Product deleted");
         loadProducts();
         loadDashboard();
-        loadBranchStock();
+
+        if (typeof loadBranchStock === "function") {
+            loadBranchStock();
+        }
     } catch (err) {
         alert(err.message);
     }
@@ -590,8 +633,9 @@ window.receiveToBranch = async function (productId) {
         alert(data.message || "Stock received");
         loadProducts();
         loadDashboard();
-        loadBranchStock();
-        loadBranchDashboard();
+
+        if (typeof loadBranchStock === "function") loadBranchStock();
+        if (typeof loadBranchDashboard === "function") loadBranchDashboard();
     } catch (err) {
         alert(err.message);
     }
@@ -600,7 +644,7 @@ window.receiveToBranch = async function (productId) {
 window.importProducts = async function () {
     const fileInput = document.getElementById("importFile");
 
-    if (!fileInput.files.length) {
+    if (!fileInput || !fileInput.files.length) {
         alert("Please select file");
         return;
     }
@@ -682,11 +726,16 @@ window.addToCart = async function () {
             alert("Not enough stock in selected branch");
             return;
         }
+
         const customerSelect = document.getElementById("saleCustomer");
         const customerName = customerSelect && customerSelect.value
-        ? customerSelect.options[customerSelect.selectedIndex].text: "Walk-in Customer";
+            ? customerSelect.options[customerSelect.selectedIndex].text
+            : "Walk-in Customer";
 
-        const existing = cart.find(item => Number(item.id) === Number(product.id) && Number(item.branch_id) === Number(branch_id));
+        const existing = cart.find(item =>
+            Number(item.id) === Number(product.id) &&
+            Number(item.branch_id) === Number(branch_id)
+        );
 
         if (existing) {
             if (branchStock < existing.qty + qty) {
@@ -695,16 +744,17 @@ window.addToCart = async function () {
             }
 
             existing.qty += qty;
+            existing.customer_name = customerName;
         } else {
-           cart.push({
-                        id: product.id,
-                        name: product.name,
-                        barcode: product.barcode,
-                        price: Number(product.price),
-                        qty: qty,
-                        branch_id: branch_id,
-                        customer_name: customerName
-        });
+            cart.push({
+                id: product.id,
+                name: product.name,
+                barcode: product.barcode,
+                price: Number(product.price),
+                qty: qty,
+                branch_id: branch_id,
+                customer_name: customerName
+            });
         }
 
         document.getElementById("posBarcode").value = "";
@@ -727,7 +777,7 @@ window.displayCart = function () {
     let total = 0;
 
     cart.forEach((item, index) => {
-        const lineTotal = item.price * item.qty;
+        const lineTotal = Number(item.price) * Number(item.qty);
         total += lineTotal;
 
         table.innerHTML += `
@@ -809,13 +859,8 @@ window.checkoutCart = async function () {
         loadProducts();
         loadDashboard();
 
-        if (typeof loadBranchStock === "function") {
-            loadBranchStock();
-        }
-
-        if (typeof loadBranchDashboard === "function") {
-            loadBranchDashboard();
-        }
+        if (typeof loadBranchStock === "function") loadBranchStock();
+        if (typeof loadBranchDashboard === "function") loadBranchDashboard();
 
         setText("availableBranchStock", "0");
 
@@ -837,8 +882,8 @@ window.printCartReceipt = function (invoiceNo) {
 
         rows += `
             <tr>
-                <td>${item.name}</td>
-                <td>${item.barcode}</td>
+                <td>${safeHtml(item.name)}</td>
+                <td>${safeHtml(item.barcode)}</td>
                 <td>${item.qty}</td>
                 <td>${formatMoney(item.price)}</td>
                 <td>${formatMoney(lineTotal)}</td>
@@ -865,200 +910,44 @@ window.printCartReceipt = function (invoiceNo) {
         <html>
         <head>
             <title>${invoiceNumber}</title>
-
             <style>
-                @page {
-                    size: A4;
-                    margin: 12mm;
-                }
-
-                body {
-                    font-family: Arial, sans-serif;
-                    color: #111827;
-                    margin: 0;
-                    padding: 0;
-                    background: white;
-                }
-
-                .invoice {
-                    max-width: 800px;
-                    margin: auto;
-                    padding: 20px;
-                    border: 1px solid #e5e7eb;
-                }
-
-                .header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    border-bottom: 3px solid #111827;
-                    padding-bottom: 15px;
-                    margin-bottom: 20px;
-                }
-
-                .company {
-                    display: flex;
-                    align-items: center;
-                    gap: 15px;
-                }
-
-                .company img {
-                    width: 75px;
-                    height: 75px;
-                    object-fit: contain;
-                }
-
-                .company h1 {
-                    margin: 0;
-                    font-size: 24px;
-                    color: #111827;
-                }
-
-                .company p {
-                    margin: 3px 0;
-                    font-size: 13px;
-                    color: #4b5563;
-                }
-
-                .invoice-title {
-                    text-align: right;
-                }
-
-                .invoice-title h2 {
-                    margin: 0;
-                    font-size: 28px;
-                    color: #111827;
-                }
-
-                .invoice-title p {
-                    margin: 5px 0;
-                    font-size: 14px;
-                }
-
-                .info-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 15px;
-                    margin-bottom: 20px;
-                }
-
-                .info-box {
-                    border: 1px solid #e5e7eb;
-                    border-radius: 8px;
-                    padding: 12px;
-                    background: #f9fafb;
-                }
-
-                .info-box h3 {
-                    margin: 0 0 8px 0;
-                    font-size: 15px;
-                    color: #111827;
-                    border-bottom: 1px solid #d1d5db;
-                    padding-bottom: 5px;
-                }
-
-                .info-box p {
-                    margin: 5px 0;
-                    font-size: 14px;
-                }
-
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 15px;
-                }
-
-                th {
-                    background: #111827;
-                    color: white;
-                    padding: 10px;
-                    font-size: 14px;
-                    border: 1px solid #111827;
-                }
-
-                td {
-                    padding: 10px;
-                    font-size: 14px;
-                    border: 1px solid #d1d5db;
-                    text-align: center;
-                }
-
-                td:first-child {
-                    text-align: left;
-                }
-
-                .totals {
-                    margin-top: 20px;
-                    display: flex;
-                    justify-content: flex-end;
-                }
-
-                .totals-box {
-                    width: 300px;
-                    border: 1px solid #111827;
-                }
-
-                .totals-row {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 10px;
-                    border-bottom: 1px solid #d1d5db;
-                    font-size: 15px;
-                }
-
-                .totals-row:last-child {
-                    border-bottom: none;
-                    background: #111827;
-                    color: white;
-                    font-size: 18px;
-                    font-weight: bold;
-                }
-
-                .footer {
-                    margin-top: 30px;
-                    text-align: center;
-                    font-size: 13px;
-                    color: #6b7280;
-                    border-top: 1px solid #e5e7eb;
-                    padding-top: 15px;
-                }
-
-                .signature-area {
-                    margin-top: 40px;
-                    display: flex;
-                    justify-content: space-between;
-                    gap: 40px;
-                }
-
-                .signature {
-                    flex: 1;
-                    border-top: 1px solid #111827;
-                    text-align: center;
-                    padding-top: 8px;
-                    font-size: 13px;
-                }
-
+                @page { size: A4; margin: 12mm; }
+                body { font-family: Arial, sans-serif; color: #111827; margin: 0; padding: 0; background: white; }
+                .invoice { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #e5e7eb; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #111827; padding-bottom: 15px; margin-bottom: 20px; }
+                .company { display: flex; align-items: center; gap: 15px; }
+                .company img { width: 75px; height: 75px; object-fit: contain; }
+                .company h1 { margin: 0; font-size: 24px; color: #111827; }
+                .company p { margin: 3px 0; font-size: 13px; color: #4b5563; }
+                .invoice-title { text-align: right; }
+                .invoice-title h2 { margin: 0; font-size: 28px; color: #111827; }
+                .invoice-title p { margin: 5px 0; font-size: 14px; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+                .info-box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f9fafb; }
+                .info-box h3 { margin: 0 0 8px 0; font-size: 15px; color: #111827; border-bottom: 1px solid #d1d5db; padding-bottom: 5px; }
+                .info-box p { margin: 5px 0; font-size: 14px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th { background: #111827; color: white; padding: 10px; font-size: 14px; border: 1px solid #111827; }
+                td { padding: 10px; font-size: 14px; border: 1px solid #d1d5db; text-align: center; }
+                td:first-child { text-align: left; }
+                .totals { margin-top: 20px; display: flex; justify-content: flex-end; }
+                .totals-box { width: 300px; border: 1px solid #111827; }
+                .totals-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #d1d5db; font-size: 15px; }
+                .totals-row:last-child { border-bottom: none; background: #111827; color: white; font-size: 18px; font-weight: bold; }
+                .footer { margin-top: 30px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 15px; }
+                .signature-area { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; }
+                .signature { flex: 1; border-top: 1px solid #111827; text-align: center; padding-top: 8px; font-size: 13px; }
                 @media print {
-                    body {
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-
-                    .invoice {
-                        border: none;
-                        padding: 0;
-                    }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .invoice { border: none; padding: 0; }
                 }
             </style>
         </head>
-
         <body>
             <div class="invoice">
-
                 <div class="header">
                     <div class="company">
                         <img src="logo.png" alt="Logo">
-
                         <div>
                             <h1>Mart & Wholesales</h1>
                             <p>Beirut, Lebanon</p>
@@ -1066,7 +955,6 @@ window.printCartReceipt = function (invoiceNo) {
                             <p>Email: martwholesales@gmail.com</p>
                         </div>
                     </div>
-
                     <div class="invoice-title">
                         <h2>INVOICE</h2>
                         <p><strong>No:</strong> ${invoiceNumber}</p>
@@ -1077,13 +965,13 @@ window.printCartReceipt = function (invoiceNo) {
                 <div class="info-grid">
                     <div class="info-box">
                         <h3>Customer Information</h3>
-                        <p><strong>Customer:</strong> ${customerName}</p>
+                        <p><strong>Customer:</strong> ${safeHtml(customerName)}</p>
                     </div>
 
                     <div class="info-box">
                         <h3>Sale Information</h3>
-                        <p><strong>Branch:</strong> ${branchName}</p>
-                        <p><strong>Cashier:</strong> ${cashier}</p>
+                        <p><strong>Branch:</strong> ${safeHtml(branchName)}</p>
+                        <p><strong>Cashier:</strong> ${safeHtml(cashier)}</p>
                         <p><strong>Payment:</strong> ${paymentMethod}</p>
                         <p><strong>Currency:</strong> ${systemCurrency}</p>
                     </div>
@@ -1099,10 +987,7 @@ window.printCartReceipt = function (invoiceNo) {
                             <th>Total</th>
                         </tr>
                     </thead>
-
-                    <tbody>
-                        ${rows}
-                    </tbody>
+                    <tbody>${rows}</tbody>
                 </table>
 
                 <div class="totals">
@@ -1113,7 +998,7 @@ window.printCartReceipt = function (invoiceNo) {
                         </div>
                         <div class="totals-row">
                             <span>Discount</span>
-                            <span>$0.00</span>
+                            <span>${formatMoney(0)}</span>
                         </div>
                         <div class="totals-row">
                             <span>Grand Total</span>
@@ -1131,12 +1016,8 @@ window.printCartReceipt = function (invoiceNo) {
                     Thank you for your business<br>
                     This invoice was generated by POS Inventory System.
                 </div>
-
             </div>
-
-            <script>
-                window.print();
-            </script>
+            <script>window.print();</script>
         </body>
         </html>
     `;
@@ -1157,7 +1038,7 @@ window.receiveByBarcode = async function () {
 
     try {
         const branches = await fetchJson("/branches");
-        const mainBranch = branches.find(b => b.name.toLowerCase() === "main");
+        const mainBranch = branches.find(b => String(b.name).toLowerCase() === "main");
 
         if (!mainBranch) {
             alert("Main branch not found. Please create branch named Main first.");
@@ -1243,7 +1124,6 @@ window.loadBranches = async function () {
         console.error("Branches error:", err);
     }
 };
-
 window.loadBranchStockOptions = async function () {
     try {
         const branches = await fetchJson("/branches");
@@ -1531,14 +1411,14 @@ window.loadPurchaseOrders = async function () {
         table.innerHTML += `
             <tr>
                 <td>${o.id}</td>
-                <td>${o.supplier_name}</td>
-                <td>${o.product_name}</td>
-                <td>${o.barcode}</td>
-                <td>${o.branch_name || ""}</td>
+                <td>${safeHtml(o.supplier_name)}</td>
+                <td>${safeHtml(o.product_name)}</td>
+                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.branch_name || "")}</td>
                 <td>${o.qty}</td>
                 <td>${o.received_qty || 0}</td>
                 <td>${o.remaining_qty || 0}</td>
-                <td>${o.status}</td>
+                <td>${safeHtml(o.status)}</td>
                 <td>${new Date(o.date).toLocaleString()}</td>
                 <td>
                     ${
@@ -1588,21 +1468,10 @@ window.receivePurchaseOrder = async function (id, remainingQty) {
     loadProducts();
     loadDashboard();
 
-    if (typeof loadBranchStock === "function") {
-        loadBranchStock();
-    }
-
-    if (typeof loadBranchDashboard === "function") {
-        loadBranchDashboard();
-    }
-
-    if (typeof loadSupplierHistory === "function") {
-        loadSupplierHistory();
-    }
-
-    if (typeof loadSupplierBalanceReport === "function") {
-        loadSupplierBalanceReport();
-    }
+    if (typeof loadBranchStock === "function") loadBranchStock();
+    if (typeof loadBranchDashboard === "function") loadBranchDashboard();
+    if (typeof loadSupplierHistory === "function") loadSupplierHistory();
+    if (typeof loadSupplierBalanceReport === "function") loadSupplierBalanceReport();
 };
 
 // REPORTS
@@ -1632,7 +1501,6 @@ function openReportWindow(title, bodyHtml) {
 
     reportWindow.document.close();
 }
-
 window.printInventoryReport = async function () {
     const products = await fetchJson("/products");
     const rows = products.map(p => `
@@ -1647,7 +1515,15 @@ window.printInventoryReport = async function () {
 
     openReportWindow("Inventory Report", `
         <table>
-            <thead><tr><th>ID</th><th>Product</th><th>Barcode</th><th>Price</th><th>Stock</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                </tr>
+            </thead>
             <tbody>${rows}</tbody>
         </table>
     `);
@@ -1666,6 +1542,7 @@ window.exportInventoryExcel = async function () {
 
 window.printSalesReport = async function () {
     const sales = await fetchJson("/sales-report");
+
     const rows = sales.map(s => `
         <tr>
             <td>${s.id}</td>
@@ -1680,7 +1557,17 @@ window.printSalesReport = async function () {
 
     openReportWindow("Sales Report", `
         <table>
-            <thead><tr><th>ID</th><th>Product</th><th>Barcode</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Date</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
             <tbody>${rows}</tbody>
         </table>
     `);
@@ -1699,6 +1586,7 @@ window.exportSalesExcel = async function () {
 
 window.printReceivingReport = async function () {
     const receiving = await fetchJson("/receiving-report");
+
     const rows = receiving.map(r => `
         <tr>
             <td>${r.id}</td>
@@ -1711,7 +1599,15 @@ window.printReceivingReport = async function () {
 
     openReportWindow("Receiving Report", `
         <table>
-            <thead><tr><th>ID</th><th>Product</th><th>Barcode</th><th>Qty</th><th>Date</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Qty</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
             <tbody>${rows}</tbody>
         </table>
     `);
@@ -1730,8 +1626,10 @@ window.exportReceivingExcel = async function () {
 
 window.printBranchSalesReport = async function () {
     const sales = await fetchJson("/branch-sales-report");
+
     const rows = sales.map(s => {
         const unitPrice = Number(s.price) / Number(s.qty || 1);
+
         return `
             <tr>
                 <td>${s.id}</td>
@@ -1751,46 +1649,35 @@ window.printBranchSalesReport = async function () {
 
     openReportWindow("Branch Sales Report", `
         <table>
-            <thead><tr>
-            <th>ID</th>
-            <th>Branch</th>
-            <th>Customer</th>
-            <th>Phone</th>
-            <th>Product</th>
-            <th>Barcode</th>
-            <th>Qty</th>
-            <th>Unit Price</th>
-            <th>Total</th>
-            <th>Profit</th>
-            <th>Date</th>
-            </tr></thead>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Branch</th>
+                    <th>Customer</th>
+                    <th>Phone</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                    <th>Profit</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
             <tbody>${rows}</tbody>
         </table>
     `);
 };
-window.exportInvoicesExcel = async function () {
-    const res = await fetch(API + "/invoices");
-    const invoices = await res.json();
 
-    let csv = "ID,Invoice No,Customer,Phone,Branch,Cashier,Payment,Total,Date\n";
-
-    invoices.forEach(inv => {
-        csv += `${inv.id},${inv.invoice_no},${inv.customer_name || "Walk-in Customer"},${inv.customer_phone || ""},${inv.branch_name || ""},${inv.cashier_name || ""},${inv.payment_method || "Cash"},${Number(inv.total || 0).toFixed(2)},${new Date(inv.date).toLocaleString()}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "invoice_report.csv";
-    link.click();
-};
 window.exportBranchSalesExcel = async function () {
     const sales = await fetchJson("/branch-sales-report");
     let csv = "ID,Branch,Customer,Phone,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
 
     sales.forEach(s => {
-        const unitPrice = Number(s.price) / Number(s.qty || 1);
+        const unitPrice = Number(s.price || 0) / Number(s.qty || 1);
+        const total = Number(s.price || 0);
+        const profit = Number(s.profit || 0);
+
         csv += `${s.id},${s.branch_name},${s.customer_name || "Walk-in Customer"},${s.customer_phone || ""},${s.product_name},${s.barcode},${s.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${s.date}\n`;
     });
 
@@ -1799,6 +1686,7 @@ window.exportBranchSalesExcel = async function () {
 
 window.printTransferReport = async function () {
     const transfers = await fetchJson("/stock-transfers");
+
     const rows = transfers.map(t => `
         <tr>
             <td>${t.id}</td>
@@ -1813,7 +1701,17 @@ window.printTransferReport = async function () {
 
     openReportWindow("Stock Transfer Report", `
         <table>
-            <thead><tr><th>ID</th><th>From Branch</th><th>To Branch</th><th>Product</th><th>Barcode</th><th>Qty</th><th>Date</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>From Branch</th>
+                    <th>To Branch</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Qty</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
             <tbody>${rows}</tbody>
         </table>
     `);
@@ -1830,9 +1728,23 @@ window.exportTransferExcel = async function () {
     downloadCsv(csv, "stock_transfer_report.csv");
 };
 
+window.exportInvoicesExcel = async function () {
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
+
+    let csv = "ID,Invoice No,Customer,Phone,Branch,Cashier,Payment,Total,Date\n";
+
+    invoices.forEach(inv => {
+        csv += `${inv.id},${inv.invoice_no},${inv.customer_name || "Walk-in Customer"},${inv.customer_phone || ""},${inv.branch_name || ""},${inv.cashier_name || ""},${inv.payment_method || "Cash"},${Number(inv.total || 0).toFixed(2)},${new Date(inv.date).toLocaleString()}\n`;
+    });
+
+    downloadCsv(csv, "invoice_report.csv");
+};
+
 function downloadCsv(csv, filename) {
     const blob = new Blob([csv], { type: "text/csv" });
     const link = document.createElement("a");
+
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     link.click();
@@ -1847,6 +1759,7 @@ window.loadCharts = async function () {
 window.loadSalesProfitChart = async function () {
     try {
         const data = await fetchJson("/charts/sales-profit");
+
         const labels = data.map(x => x.sale_date);
         const sales = data.map(x => Number(x.total_sales || 0));
         const profit = data.map(x => Number(x.total_profit || 0));
@@ -1875,6 +1788,7 @@ window.loadSalesProfitChart = async function () {
 window.loadStockChart = async function () {
     try {
         const data = await fetchJson("/charts/stock");
+
         const labels = data.map(x => x.name);
         const stock = data.map(x => Number(x.stock || 0));
 
@@ -1944,55 +1858,46 @@ window.stopScanner = function () {
             });
     }
 };
-
 // INIT
 window.addEventListener("load", async () => {
-    await loadSystemCurrency();
+    await window.loadSystemCurrency();
+
     const savedToken = localStorage.getItem("token");
     const savedRole = localStorage.getItem("role");
 
     if (savedToken && savedRole) {
         token = savedToken;
         currentRole = savedRole;
+
         window.applyRolePermissions();
 
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("mainSection").style.display = "block";
 
         const adminSection = document.getElementById("adminSection");
-        if (adminSection) adminSection.style.display = currentRole === "admin" ? "block" : "none";
+        if (adminSection) {
+            adminSection.style.display = currentRole === "admin" ? "block" : "none";
+        }
 
         const usersMenuBtn = document.getElementById("usersMenuBtn");
-        if (usersMenuBtn) usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
+        if (usersMenuBtn) {
+            usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
+        }
 
         if (currentRole === "cashier") {
-        showPage("posPage");
-}           else if (currentRole === "warehouse") {
-                showPage("productsPage");
-}                   else if (currentRole === "manager") {
-                        showPage("dashboardPage");
-}                           else {
-                                showPage("dashboardPage");
-}
+            showPage("posPage");
+        } else if (currentRole === "warehouse") {
+            showPage("productsPage");
+        } else {
+            showPage("dashboardPage");
+        }
+
     } else {
         document.getElementById("loginSection").style.display = "block";
         document.getElementById("mainSection").style.display = "none";
     }
 });
-const returnInvoice = document.getElementById("returnInvoice");
-if (returnInvoice) {
-    returnInvoice.addEventListener("change", loadReturnInvoiceItems);
-}
 
-const returnProduct = document.getElementById("returnCustomerProduct");
-if (returnProduct) {
-    returnProduct.addEventListener("change", calculateCustomerRefund);
-}
-
-const returnQty = document.getElementById("customerReturnQty");
-if (returnQty) {
-    returnQty.addEventListener("input", calculateCustomerRefund);
-}
 document.addEventListener("DOMContentLoaded", function () {
     const barcodeSearchInput = document.getElementById("barcodeSearchInput");
     if (barcodeSearchInput) {
@@ -2004,7 +1909,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const receiveBarcode = document.getElementById("receiveBarcode");
     if (receiveBarcode) {
         receiveBarcode.addEventListener("keypress", e => {
-            if (e.key === "Enter") document.getElementById("receiveQty").focus();
+            if (e.key === "Enter") {
+                const receiveQty = document.getElementById("receiveQty");
+                if (receiveQty) receiveQty.focus();
+            }
         });
     }
 
@@ -2031,7 +1939,24 @@ document.addEventListener("DOMContentLoaded", function () {
     if (saleBranch) {
         saleBranch.addEventListener("change", previewBranchStock);
     }
+
+    const returnInvoice = document.getElementById("returnInvoice");
+    if (returnInvoice) {
+        returnInvoice.addEventListener("change", loadReturnInvoiceItems);
+    }
+
+    const returnProduct = document.getElementById("returnCustomerProduct");
+    if (returnProduct) {
+        returnProduct.addEventListener("change", calculateCustomerRefund);
+    }
+
+    const returnQty = document.getElementById("customerReturnQty");
+    if (returnQty) {
+        returnQty.addEventListener("input", calculateCustomerRefund);
+    }
 });
+
+// CUSTOMERS
 window.addCustomer = async function () {
     const name = document.getElementById("customerName").value.trim();
     const phone = document.getElementById("customerPhone").value.trim();
@@ -2053,6 +1978,7 @@ window.addCustomer = async function () {
     });
 
     const data = await res.json();
+
     alert(data.message || data.error);
 
     document.getElementById("customerName").value = "";
@@ -2080,11 +2006,11 @@ window.displayCustomers = function (customers) {
         table.innerHTML += `
             <tr>
                 <td>${c.id}</td>
-                <td>${c.name}</td>
-                <td>${c.phone}</td>
-                <td>${c.email || ""}</td>
-                <td>${c.address || ""}</td>
-                <td>${c.date}</td>
+                <td>${safeHtml(c.name)}</td>
+                <td>${safeHtml(c.phone)}</td>
+                <td>${safeHtml(c.email || "")}</td>
+                <td>${safeHtml(c.address || "")}</td>
+                <td>${safeHtml(c.date || "")}</td>
                 <td>
                     ${
                         currentRole === "admin"
@@ -2122,10 +2048,12 @@ window.deleteCustomer = async function (id) {
     });
 
     const data = await res.json();
+
     alert(data.message || data.error);
 
     loadCustomers();
 };
+
 window.loadSaleCustomerOptions = async function () {
     const res = await fetch(API + "/customers");
     const customers = await res.json();
@@ -2138,11 +2066,12 @@ window.loadSaleCustomerOptions = async function () {
     customers.forEach(c => {
         select.innerHTML += `
             <option value="${c.id}">
-                ${c.name} - ${c.phone}
+                ${safeHtml(c.name)} - ${safeHtml(c.phone)}
             </option>
         `;
     });
 };
+
 window.loadHistoryCustomerOptions = async function () {
     const res = await fetch(API + "/customers");
     const customers = await res.json();
@@ -2155,7 +2084,7 @@ window.loadHistoryCustomerOptions = async function () {
     customers.forEach(c => {
         select.innerHTML += `
             <option value="${c.id}">
-                ${c.name} - ${c.phone}
+                ${safeHtml(c.name)} - ${safeHtml(c.phone)}
             </option>
         `;
     });
@@ -2185,14 +2114,14 @@ window.loadCustomerHistory = async function () {
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(unitPrice)}</td>
                 <td>${formatMoney(total)}</td>
                 <td>${formatMoney(profit)}</td>
-                <td>${r.date}</td>
+                <td>${safeHtml(r.date)}</td>
             </tr>
         `;
     });
@@ -2212,9 +2141,31 @@ window.printCustomerHistory = async function () {
     const selectedText = document.getElementById("historyCustomer")
         .options[document.getElementById("historyCustomer").selectedIndex].text;
 
-    let reportWindow = window.open("", "_blank");
+    let htmlRows = "";
 
-    let html = `
+    rows.forEach(r => {
+        const unitPrice = Number(r.price) / Number(r.qty || 1);
+        const total = Number(r.price || 0);
+        const profit = Number(r.profit || 0);
+
+        htmlRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${r.qty}</td>
+                <td>${formatMoney(unitPrice)}</td>
+                <td>${formatMoney(total)}</td>
+                <td>${formatMoney(profit)}</td>
+                <td>${safeHtml(r.date)}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
         <html>
         <head>
             <title>Customer Purchase History</title>
@@ -2228,8 +2179,9 @@ window.printCustomerHistory = async function () {
         </head>
         <body>
             <h1>Customer Purchase History</h1>
-            <p><strong>Customer:</strong> ${selectedText}</p>
+            <p><strong>Customer:</strong> ${safeHtml(selectedText)}</p>
             <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Currency:</strong> ${systemCurrency}</p>
 
             <table>
                 <thead>
@@ -2245,32 +2197,9 @@ window.printCustomerHistory = async function () {
                         <th>Date</th>
                     </tr>
                 </thead>
-                <tbody>
-    `;
-
-    rows.forEach(r => {
-        const unitPrice = Number(r.price) / Number(r.qty || 1);
-        const total = Number(r.price || 0);
-        const profit = Number(r.profit || 0);
-
-        html += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.qty}</td>
-                <td>${formatMoney(unitPrice)}</td>
-                <td>${formatMoney(total)}</td>
-                <td>${formatMoney(profit)}</td>
-                <td>${r.date}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
+                <tbody>${htmlRows}</tbody>
             </table>
+
             <script>window.print();</script>
         </body>
         </html>
@@ -2301,13 +2230,10 @@ window.exportCustomerHistoryExcel = async function () {
         csv += `${r.id},${r.branch_name},${r.product_name},${r.barcode},${r.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${r.date}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "customer_purchase_history.csv";
-    link.click();
+    downloadCsv(csv, "customer_purchase_history.csv");
 };
+
+// EXPENSES
 window.addExpense = async function () {
     const category = document.getElementById("expenseCategory").value.trim();
     const amount = Number(document.getElementById("expenseAmount").value);
@@ -2328,6 +2254,7 @@ window.addExpense = async function () {
     });
 
     const data = await res.json();
+
     alert(data.message || data.error);
 
     document.getElementById("expenseCategory").value = "";
@@ -2350,10 +2277,10 @@ window.loadExpenses = async function () {
         table.innerHTML += `
             <tr>
                 <td>${e.id}</td>
-                <td>${e.category}</td>
+                <td>${safeHtml(e.category)}</td>
                 <td>${formatMoney(e.amount || 0)}</td>
-                <td>${e.notes || ""}</td>
-                <td>${e.date}</td>
+                <td>${safeHtml(e.notes || "")}</td>
+                <td>${safeHtml(e.date)}</td>
                 <td>
                     ${
                         currentRole === "admin"
@@ -2377,6 +2304,7 @@ window.deleteExpense = async function (id) {
     });
 
     const data = await res.json();
+
     alert(data.message || data.error);
 
     loadExpenses();
@@ -2386,10 +2314,7 @@ window.printExpensesReport = async function () {
     const res = await fetch(API + "/expenses");
     const expenses = await res.json();
 
-    let reportWindow = window.open("", "_blank");
-
     let total = 0;
-
     let rows = "";
 
     expenses.forEach(e => {
@@ -2398,13 +2323,15 @@ window.printExpensesReport = async function () {
         rows += `
             <tr>
                 <td>${e.id}</td>
-                <td>${e.category}</td>
+                <td>${safeHtml(e.category)}</td>
                 <td>${formatMoney(e.amount || 0)}</td>
-                <td>${e.notes || ""}</td>
-                <td>${e.date}</td>
+                <td>${safeHtml(e.notes || "")}</td>
+                <td>${safeHtml(e.date)}</td>
             </tr>
         `;
     });
+
+    const reportWindow = window.open("", "_blank");
 
     const html = `
         <html>
@@ -2422,6 +2349,7 @@ window.printExpensesReport = async function () {
         <body>
             <h1>Expenses Report</h1>
             <p>Date: ${new Date().toLocaleString()}</p>
+            <p>Currency: ${systemCurrency}</p>
 
             <table>
                 <thead>
@@ -2433,9 +2361,7 @@ window.printExpensesReport = async function () {
                         <th>Date</th>
                     </tr>
                 </thead>
-                <tbody>
-                    ${rows}
-                </tbody>
+                <tbody>${rows}</tbody>
             </table>
 
             <div class="total">Total Expenses: ${formatMoney(total)}</div>
@@ -2459,13 +2385,9 @@ window.exportExpensesExcel = async function () {
         csv += `${e.id},${e.category},${Number(e.amount || 0).toFixed(2)},${e.notes || ""},${e.date}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "expenses_report.csv";
-    link.click();
+    downloadCsv(csv, "expenses_report.csv");
 };
+// DAILY CLOSING
 window.getClosingDate = function () {
     const input = document.getElementById("closingDateInput");
 
@@ -2484,7 +2406,7 @@ window.loadDailyClosing = async function () {
         dateInput.value = date;
     }
 
-    const res = await fetch(API + "/daily-closing?date=" + date);
+    const res = await fetch(API + "/daily-closing?date=" + encodeURIComponent(date));
     const data = await res.json();
 
     if (data.error) {
@@ -2505,13 +2427,13 @@ window.loadDailyClosing = async function () {
     if (expensesTable) {
         expensesTable.innerHTML = "";
 
-        data.expenses.forEach(e => {
+        (data.expenses || []).forEach(e => {
             expensesTable.innerHTML += `
                 <tr>
                     <td>${e.id}</td>
-                    <td>${e.category}</td>
+                    <td>${safeHtml(e.category)}</td>
                     <td>${formatMoney(e.amount || 0)}</td>
-                    <td>${e.notes || ""}</td>
+                    <td>${safeHtml(e.notes || "")}</td>
                     <td>${new Date(e.date).toLocaleString()}</td>
                 </tr>
             `;
@@ -2522,55 +2444,56 @@ window.loadDailyClosing = async function () {
     if (returnsTable) {
         returnsTable.innerHTML = "";
 
-        data.returns.forEach(r => {
+        (data.returns || []).forEach(r => {
             returnsTable.innerHTML += `
                 <tr>
                     <td>${r.id}</td>
-                    <td>${r.customer_name || "Walk-in Customer"}</td>
-                    <td>${r.product_name}</td>
-                    <td>${r.barcode}</td>
-                    <td>${r.branch_name}</td>
+                    <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
+                    <td>${safeHtml(r.product_name)}</td>
+                    <td>${safeHtml(r.barcode)}</td>
+                    <td>${safeHtml(r.branch_name)}</td>
                     <td>${r.qty}</td>
                     <td>${formatMoney(r.refund_amount || 0)}</td>
-                    <td>${r.reason || ""}</td>
+                    <td>${safeHtml(r.reason || "")}</td>
                     <td>${new Date(r.date).toLocaleString()}</td>
                 </tr>
             `;
         });
     }
 };
+
 window.printDailyClosing = async function () {
     const date = getClosingDate();
 
-    const res = await fetch(API + "/daily-closing?date=" + date);
+    const res = await fetch(API + "/daily-closing?date=" + encodeURIComponent(date));
     const data = await res.json();
 
     let expenseRows = "";
     let returnRows = "";
 
-    data.expenses.forEach(e => {
+    (data.expenses || []).forEach(e => {
         expenseRows += `
             <tr>
                 <td>${e.id}</td>
-                <td>${e.category}</td>
+                <td>${safeHtml(e.category)}</td>
                 <td>${formatMoney(e.amount || 0)}</td>
-                <td>${e.notes || ""}</td>
+                <td>${safeHtml(e.notes || "")}</td>
                 <td>${new Date(e.date).toLocaleString()}</td>
             </tr>
         `;
     });
 
-    data.returns.forEach(r => {
+    (data.returns || []).forEach(r => {
         returnRows += `
             <tr>
                 <td>${r.id}</td>
-                <td>${r.customer_name || "Walk-in Customer"}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name}</td>
+                <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name)}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.refund_amount || 0)}</td>
-                <td>${r.reason || ""}</td>
+                <td>${safeHtml(r.reason || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
@@ -2581,7 +2504,7 @@ window.printDailyClosing = async function () {
     const html = `
         <html>
         <head>
-            <title>Daily Closing Report - ${data.date}</title>
+            <title>Daily Closing Report - ${safeHtml(data.date)}</title>
             <style>
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
@@ -2604,8 +2527,9 @@ window.printDailyClosing = async function () {
         </head>
         <body>
             <h1>Daily Closing Report</h1>
-            <p><strong>Closing Date:</strong> ${data.date}</p>
+            <p><strong>Closing Date:</strong> ${safeHtml(data.date)}</p>
             <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Currency:</strong> ${systemCurrency}</p>
 
             <div class="summary">
                 <div class="card">Sales: ${formatMoney(data.total_sales || 0)}</div>
@@ -2657,10 +2581,11 @@ window.printDailyClosing = async function () {
     reportWindow.document.write(html);
     reportWindow.document.close();
 };
+
 window.exportDailyClosingExcel = async function () {
     const date = getClosingDate();
 
-    const res = await fetch(API + "/daily-closing?date=" + date);
+    const res = await fetch(API + "/daily-closing?date=" + encodeURIComponent(date));
     const data = await res.json();
 
     let csv = "Daily Closing Report\n";
@@ -2678,1494 +2603,21 @@ window.exportDailyClosingExcel = async function () {
     csv += "Expenses\n";
     csv += "ID,Category,Amount,Notes,Date\n";
 
-    data.expenses.forEach(e => {
+    (data.expenses || []).forEach(e => {
         csv += `${e.id},${e.category},${Number(e.amount || 0).toFixed(2)},${e.notes || ""},${new Date(e.date).toLocaleString()}\n`;
     });
 
     csv += "\nCustomer Returns / Refunds\n";
     csv += "ID,Customer,Product,Barcode,Branch,Qty,Refund,Reason,Date\n";
 
-    data.returns.forEach(r => {
+    (data.returns || []).forEach(r => {
         csv += `${r.id},${r.customer_name || "Walk-in Customer"},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${Number(r.refund_amount || 0).toFixed(2)},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "daily_closing_" + data.date + ".csv";
-    link.click();
-};
-window.applyRolePermissions = function () {
-    const role = currentRole || localStorage.getItem("role");
-
-    const allButtons = [
-        "dashboardMenuBtn",
-        "branchDashboardMenuBtn",
-        "productsMenuBtn",
-        "posMenuBtn",
-        "receivingMenuBtn",
-        "reportsMenuBtn",
-        "customersMenuBtn",
-        "customerReturnsMenuBtn",
-        "expensesMenuBtn",
-        "closingMenuBtn",
-        "invoiceReportMenuBtn",
-        "branchesMenuBtn",
-        "stockControlMenuBtn",
-        "suppliersMenuBtn",
-        "currencyMenuBtn",
-        "usersMenuBtn"
-    ];
-
-    allButtons.forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) btn.style.display = "none";
-    });
-
-    const permissions = {
-        admin: [
-            "dashboardMenuBtn",
-            "branchDashboardMenuBtn",
-            "productsMenuBtn",
-            "posMenuBtn",
-            "receivingMenuBtn",
-            "reportsMenuBtn",
-            "customersMenuBtn",
-            "customerReturnsMenuBtn",
-            "expensesMenuBtn",
-            "closingMenuBtn",
-            "invoiceReportMenuBtn",
-            "branchesMenuBtn",
-            "stockControlMenuBtn",
-            "suppliersMenuBtn",
-            "currencyMenuBtn",
-            "usersMenuBtn"
-        ],
-
-        cashier: [
-            "posMenuBtn",
-            "customersMenuBtn"
-        ],
-
-        warehouse: [
-            "productsMenuBtn",
-            "receivingMenuBtn",
-            "branchesMenuBtn",
-            "stockControlMenuBtn",
-            "suppliersMenuBtn"
-        ],
-
-        manager: [
-            "dashboardMenuBtn",
-            "branchDashboardMenuBtn",
-            "reportsMenuBtn",
-            "customersMenuBtn",
-            "customerReturnsMenuBtn",
-            "expensesMenuBtn",
-            "closingMenuBtn",
-            "invoiceReportMenuBtn",
-            "stockControlMenuBtn"
-        ]
-    };
-
-    const allowedButtons = permissions[role] || [];
-
-    allowedButtons.forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) btn.style.display = "block";
-    });
-};
-window.loadInvoices = async function () {
-    const res = await fetch(API + "/invoices");
-    const invoices = await res.json();
-
-    displayInvoices(invoices);
+    downloadCsv(csv, "daily_closing_" + data.date + ".csv");
 };
 
-window.displayInvoices = function (invoices) {
-    const table = document.getElementById("invoicesTable");
-    if (!table) return;
-
-    table.innerHTML = "";
-
-    invoices.forEach(inv => {
-        table.innerHTML += `
-            <tr>
-                <td>${inv.id}</td>
-                <td>${inv.invoice_no}</td>
-                <td>${inv.customer_name || "Walk-in Customer"}</td>
-                <td>${inv.customer_phone || ""}</td>
-                <td>${inv.branch_name || ""}</td>
-                <td>${inv.cashier_name || ""}</td>
-                <td>${inv.payment_method || "Cash"}</td>
-                <td>${formatMoney(inv.total || 0)}</td>
-                <td>${new Date(inv.date).toLocaleString()}</td>
-                <td><button onclick="reprintInvoice(${inv.id})">Reprint</button></td>
-            </tr>
-        `;
-    });
-};
-
-window.searchInvoices = async function () {
-    const search = document.getElementById("invoiceSearch").value.toLowerCase();
-    const dateFrom = document.getElementById("invoiceDateFrom").value;
-    const dateTo = document.getElementById("invoiceDateTo").value;
-
-    const res = await fetch(API + "/invoices");
-    const invoices = await res.json();
-
-    const filtered = invoices.filter(inv => {
-        const textMatch =
-            String(inv.invoice_no || "").toLowerCase().includes(search) ||
-            String(inv.customer_name || "").toLowerCase().includes(search) ||
-            String(inv.customer_phone || "").toLowerCase().includes(search) ||
-            String(inv.branch_name || "").toLowerCase().includes(search) ||
-            String(inv.cashier_name || "").toLowerCase().includes(search);
-
-        const invoiceDate = new Date(inv.date);
-
-        let fromMatch = true;
-        let toMatch = true;
-
-        if (dateFrom) {
-            const fromDate = new Date(dateFrom + "T00:00:00");
-            fromMatch = invoiceDate >= fromDate;
-        }
-
-        if (dateTo) {
-            const toDate = new Date(dateTo + "T23:59:59");
-            toMatch = invoiceDate <= toDate;
-        }
-
-        return textMatch && fromMatch && toMatch;
-    });
-
-    displayInvoices(filtered);
-};
-window.clearInvoiceFilters = function () {
-    document.getElementById("invoiceSearch").value = "";
-    document.getElementById("invoiceDateFrom").value = "";
-    document.getElementById("invoiceDateTo").value = "";
-
-    loadInvoices();
-};
-window.reprintInvoice = async function (invoiceId) {
-    const res = await fetch(API + "/invoices/" + invoiceId);
-    const data = await res.json();
-
-    if (data.error) {
-        alert(data.error);
-        return;
-    }
-
-    printSavedInvoice(data.invoice, data.items);
-};
-
-window.printSavedInvoice = function (invoice, items) {
-    let rows = "";
-    let total = 0;
-
-    items.forEach(item => {
-        total += Number(item.line_total || 0);
-
-        rows += `
-            <tr>
-                <td>${item.product_name}</td>
-                <td>${item.barcode}</td>
-                <td>${item.qty}</td>
-                <td>${formatMoney(item.unit_price || 0)}</td>
-                <td>${formatMoney(item.line_total || 0)}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>${invoice.invoice_no}</title>
-            <style>
-                @page {
-                    size: A4;
-                    margin: 12mm;
-                }
-
-                body {
-                    font-family: Arial, sans-serif;
-                    color: #111827;
-                    margin: 0;
-                    padding: 0;
-                    background: white;
-                }
-
-                .invoice {
-                    max-width: 800px;
-                    margin: auto;
-                    padding: 20px;
-                    border: 1px solid #e5e7eb;
-                }
-
-                .header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    border-bottom: 3px solid #111827;
-                    padding-bottom: 15px;
-                    margin-bottom: 20px;
-                }
-
-                .company {
-                    display: flex;
-                    align-items: center;
-                    gap: 15px;
-                }
-
-                .company img {
-                    width: 75px;
-                    height: 75px;
-                    object-fit: contain;
-                }
-
-                .company h1 {
-                    margin: 0;
-                    font-size: 24px;
-                    color: #111827;
-                }
-
-                .company p {
-                    margin: 3px 0;
-                    font-size: 13px;
-                    color: #4b5563;
-                }
-
-                .invoice-title {
-                    text-align: right;
-                }
-
-                .invoice-title h2 {
-                    margin: 0;
-                    font-size: 28px;
-                    color: #111827;
-                }
-
-                .invoice-title p {
-                    margin: 5px 0;
-                    font-size: 14px;
-                }
-
-                .info-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 15px;
-                    margin-bottom: 20px;
-                }
-
-                .info-box {
-                    border: 1px solid #e5e7eb;
-                    border-radius: 8px;
-                    padding: 12px;
-                    background: #f9fafb;
-                }
-
-                .info-box h3 {
-                    margin: 0 0 8px 0;
-                    font-size: 15px;
-                    border-bottom: 1px solid #d1d5db;
-                    padding-bottom: 5px;
-                }
-
-                .info-box p {
-                    margin: 5px 0;
-                    font-size: 14px;
-                }
-
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 15px;
-                }
-
-                th {
-                    background: #111827;
-                    color: white;
-                    padding: 10px;
-                    font-size: 14px;
-                    border: 1px solid #111827;
-                }
-
-                td {
-                    padding: 10px;
-                    font-size: 14px;
-                    border: 1px solid #d1d5db;
-                    text-align: center;
-                }
-
-                td:first-child {
-                    text-align: left;
-                }
-
-                .totals {
-                    margin-top: 20px;
-                    display: flex;
-                    justify-content: flex-end;
-                }
-
-                .totals-box {
-                    width: 300px;
-                    border: 1px solid #111827;
-                }
-
-                .totals-row {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 10px;
-                    border-bottom: 1px solid #d1d5db;
-                    font-size: 15px;
-                }
-
-                .totals-row:last-child {
-                    border-bottom: none;
-                    background: #111827;
-                    color: white;
-                    font-size: 18px;
-                    font-weight: bold;
-                }
-
-                .footer {
-                    margin-top: 30px;
-                    text-align: center;
-                    font-size: 13px;
-                    color: #6b7280;
-                    border-top: 1px solid #e5e7eb;
-                    padding-top: 15px;
-                }
-
-                @media print {
-                    body {
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-
-                    .invoice {
-                        border: none;
-                        padding: 0;
-                    }
-                }
-            </style>
-        </head>
-
-        <body>
-            <div class="invoice">
-
-                <div class="header">
-                    <div class="company">
-                        <img src="logo.png" alt="Logo">
-
-                        <div>
-                            <h1>Mart & Wholesales</h1>
-                            <p>Beirut, Lebanon</p>
-                            <p>Phone: +961 3 743 351</p>
-                            <p>Email: martwholesales@gmail.com</p>
-                        </div>
-                    </div>
-
-                    <div class="invoice-title">
-                        <h2>INVOICE</h2>
-                        <p><strong>No:</strong> ${invoice.invoice_no}</p>
-                        <p><strong>Date:</strong> ${invoice.date}</p>
-                    </div>
-                </div>
-
-                <div class="info-grid">
-                    <div class="info-box">
-                        <h3>Customer Information</h3>
-                        <p><strong>Customer:</strong> ${invoice.customer_name || "Walk-in Customer"}</p>
-                        <p><strong>Phone:</strong> ${invoice.customer_phone || ""}</p>
-                    </div>
-
-                    <div class="info-box">
-                        <h3>Sale Information</h3>
-                        <p><strong>Branch:</strong> ${invoice.branch_name || ""}</p>
-                        <p><strong>Cashier:</strong> ${invoice.cashier_name || ""}</p>
-                        <p><strong>Payment:</strong> ${invoice.payment_method || "Cash"}</p>
-                        <p><strong>Currency:</strong> ${systemCurrency}</p>
-                    </div>
-                </div>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Barcode</th>
-                            <th>Qty</th>
-                            <th>Unit Price</th>
-                            <th>Total</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
-
-                <div class="totals">
-                    <div class="totals-box">
-                        <div class="totals-row">
-                            <span>Subtotal</span>
-                            <span>${formatMoney(total)}</span>
-                        </div>
-                        <div class="totals-row">
-                            <span>Discount</span>
-                            <span>$0.00</span>
-                        </div>
-                        <div class="totals-row">
-                            <span>Grand Total</span>
-                            <span>${formatMoney(Number(invoice.total || total))}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="footer">
-                    Thank you for your business<br>
-                    Reprinted from saved invoice record.
-                </div>
-
-            </div>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-window.printPurchaseOrderReport = async function () {
-    const res = await fetch(API + "/purchase-orders-report");
-    const orders = await res.json();
-
-    let rows = "";
-
-    orders.forEach(o => {
-        rows += `
-            <tr>
-                <td>${o.id}</td>
-                <td>${o.supplier_name}</td>
-                <td>${o.product_name}</td>
-                <td>${o.barcode}</td>
-                <td>${o.branch_name || ""}</td>
-                <td>${o.qty}</td>
-                <td>${o.status}</td>
-                <td>${new Date(o.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Purchase Order Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Purchase Order Report</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Supplier</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Branch</th>
-                        <th>Qty</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows}
-                </tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-
-window.exportPurchaseOrderExcel = async function () {
-    const res = await fetch(API + "/purchase-orders-report");
-    const orders = await res.json();
-
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
-
-    orders.forEach(o => {
-        csv += `${o.id},${o.supplier_name},${o.product_name},${o.barcode},${o.branch_name || ""},${o.qty},${o.status},${new Date(o.date).toLocaleString()}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "purchase_order_report.csv";
-    link.click();
-};
-window.loadHistorySupplierOptions = async function () {
-    const res = await fetch(API + "/suppliers");
-    const suppliers = await res.json();
-
-    const select = document.getElementById("historySupplier");
-    if (!select) return;
-
-    select.innerHTML = "";
-
-    suppliers.forEach(s => {
-        select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-    });
-};
-
-window.loadSupplierHistory = async function () {
-    const supplierId = document.getElementById("historySupplier").value;
-
-    if (!supplierId) {
-        alert("Please select supplier");
-        return;
-    }
-
-    const res = await fetch(API + "/supplier-history/" + supplierId);
-    const rows = await res.json();
-
-    const table = document.getElementById("supplierHistoryTable");
-    if (!table) return;
-
-    table.innerHTML = "";
-
-    rows.forEach(r => {
-        table.innerHTML += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.supplier_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name || ""}</td>
-                <td>${r.qty}</td>
-                <td>${r.status}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-};
-
-window.printSupplierHistory = async function () {
-    const supplierId = document.getElementById("historySupplier").value;
-
-    if (!supplierId) {
-        alert("Please select supplier");
-        return;
-    }
-
-    const res = await fetch(API + "/supplier-history/" + supplierId);
-    const rows = await res.json();
-
-    let htmlRows = "";
-
-    rows.forEach(r => {
-        htmlRows += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.supplier_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name || ""}</td>
-                <td>${r.qty}</td>
-                <td>${r.status}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Supplier Purchase History</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Supplier Purchase History</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Supplier</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Branch</th>
-                        <th>Qty</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${htmlRows}
-                </tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-
-window.exportSupplierHistoryExcel = async function () {
-    const supplierId = document.getElementById("historySupplier").value;
-
-    if (!supplierId) {
-        alert("Please select supplier");
-        return;
-    }
-
-    const res = await fetch(API + "/supplier-history/" + supplierId);
-    const rows = await res.json();
-
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
-
-    rows.forEach(r => {
-        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name || ""},${r.qty},${r.status},${new Date(r.date).toLocaleString()}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "supplier_purchase_history.csv";
-    link.click();
-};
-window.loadSupplierReturnOptions = async function () {
-    const suppliersRes = await fetch(API + "/suppliers");
-    const suppliers = await suppliersRes.json();
-
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
-
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
-
-    const supplierSelect = document.getElementById("returnSupplier");
-    const productSelect = document.getElementById("returnProduct");
-    const branchSelect = document.getElementById("returnBranch");
-
-    if (!supplierSelect || !productSelect || !branchSelect) return;
-
-    supplierSelect.innerHTML = "";
-    productSelect.innerHTML = "";
-    branchSelect.innerHTML = "";
-
-    suppliers.forEach(s => {
-        supplierSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-    });
-
-    products.forEach(p => {
-        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
-    });
-
-    branches.forEach(b => {
-        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-    });
-};
-
-window.returnToSupplier = async function () {
-    const supplier_id = document.getElementById("returnSupplier").value;
-    const product_id = document.getElementById("returnProduct").value;
-    const branch_id = document.getElementById("returnBranch").value;
-    const qty = Number(document.getElementById("returnQty").value);
-    const reason = document.getElementById("returnReason").value.trim();
-
-    if (!supplier_id || !product_id || !branch_id || qty <= 0) {
-        alert("Please select supplier/product/branch and valid quantity");
-        return;
-    }
-
-    const res = await fetch(API + "/supplier-returns", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        body: JSON.stringify({
-            supplier_id,
-            product_id,
-            branch_id,
-            qty,
-            reason
-        })
-    });
-
-    const data = await res.json();
-
-    alert(data.message || data.error);
-
-    document.getElementById("returnQty").value = "";
-    document.getElementById("returnReason").value = "";
-
-    loadSupplierReturns();
-    loadProducts();
-    loadDashboard();
-
-    if (typeof loadBranchStock === "function") {
-        loadBranchStock();
-    }
-
-    if (typeof loadBranchDashboard === "function") {
-        loadBranchDashboard();
-    }
-};
-
-window.loadSupplierReturns = async function () {
-    const res = await fetch(API + "/supplier-returns");
-    const returns = await res.json();
-
-    const table = document.getElementById("supplierReturnsTable");
-    if (!table) return;
-
-    table.innerHTML = "";
-
-    returns.forEach(r => {
-        table.innerHTML += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.supplier_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.qty}</td>
-                <td>${r.reason || ""}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-};
-
-window.printSupplierReturns = async function () {
-    const res = await fetch(API + "/supplier-returns");
-    const returns = await res.json();
-
-    let rows = "";
-
-    returns.forEach(r => {
-        rows += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.supplier_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.qty}</td>
-                <td>${r.reason || ""}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Supplier Returns Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Supplier Returns Report</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Supplier</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Branch</th>
-                        <th>Qty</th>
-                        <th>Reason</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows}
-                </tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-
-window.exportSupplierReturnsExcel = async function () {
-    const res = await fetch(API + "/supplier-returns");
-    const returns = await res.json();
-
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Reason,Date\n";
-
-    returns.forEach(r => {
-        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "supplier_returns_report.csv";
-    link.click();
-};
-window.loadPurchaseControlOptions = async function () {
-    const suppliersRes = await fetch(API + "/suppliers");
-    const suppliers = await suppliersRes.json();
-
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
-
-    const poSupplier = document.getElementById("poReportSupplier");
-    const poBranch = document.getElementById("poReportBranch");
-    const returnSupplier = document.getElementById("returnReportSupplier");
-    const returnBranch = document.getElementById("returnReportBranch");
-
-    if (poSupplier) poSupplier.innerHTML = `<option value="">All Suppliers</option>`;
-    if (returnSupplier) returnSupplier.innerHTML = `<option value="">All Suppliers</option>`;
-
-    if (poBranch) poBranch.innerHTML = `<option value="">All Branches</option>`;
-    if (returnBranch) returnBranch.innerHTML = `<option value="">All Branches</option>`;
-
-    suppliers.forEach(s => {
-        if (poSupplier) poSupplier.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-        if (returnSupplier) returnSupplier.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-    });
-
-    branches.forEach(b => {
-        if (poBranch) poBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-        if (returnBranch) returnBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-    });
-};
-window.getPOReportQuery = function () {
-    const status = document.getElementById("poReportStatus").value;
-    const supplier = document.getElementById("poReportSupplier").value;
-    const branch = document.getElementById("poReportBranch").value;
-
-    const params = new URLSearchParams();
-
-    if (status) params.append("status", status);
-    if (supplier) params.append("supplier_id", supplier);
-    if (branch) params.append("branch_id", branch);
-
-    return params.toString();
-};
-
-window.loadFilteredPOReport = async function () {
-    const query = getPOReportQuery();
-
-    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
-    const rows = await res.json();
-
-    const table = document.getElementById("filteredPOReportTable");
-    if (!table) return;
-
-    table.innerHTML = "";
-
-    rows.forEach(o => {
-        table.innerHTML += `
-            <tr>
-                <td>${o.id}</td>
-                <td>${o.supplier_name}</td>
-                <td>${o.product_name}</td>
-                <td>${o.barcode}</td>
-                <td>${o.branch_name || ""}</td>
-                <td>${o.qty}</td>
-                <td>${o.status}</td>
-                <td>${new Date(o.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-};
-
-window.printFilteredPOReport = async function () {
-    const query = getPOReportQuery();
-
-    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
-    const rows = await res.json();
-
-    let htmlRows = "";
-
-    rows.forEach(o => {
-        htmlRows += `
-            <tr>
-                <td>${o.id}</td>
-                <td>${o.supplier_name}</td>
-                <td>${o.product_name}</td>
-                <td>${o.barcode}</td>
-                <td>${o.branch_name || ""}</td>
-                <td>${o.qty}</td>
-                <td>${o.status}</td>
-                <td>${new Date(o.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Filtered Purchase Order Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Filtered Purchase Order Report</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Supplier</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Branch</th>
-                        <th>Qty</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>${htmlRows}</tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-
-window.exportFilteredPOReportExcel = async function () {
-    const query = getPOReportQuery();
-
-    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
-    const rows = await res.json();
-
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
-
-    rows.forEach(o => {
-        csv += `${o.id},${o.supplier_name},${o.product_name},${o.barcode},${o.branch_name || ""},${o.qty},${o.status},${new Date(o.date).toLocaleString()}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "filtered_purchase_order_report.csv";
-    link.click();
-};
-window.getReturnsReportQuery = function () {
-    const supplier = document.getElementById("returnReportSupplier").value;
-    const branch = document.getElementById("returnReportBranch").value;
-
-    const params = new URLSearchParams();
-
-    if (supplier) params.append("supplier_id", supplier);
-    if (branch) params.append("branch_id", branch);
-
-    return params.toString();
-};
-
-window.loadFilteredReturnsReport = async function () {
-    const query = getReturnsReportQuery();
-
-    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
-    const rows = await res.json();
-
-    const table = document.getElementById("filteredReturnsReportTable");
-    if (!table) return;
-
-    table.innerHTML = "";
-
-    rows.forEach(r => {
-        table.innerHTML += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.supplier_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.qty}</td>
-                <td>${r.reason || ""}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-};
-
-window.printFilteredReturnsReport = async function () {
-    const query = getReturnsReportQuery();
-
-    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
-    const rows = await res.json();
-
-    let htmlRows = "";
-
-    rows.forEach(r => {
-        htmlRows += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.supplier_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.qty}</td>
-                <td>${r.reason || ""}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Filtered Supplier Returns Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Filtered Supplier Returns Report</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Supplier</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Branch</th>
-                        <th>Qty</th>
-                        <th>Reason</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>${htmlRows}</tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-
-window.exportFilteredReturnsExcel = async function () {
-    const query = getReturnsReportQuery();
-
-    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
-    const rows = await res.json();
-
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Reason,Date\n";
-
-    rows.forEach(r => {
-        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "filtered_supplier_returns_report.csv";
-    link.click();
-};
-window.loadSupplierBalanceReport = async function () {
-    const res = await fetch(API + "/supplier-balance-report");
-    const rows = await res.json();
-
-    const table = document.getElementById("supplierBalanceTable");
-    if (!table) return;
-
-    table.innerHTML = "";
-
-    rows.forEach(r => {
-        table.innerHTML += `
-            <tr>
-                <td>${r.supplier_name}</td>
-                <td>${r.total_received_qty}</td>
-                <td>${formatMoney(r.total_received_value || 0)}</td>
-                <td>${r.total_returned_qty}</td>
-                <td>${formatMoney(r.total_returned_value || 0)}</td>
-                <td>${r.net_qty}</td>
-                <td>${formatMoney(r.net_value || 0)}</td>
-            </tr>
-        `;
-    });
-};
-
-window.printSupplierBalanceReport = async function () {
-    const res = await fetch(API + "/supplier-balance-report");
-    const rows = await res.json();
-
-    let htmlRows = "";
-
-    rows.forEach(r => {
-        htmlRows += `
-            <tr>
-                <td>${r.supplier_name}</td>
-                <td>${r.total_received_qty}</td>
-                <td>${formatMoney(r.total_received_value || 0)}</td>
-                <td>${r.total_returned_qty}</td>
-                <td>${formatMoney(r.total_returned_value || 0)}</td>
-                <td>${r.net_qty}</td>
-                <td>${formatMoney(r.net_value || 0)}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Supplier Balance Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Supplier Balance / Net Purchase Report</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>Supplier</th>
-                        <th>Received Qty</th>
-                        <th>Received Value</th>
-                        <th>Returned Qty</th>
-                        <th>Returned Value</th>
-                        <th>Net Qty</th>
-                        <th>Net Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${htmlRows}
-                </tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-
-window.exportSupplierBalanceExcel = async function () {
-    const res = await fetch(API + "/supplier-balance-report");
-    const rows = await res.json();
-
-    let csv = "Supplier,Received Qty,Received Value,Returned Qty,Returned Value,Net Qty,Net Value\n";
-
-    rows.forEach(r => {
-        csv += `${r.supplier_name},${r.total_received_qty},${Number(r.total_received_value || 0).toFixed(2)},${r.total_returned_qty},${Number(r.total_returned_value || 0).toFixed(2)},${r.net_qty},${Number(r.net_value || 0).toFixed(2)}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "supplier_balance_report.csv";
-    link.click();
-};
-window.loadCustomerReturnOptions = async function () {
-    const customersRes = await fetch(API + "/customers");
-    const customers = await customersRes.json();
-
-    const invoicesRes = await fetch(API + "/invoices");
-    const invoices = await invoicesRes.json();
-
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
-
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
-
-    const customerSelect = document.getElementById("returnCustomer");
-    const invoiceSelect = document.getElementById("returnInvoice");
-    const productSelect = document.getElementById("returnCustomerProduct");
-    const branchSelect = document.getElementById("returnCustomerBranch");
-
-    if (customerSelect) {
-        customerSelect.innerHTML = `<option value="">Walk-in Customer</option>`;
-        customers.forEach(c => {
-            customerSelect.innerHTML += `<option value="${c.id}">${c.name} - ${c.phone}</option>`;
-        });
-    }
-
-    if (invoiceSelect) {
-        invoiceSelect.innerHTML = `<option value="">No Invoice Selected</option>`;
-        invoices.forEach(i => {
-            invoiceSelect.innerHTML += `
-                <option value="${i.id}">
-                    ${i.invoice_no} - ${i.customer_name || "Walk-in"} - ${Number(i.total || 0).toFixed(2)}
-                </option>
-            `;
-        });
-    }
-
-    if (productSelect) {
-        productSelect.innerHTML = "";
-        products.forEach(p => {
-            productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
-        });
-    }
-
-    if (branchSelect) {
-        branchSelect.innerHTML = "";
-        branches.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-        });
-    }
-};
-
-window.saveCustomerReturn = async function () {
-    const customer_id = document.getElementById("returnCustomer").value;
-    const invoice_id = document.getElementById("returnInvoice").value;
-    const product_id = document.getElementById("returnCustomerProduct").value;
-    const branch_id = document.getElementById("returnCustomerBranch").value;
-    const qty = Number(document.getElementById("customerReturnQty").value);
-    const reason = document.getElementById("customerReturnReason").value.trim();
-
-    if (!product_id || !branch_id || qty <= 0) {
-        alert("Please select product, branch, and valid return quantity");
-        return;
-    }
-    const productSelect = document.getElementById("returnCustomerProduct");
-    const selectedOption = productSelect.options[productSelect.selectedIndex];
-
-    const soldQty = Number(selectedOption.getAttribute("data-sold-qty") || 0);
-
-        if (invoice_id && soldQty > 0 && qty > soldQty) {
-            alert("Return quantity cannot exceed sold quantity in selected invoice");
-    return;
-}
-    const res = await fetch(API + "/customer-returns", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        body: JSON.stringify({
-            customer_id: customer_id || null,
-            invoice_id: invoice_id || null,
-            product_id,
-            branch_id,
-            qty,
-            reason
-        })
-    });
-
-    const data = await res.json();
-
-    alert(data.message || data.error);
-
-    document.getElementById("customerReturnQty").value = "";
-    document.getElementById("customerRefundAmount").value = "";
-    document.getElementById("customerReturnReason").value = "";
-
-    loadCustomerReturns();
-    loadProducts();
-    loadDashboard();
-
-    if (typeof loadBranchStock === "function") {
-        loadBranchStock();
-    }
-
-    if (typeof loadBranchDashboard === "function") {
-        loadBranchDashboard();
-    }
-};
-
-window.loadCustomerReturns = async function () {
-    const res = await fetch(API + "/customer-returns");
-    const returns = await res.json();
-
-    const table = document.getElementById("customerReturnsTable");
-    if (!table) return;
-
-    table.innerHTML = "";
-
-    returns.forEach(r => {
-        table.innerHTML += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.customer_name || "Walk-in Customer"}</td>
-                <td>${r.customer_phone || ""}</td>
-                <td>${r.invoice_no || ""}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.qty}</td>
-                <td>${formatMoney(r.refund_amount || 0)}</td>
-                <td>${r.reason || ""}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-};
-
-window.printCustomerReturns = async function () {
-    const res = await fetch(API + "/customer-returns");
-    const returns = await res.json();
-
-    let rows = "";
-
-    returns.forEach(r => {
-        rows += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${r.customer_name || "Walk-in Customer"}</td>
-                <td>${r.customer_phone || ""}</td>
-                <td>${r.invoice_no || ""}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.qty}</td>
-                <td>${formatMoney(r.refund_amount || 0)}</td>
-                <td>${r.reason || ""}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Customer Returns Report</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Customer Returns Report</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Customer</th>
-                        <th>Phone</th>
-                        <th>Invoice</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Branch</th>
-                        <th>Qty</th>
-                        <th>Refund</th>
-                        <th>Reason</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-
-window.exportCustomerReturnsExcel = async function () {
-    const res = await fetch(API + "/customer-returns");
-    const returns = await res.json();
-
-    let csv = "ID,Customer,Phone,Invoice,Product,Barcode,Branch,Qty,Refund,Reason,Date\n";
-
-    returns.forEach(r => {
-        csv += `${r.id},${r.customer_name || "Walk-in Customer"},${r.customer_phone || ""},${r.invoice_no || ""},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${Number(r.refund_amount || 0).toFixed(2)},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "customer_returns_report.csv";
-    link.click();
-};
-window.formatmoney = function (amount) {
-    return formatMoney(amount);
-};
+// CURRENCY SETTINGS
 window.loadCurrencySettings = async function () {
     const res = await fetch(API + "/currency-settings");
     const settings = await res.json();
@@ -4216,33 +2668,1673 @@ window.saveCurrencySettings = async function () {
     const data = await res.json();
 
     alert(data.message || data.error);
-        await loadSystemCurrency();
-              loadCurrencySettings();
+
+    await window.loadSystemCurrency();
+    loadCurrencySettings();
+
+    if (typeof loadDashboard === "function") loadDashboard();
+    if (typeof loadBranchDashboard === "function") loadBranchDashboard();
+    if (typeof displayCart === "function") displayCart();
 };
-window.loadSystemCurrency = async function () {
-    try {
-        const res = await fetch(API + "/currency-settings");
-        const settings = await res.json();
 
-        systemCurrency = settings.default_currency || "USD";
-        usdToLbpRate = Number(settings.usd_to_lbp_rate || 89500);
+// INVOICES
+window.loadInvoices = async function () {
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
 
-    } catch (err) {
-        console.error("Currency settings load failed:", err);
-        systemCurrency = "USD";
-        usdToLbpRate = 89500;
+    displayInvoices(invoices);
+};
+
+window.displayInvoices = function (invoices) {
+    const table = document.getElementById("invoicesTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    invoices.forEach(inv => {
+        table.innerHTML += `
+            <tr>
+                <td>${inv.id}</td>
+                <td>${safeHtml(inv.invoice_no)}</td>
+                <td>${safeHtml(inv.customer_name || "Walk-in Customer")}</td>
+                <td>${safeHtml(inv.customer_phone || "")}</td>
+                <td>${safeHtml(inv.branch_name || "")}</td>
+                <td>${safeHtml(inv.cashier_name || "")}</td>
+                <td>${safeHtml(inv.payment_method || "Cash")}</td>
+                <td>${formatMoney(inv.total || 0)}</td>
+                <td>${new Date(inv.date).toLocaleString()}</td>
+                <td><button onclick="reprintInvoice(${inv.id})">Reprint</button></td>
+            </tr>
+        `;
+    });
+};
+
+window.searchInvoices = async function () {
+    const search = document.getElementById("invoiceSearch").value.toLowerCase();
+    const dateFrom = document.getElementById("invoiceDateFrom").value;
+    const dateTo = document.getElementById("invoiceDateTo").value;
+
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
+
+    const filtered = invoices.filter(inv => {
+        const textMatch =
+            String(inv.invoice_no || "").toLowerCase().includes(search) ||
+            String(inv.customer_name || "").toLowerCase().includes(search) ||
+            String(inv.customer_phone || "").toLowerCase().includes(search) ||
+            String(inv.branch_name || "").toLowerCase().includes(search) ||
+            String(inv.cashier_name || "").toLowerCase().includes(search);
+
+        const invoiceDate = new Date(inv.date);
+
+        let fromMatch = true;
+        let toMatch = true;
+
+        if (dateFrom) {
+            const fromDate = new Date(dateFrom + "T00:00:00");
+            fromMatch = invoiceDate >= fromDate;
+        }
+
+        if (dateTo) {
+            const toDate = new Date(dateTo + "T23:59:59");
+            toMatch = invoiceDate <= toDate;
+        }
+
+        return textMatch && fromMatch && toMatch;
+    });
+
+    displayInvoices(filtered);
+};
+
+window.clearInvoiceFilters = function () {
+    document.getElementById("invoiceSearch").value = "";
+    document.getElementById("invoiceDateFrom").value = "";
+    document.getElementById("invoiceDateTo").value = "";
+
+    loadInvoices();
+};
+
+window.reprintInvoice = async function (invoiceId) {
+    const res = await fetch(API + "/invoices/" + invoiceId);
+    const data = await res.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    printSavedInvoice(data.invoice, data.items);
+};
+
+window.printSavedInvoice = function (invoice, items) {
+    let rows = "";
+    let total = 0;
+
+    items.forEach(item => {
+        total += Number(item.line_total || 0);
+
+        rows += `
+            <tr>
+                <td>${safeHtml(item.product_name)}</td>
+                <td>${safeHtml(item.barcode)}</td>
+                <td>${item.qty}</td>
+                <td>${formatMoney(item.unit_price || 0)}</td>
+                <td>${formatMoney(item.line_total || 0)}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>${safeHtml(invoice.invoice_no)}</title>
+            <style>
+                @page { size: A4; margin: 12mm; }
+                body { font-family: Arial, sans-serif; color: #111827; margin: 0; padding: 0; background: white; }
+                .invoice { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #e5e7eb; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #111827; padding-bottom: 15px; margin-bottom: 20px; }
+                .company { display: flex; align-items: center; gap: 15px; }
+                .company img { width: 75px; height: 75px; object-fit: contain; }
+                .company h1 { margin: 0; font-size: 24px; color: #111827; }
+                .company p { margin: 3px 0; font-size: 13px; color: #4b5563; }
+                .invoice-title { text-align: right; }
+                .invoice-title h2 { margin: 0; font-size: 28px; color: #111827; }
+                .invoice-title p { margin: 5px 0; font-size: 14px; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+                .info-box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f9fafb; }
+                .info-box h3 { margin: 0 0 8px 0; font-size: 15px; border-bottom: 1px solid #d1d5db; padding-bottom: 5px; }
+                .info-box p { margin: 5px 0; font-size: 14px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th { background: #111827; color: white; padding: 10px; font-size: 14px; border: 1px solid #111827; }
+                td { padding: 10px; font-size: 14px; border: 1px solid #d1d5db; text-align: center; }
+                td:first-child { text-align: left; }
+                .totals { margin-top: 20px; display: flex; justify-content: flex-end; }
+                .totals-box { width: 300px; border: 1px solid #111827; }
+                .totals-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #d1d5db; font-size: 15px; }
+                .totals-row:last-child { border-bottom: none; background: #111827; color: white; font-size: 18px; font-weight: bold; }
+                .footer { margin-top: 30px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 15px; }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .invoice { border: none; padding: 0; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="invoice">
+                <div class="header">
+                    <div class="company">
+                        <img src="logo.png" alt="Logo">
+                        <div>
+                            <h1>Mart & Wholesales</h1>
+                            <p>Beirut, Lebanon</p>
+                            <p>Phone: +961 3 743 351</p>
+                            <p>Email: martwholesales@gmail.com</p>
+                        </div>
+                    </div>
+
+                    <div class="invoice-title">
+                        <h2>INVOICE</h2>
+                        <p><strong>No:</strong> ${safeHtml(invoice.invoice_no)}</p>
+                        <p><strong>Date:</strong> ${new Date(invoice.date).toLocaleString()}</p>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-box">
+                        <h3>Customer Information</h3>
+                        <p><strong>Customer:</strong> ${safeHtml(invoice.customer_name || "Walk-in Customer")}</p>
+                        <p><strong>Phone:</strong> ${safeHtml(invoice.customer_phone || "")}</p>
+                    </div>
+
+                    <div class="info-box">
+                        <h3>Sale Information</h3>
+                        <p><strong>Branch:</strong> ${safeHtml(invoice.branch_name || "")}</p>
+                        <p><strong>Cashier:</strong> ${safeHtml(invoice.cashier_name || "")}</p>
+                        <p><strong>Payment:</strong> ${safeHtml(invoice.payment_method || "Cash")}</p>
+                        <p><strong>Currency:</strong> ${systemCurrency}</p>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Barcode</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+
+                <div class="totals">
+                    <div class="totals-box">
+                        <div class="totals-row">
+                            <span>Subtotal</span>
+                            <span>${formatMoney(total)}</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Discount</span>
+                            <span>${formatMoney(0)}</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Grand Total</span>
+                            <span>${formatMoney(invoice.total || total)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    Thank you for your business<br>
+                    Reprinted from saved invoice record.
+                </div>
+            </div>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+// DAILY CLOSING
+window.getClosingDate = function () {
+    const input = document.getElementById("closingDateInput");
+
+    if (input && input.value) {
+        return input.value;
+    }
+
+    return new Date().toISOString().slice(0, 10);
+};
+
+window.loadDailyClosing = async function () {
+    const date = getClosingDate();
+
+    const dateInput = document.getElementById("closingDateInput");
+    if (dateInput && !dateInput.value) {
+        dateInput.value = date;
+    }
+
+    const res = await fetch(API + "/daily-closing?date=" + encodeURIComponent(date));
+    const data = await res.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    setText("closingSelectedDate", data.date);
+    setText("closingSales", formatMoney(data.total_sales || 0));
+    setText("closingProfit", formatMoney(data.total_profit || 0));
+    setText("closingExpenses", formatMoney(data.total_expenses || 0));
+    setText("closingRefunds", formatMoney(data.total_refunds || 0));
+    setText("closingNetProfit", formatMoney(data.net_profit || 0));
+    setText("closingTransactions", data.total_transactions || 0);
+    setText("closingReturnsCount", data.total_returns || 0);
+
+    const expensesTable = document.getElementById("closingExpensesTable");
+    if (expensesTable) {
+        expensesTable.innerHTML = "";
+
+        (data.expenses || []).forEach(e => {
+            expensesTable.innerHTML += `
+                <tr>
+                    <td>${e.id}</td>
+                    <td>${safeHtml(e.category)}</td>
+                    <td>${formatMoney(e.amount || 0)}</td>
+                    <td>${safeHtml(e.notes || "")}</td>
+                    <td>${new Date(e.date).toLocaleString()}</td>
+                </tr>
+            `;
+        });
+    }
+
+    const returnsTable = document.getElementById("closingReturnsTable");
+    if (returnsTable) {
+        returnsTable.innerHTML = "";
+
+        (data.returns || []).forEach(r => {
+            returnsTable.innerHTML += `
+                <tr>
+                    <td>${r.id}</td>
+                    <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
+                    <td>${safeHtml(r.product_name)}</td>
+                    <td>${safeHtml(r.barcode)}</td>
+                    <td>${safeHtml(r.branch_name)}</td>
+                    <td>${r.qty}</td>
+                    <td>${formatMoney(r.refund_amount || 0)}</td>
+                    <td>${safeHtml(r.reason || "")}</td>
+                    <td>${new Date(r.date).toLocaleString()}</td>
+                </tr>
+            `;
+        });
     }
 };
 
-window.formatMoney = function (amount) {
-    const value = Number(amount || 0);
+window.printDailyClosing = async function () {
+    const date = getClosingDate();
 
-    if (systemCurrency === "LBP") {
-        return Math.round(value * usdToLbpRate).toLocaleString() + " L.L.";
+    const res = await fetch(API + "/daily-closing?date=" + encodeURIComponent(date));
+    const data = await res.json();
+
+    let expenseRows = "";
+    let returnRows = "";
+
+    (data.expenses || []).forEach(e => {
+        expenseRows += `
+            <tr>
+                <td>${e.id}</td>
+                <td>${safeHtml(e.category)}</td>
+                <td>${formatMoney(e.amount || 0)}</td>
+                <td>${safeHtml(e.notes || "")}</td>
+                <td>${new Date(e.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    (data.returns || []).forEach(r => {
+        returnRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${r.qty}</td>
+                <td>${formatMoney(r.refund_amount || 0)}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Daily Closing Report - ${safeHtml(data.date)}</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                .summary {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 10px;
+                    margin-top: 20px;
+                }
+                .card {
+                    border: 1px solid #000;
+                    padding: 12px;
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Daily Closing Report</h1>
+            <p><strong>Closing Date:</strong> ${safeHtml(data.date)}</p>
+            <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Currency:</strong> ${systemCurrency}</p>
+
+            <div class="summary">
+                <div class="card">Sales: ${formatMoney(data.total_sales || 0)}</div>
+                <div class="card">Profit: ${formatMoney(data.total_profit || 0)}</div>
+                <div class="card">Expenses: ${formatMoney(data.total_expenses || 0)}</div>
+                <div class="card">Refunds: ${formatMoney(data.total_refunds || 0)}</div>
+                <div class="card">Net Profit: ${formatMoney(data.net_profit || 0)}</div>
+                <div class="card">Transactions: ${data.total_transactions || 0}</div>
+                <div class="card">Returns Count: ${data.total_returns || 0}</div>
+            </div>
+
+            <h2>Expenses</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Notes</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${expenseRows}</tbody>
+            </table>
+
+            <h2>Customer Returns / Refunds</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Refund</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${returnRows}</tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportDailyClosingExcel = async function () {
+    const date = getClosingDate();
+
+    const res = await fetch(API + "/daily-closing?date=" + encodeURIComponent(date));
+    const data = await res.json();
+
+    let csv = "Daily Closing Report\n";
+    csv += `Closing Date,${data.date}\n`;
+    csv += `Exported At,${new Date().toLocaleString()}\n\n`;
+
+    csv += `Sales,${Number(data.total_sales || 0).toFixed(2)}\n`;
+    csv += `Profit,${Number(data.total_profit || 0).toFixed(2)}\n`;
+    csv += `Expenses,${Number(data.total_expenses || 0).toFixed(2)}\n`;
+    csv += `Refunds,${Number(data.total_refunds || 0).toFixed(2)}\n`;
+    csv += `Net Profit,${Number(data.net_profit || 0).toFixed(2)}\n`;
+    csv += `Transactions,${data.total_transactions || 0}\n`;
+    csv += `Returns Count,${data.total_returns || 0}\n\n`;
+
+    csv += "Expenses\n";
+    csv += "ID,Category,Amount,Notes,Date\n";
+
+    (data.expenses || []).forEach(e => {
+        csv += `${e.id},${e.category},${Number(e.amount || 0).toFixed(2)},${e.notes || ""},${new Date(e.date).toLocaleString()}\n`;
+    });
+
+    csv += "\nCustomer Returns / Refunds\n";
+    csv += "ID,Customer,Product,Barcode,Branch,Qty,Refund,Reason,Date\n";
+
+    (data.returns || []).forEach(r => {
+        csv += `${r.id},${r.customer_name || "Walk-in Customer"},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${Number(r.refund_amount || 0).toFixed(2)},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    downloadCsv(csv, "daily_closing_" + data.date + ".csv");
+};
+
+// CURRENCY SETTINGS
+window.loadCurrencySettings = async function () {
+    const res = await fetch(API + "/currency-settings");
+    const settings = await res.json();
+
+    if (settings.error) {
+        alert(settings.error);
+        return;
     }
 
-    return "$" + value.toFixed(2);
+    const currencySelect = document.getElementById("defaultCurrency");
+    const rateInput = document.getElementById("usdToLbpRate");
+    const table = document.getElementById("currencySettingsTable");
+
+    if (currencySelect) currencySelect.value = settings.default_currency || "USD";
+    if (rateInput) rateInput.value = settings.usd_to_lbp_rate || 89500;
+
+    if (table) {
+        table.innerHTML = `
+            <tr>
+                <td>${settings.default_currency || "USD"}</td>
+                <td>${Number(settings.usd_to_lbp_rate || 89500).toLocaleString()}</td>
+            </tr>
+        `;
+    }
 };
+
+window.saveCurrencySettings = async function () {
+    const default_currency = document.getElementById("defaultCurrency").value;
+    const usd_to_lbp_rate = Number(document.getElementById("usdToLbpRate").value);
+
+    if (!default_currency || usd_to_lbp_rate <= 0) {
+        alert("Please select currency and enter valid exchange rate");
+        return;
+    }
+
+    const res = await fetch(API + "/currency-settings", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            default_currency,
+            usd_to_lbp_rate
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    await window.loadSystemCurrency();
+    loadCurrencySettings();
+
+    if (typeof loadDashboard === "function") loadDashboard();
+    if (typeof loadBranchDashboard === "function") loadBranchDashboard();
+    if (typeof displayCart === "function") displayCart();
+};
+
+// INVOICES
+window.loadInvoices = async function () {
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
+
+    displayInvoices(invoices);
+};
+
+window.displayInvoices = function (invoices) {
+    const table = document.getElementById("invoicesTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    invoices.forEach(inv => {
+        table.innerHTML += `
+            <tr>
+                <td>${inv.id}</td>
+                <td>${safeHtml(inv.invoice_no)}</td>
+                <td>${safeHtml(inv.customer_name || "Walk-in Customer")}</td>
+                <td>${safeHtml(inv.customer_phone || "")}</td>
+                <td>${safeHtml(inv.branch_name || "")}</td>
+                <td>${safeHtml(inv.cashier_name || "")}</td>
+                <td>${safeHtml(inv.payment_method || "Cash")}</td>
+                <td>${formatMoney(inv.total || 0)}</td>
+                <td>${new Date(inv.date).toLocaleString()}</td>
+                <td><button onclick="reprintInvoice(${inv.id})">Reprint</button></td>
+            </tr>
+        `;
+    });
+};
+
+window.searchInvoices = async function () {
+    const search = document.getElementById("invoiceSearch").value.toLowerCase();
+    const dateFrom = document.getElementById("invoiceDateFrom").value;
+    const dateTo = document.getElementById("invoiceDateTo").value;
+
+    const res = await fetch(API + "/invoices");
+    const invoices = await res.json();
+
+    const filtered = invoices.filter(inv => {
+        const textMatch =
+            String(inv.invoice_no || "").toLowerCase().includes(search) ||
+            String(inv.customer_name || "").toLowerCase().includes(search) ||
+            String(inv.customer_phone || "").toLowerCase().includes(search) ||
+            String(inv.branch_name || "").toLowerCase().includes(search) ||
+            String(inv.cashier_name || "").toLowerCase().includes(search);
+
+        const invoiceDate = new Date(inv.date);
+
+        let fromMatch = true;
+        let toMatch = true;
+
+        if (dateFrom) {
+            const fromDate = new Date(dateFrom + "T00:00:00");
+            fromMatch = invoiceDate >= fromDate;
+        }
+
+        if (dateTo) {
+            const toDate = new Date(dateTo + "T23:59:59");
+            toMatch = invoiceDate <= toDate;
+        }
+
+        return textMatch && fromMatch && toMatch;
+    });
+
+    displayInvoices(filtered);
+};
+
+window.clearInvoiceFilters = function () {
+    document.getElementById("invoiceSearch").value = "";
+    document.getElementById("invoiceDateFrom").value = "";
+    document.getElementById("invoiceDateTo").value = "";
+
+    loadInvoices();
+};
+
+window.reprintInvoice = async function (invoiceId) {
+    const res = await fetch(API + "/invoices/" + invoiceId);
+    const data = await res.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    printSavedInvoice(data.invoice, data.items);
+};
+
+window.printSavedInvoice = function (invoice, items) {
+    let rows = "";
+    let total = 0;
+
+    items.forEach(item => {
+        total += Number(item.line_total || 0);
+
+        rows += `
+            <tr>
+                <td>${safeHtml(item.product_name)}</td>
+                <td>${safeHtml(item.barcode)}</td>
+                <td>${item.qty}</td>
+                <td>${formatMoney(item.unit_price || 0)}</td>
+                <td>${formatMoney(item.line_total || 0)}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>${safeHtml(invoice.invoice_no)}</title>
+            <style>
+                @page { size: A4; margin: 12mm; }
+                body { font-family: Arial, sans-serif; color: #111827; margin: 0; padding: 0; background: white; }
+                .invoice { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #e5e7eb; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #111827; padding-bottom: 15px; margin-bottom: 20px; }
+                .company { display: flex; align-items: center; gap: 15px; }
+                .company img { width: 75px; height: 75px; object-fit: contain; }
+                .company h1 { margin: 0; font-size: 24px; color: #111827; }
+                .company p { margin: 3px 0; font-size: 13px; color: #4b5563; }
+                .invoice-title { text-align: right; }
+                .invoice-title h2 { margin: 0; font-size: 28px; color: #111827; }
+                .invoice-title p { margin: 5px 0; font-size: 14px; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+                .info-box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f9fafb; }
+                .info-box h3 { margin: 0 0 8px 0; font-size: 15px; border-bottom: 1px solid #d1d5db; padding-bottom: 5px; }
+                .info-box p { margin: 5px 0; font-size: 14px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th { background: #111827; color: white; padding: 10px; font-size: 14px; border: 1px solid #111827; }
+                td { padding: 10px; font-size: 14px; border: 1px solid #d1d5db; text-align: center; }
+                td:first-child { text-align: left; }
+                .totals { margin-top: 20px; display: flex; justify-content: flex-end; }
+                .totals-box { width: 300px; border: 1px solid #111827; }
+                .totals-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #d1d5db; font-size: 15px; }
+                .totals-row:last-child { border-bottom: none; background: #111827; color: white; font-size: 18px; font-weight: bold; }
+                .footer { margin-top: 30px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 15px; }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .invoice { border: none; padding: 0; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="invoice">
+                <div class="header">
+                    <div class="company">
+                        <img src="logo.png" alt="Logo">
+                        <div>
+                            <h1>Mart & Wholesales</h1>
+                            <p>Beirut, Lebanon</p>
+                            <p>Phone: +961 3 743 351</p>
+                            <p>Email: martwholesales@gmail.com</p>
+                        </div>
+                    </div>
+
+                    <div class="invoice-title">
+                        <h2>INVOICE</h2>
+                        <p><strong>No:</strong> ${safeHtml(invoice.invoice_no)}</p>
+                        <p><strong>Date:</strong> ${new Date(invoice.date).toLocaleString()}</p>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-box">
+                        <h3>Customer Information</h3>
+                        <p><strong>Customer:</strong> ${safeHtml(invoice.customer_name || "Walk-in Customer")}</p>
+                        <p><strong>Phone:</strong> ${safeHtml(invoice.customer_phone || "")}</p>
+                    </div>
+
+                    <div class="info-box">
+                        <h3>Sale Information</h3>
+                        <p><strong>Branch:</strong> ${safeHtml(invoice.branch_name || "")}</p>
+                        <p><strong>Cashier:</strong> ${safeHtml(invoice.cashier_name || "")}</p>
+                        <p><strong>Payment:</strong> ${safeHtml(invoice.payment_method || "Cash")}</p>
+                        <p><strong>Currency:</strong> ${systemCurrency}</p>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Barcode</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+
+                <div class="totals">
+                    <div class="totals-box">
+                        <div class="totals-row">
+                            <span>Subtotal</span>
+                            <span>${formatMoney(total)}</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Discount</span>
+                            <span>${formatMoney(0)}</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Grand Total</span>
+                            <span>${formatMoney(invoice.total || total)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    Thank you for your business<br>
+                    Reprinted from saved invoice record.
+                </div>
+            </div>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+// CUSTOMER RETURNS
+window.loadCustomerReturnOptions = async function () {
+    const customersRes = await fetch(API + "/customers");
+    const customers = await customersRes.json();
+
+    const invoicesRes = await fetch(API + "/invoices");
+    const invoices = await invoicesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const customerSelect = document.getElementById("returnCustomer");
+    const invoiceSelect = document.getElementById("returnInvoice");
+    const productSelect = document.getElementById("returnCustomerProduct");
+    const branchSelect = document.getElementById("returnCustomerBranch");
+
+    if (customerSelect) {
+        customerSelect.innerHTML = `<option value="">Walk-in Customer</option>`;
+        customers.forEach(c => {
+            customerSelect.innerHTML += `<option value="${c.id}">${safeHtml(c.name)} - ${safeHtml(c.phone)}</option>`;
+        });
+    }
+
+    if (invoiceSelect) {
+        invoiceSelect.innerHTML = `<option value="">No Invoice Selected</option>`;
+        invoices.forEach(i => {
+            invoiceSelect.innerHTML += `
+                <option value="${i.id}">
+                    ${safeHtml(i.invoice_no)} - ${safeHtml(i.customer_name || "Walk-in")} - ${formatMoney(i.total || 0)}
+                </option>
+            `;
+        });
+    }
+
+    if (productSelect) {
+        productSelect.innerHTML = "";
+        products.forEach(p => {
+            productSelect.innerHTML += `
+                <option 
+                    value="${p.id}" 
+                    data-unit-price="${p.price || 0}"
+                    data-sold-qty="0"
+                >
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)}
+                </option>
+            `;
+        });
+    }
+
+    if (branchSelect) {
+        branchSelect.innerHTML = "";
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+        });
+    }
+
+    calculateCustomerRefund();
+};
+
+window.loadReturnInvoiceItems = async function () {
+    const invoiceId = document.getElementById("returnInvoice")?.value;
+    const productSelect = document.getElementById("returnCustomerProduct");
+
+    if (!productSelect) return;
+
+    if (!invoiceId) {
+        const productsRes = await fetch(API + "/products");
+        const products = await productsRes.json();
+
+        productSelect.innerHTML = "";
+
+        products.forEach(p => {
+            productSelect.innerHTML += `
+                <option 
+                    value="${p.id}" 
+                    data-unit-price="${p.price || 0}"
+                    data-sold-qty="0"
+                >
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)}
+                </option>
+            `;
+        });
+
+        const refundInput = document.getElementById("customerRefundAmount");
+        if (refundInput) refundInput.value = "";
+
+        calculateCustomerRefund();
+        return;
+    }
+
+    const res = await fetch(API + "/invoice-items/" + invoiceId);
+    const items = await res.json();
+
+    productSelect.innerHTML = "";
+
+    items.forEach(item => {
+        productSelect.innerHTML += `
+            <option 
+                value="${item.product_id}" 
+                data-unit-price="${item.unit_price}"
+                data-sold-qty="${item.qty}"
+            >
+                ${safeHtml(item.product_name)} - ${safeHtml(item.barcode)} - Sold Qty: ${item.qty} - Price: ${formatMoney(item.unit_price)}
+            </option>
+        `;
+    });
+
+    calculateCustomerRefund();
+};
+
+window.calculateCustomerRefund = function () {
+    const productSelect = document.getElementById("returnCustomerProduct");
+    const qtyInput = document.getElementById("customerReturnQty");
+    const refundInput = document.getElementById("customerRefundAmount");
+
+    if (!productSelect || !qtyInput || !refundInput) return;
+
+    const selectedOption = productSelect.options[productSelect.selectedIndex];
+
+    if (!selectedOption) {
+        refundInput.value = "";
+        return;
+    }
+
+    const unitPrice = Number(selectedOption.getAttribute("data-unit-price") || 0);
+    const qty = Number(qtyInput.value || 0);
+
+    refundInput.value = (unitPrice * qty).toFixed(2);
+};
+
+window.saveCustomerReturn = async function () {
+    const customer_id = document.getElementById("returnCustomer").value;
+    const invoice_id = document.getElementById("returnInvoice").value;
+    const product_id = document.getElementById("returnCustomerProduct").value;
+    const branch_id = document.getElementById("returnCustomerBranch").value;
+    const qty = Number(document.getElementById("customerReturnQty").value);
+    const reason = document.getElementById("customerReturnReason").value.trim();
+
+    if (!product_id || !branch_id || qty <= 0) {
+        alert("Please select product, branch, and valid return quantity");
+        return;
+    }
+
+    const productSelect = document.getElementById("returnCustomerProduct");
+    const selectedOption = productSelect.options[productSelect.selectedIndex];
+
+    const soldQty = Number(selectedOption?.getAttribute("data-sold-qty") || 0);
+
+    if (invoice_id && soldQty > 0 && qty > soldQty) {
+        alert("Return quantity cannot exceed sold quantity in selected invoice");
+        return;
+    }
+
+    const res = await fetch(API + "/customer-returns", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            customer_id: customer_id || null,
+            invoice_id: invoice_id || null,
+            product_id,
+            branch_id,
+            qty,
+            reason
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("customerReturnQty").value = "";
+    document.getElementById("customerRefundAmount").value = "";
+    document.getElementById("customerReturnReason").value = "";
+
+    loadCustomerReturns();
+    loadProducts();
+    loadDashboard();
+
+    if (typeof loadBranchStock === "function") loadBranchStock();
+    if (typeof loadBranchDashboard === "function") loadBranchDashboard();
+};
+
+window.loadCustomerReturns = async function () {
+    const res = await fetch(API + "/customer-returns");
+    const returns = await res.json();
+
+    const table = document.getElementById("customerReturnsTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    returns.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
+                <td>${safeHtml(r.customer_phone || "")}</td>
+                <td>${safeHtml(r.invoice_no || "")}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${r.qty}</td>
+                <td>${formatMoney(r.refund_amount || 0)}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printCustomerReturns = async function () {
+    const res = await fetch(API + "/customer-returns");
+    const returns = await res.json();
+
+    let rows = "";
+
+    returns.forEach(r => {
+        rows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
+                <td>${safeHtml(r.customer_phone || "")}</td>
+                <td>${safeHtml(r.invoice_no || "")}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${r.qty}</td>
+                <td>${formatMoney(r.refund_amount || 0)}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const reportWindow = window.open("", "_blank");
+
+    const html = `
+        <html>
+        <head>
+            <title>Customer Returns Report</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h1 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+                th { background: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Customer Returns Report</h1>
+            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Currency:</strong> ${systemCurrency}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer</th>
+                        <th>Phone</th>
+                        <th>Invoice</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Branch</th>
+                        <th>Qty</th>
+                        <th>Refund</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+};
+
+window.exportCustomerReturnsExcel = async function () {
+    const res = await fetch(API + "/customer-returns");
+    const returns = await res.json();
+
+    let csv = "ID,Customer,Phone,Invoice,Product,Barcode,Branch,Qty,Refund,Reason,Date\n";
+
+    returns.forEach(r => {
+        csv += `${r.id},${r.customer_name || "Walk-in Customer"},${r.customer_phone || ""},${r.invoice_no || ""},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${Number(r.refund_amount || 0).toFixed(2)},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    downloadCsv(csv, "customer_returns_report.csv");
+};
+
+// SUPPLIER HISTORY
+window.loadHistorySupplierOptions = async function () {
+    const res = await fetch(API + "/suppliers");
+    const suppliers = await res.json();
+
+    const select = document.getElementById("historySupplier");
+    if (!select) return;
+
+    select.innerHTML = "";
+
+    suppliers.forEach(s => {
+        select.innerHTML += `<option value="${s.id}">${safeHtml(s.name)}</option>`;
+    });
+};
+
+window.loadSupplierHistory = async function () {
+    const supplierId = document.getElementById("historySupplier").value;
+
+    if (!supplierId) {
+        alert("Please select supplier");
+        return;
+    }
+
+    const res = await fetch(API + "/supplier-history/" + supplierId);
+    const rows = await res.json();
+
+    const table = document.getElementById("supplierHistoryTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.supplier_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${r.qty}</td>
+                <td>${safeHtml(r.status)}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printSupplierHistory = async function () {
+    const supplierId = document.getElementById("historySupplier").value;
+
+    if (!supplierId) {
+        alert("Please select supplier");
+        return;
+    }
+
+    const res = await fetch(API + "/supplier-history/" + supplierId);
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(r => {
+        htmlRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.supplier_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${r.qty}</td>
+                <td>${safeHtml(r.status)}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Supplier Purchase History", `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Supplier</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Branch</th>
+                    <th>Qty</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
+};
+
+window.exportSupplierHistoryExcel = async function () {
+    const supplierId = document.getElementById("historySupplier").value;
+
+    if (!supplierId) {
+        alert("Please select supplier");
+        return;
+    }
+
+    const res = await fetch(API + "/supplier-history/" + supplierId);
+    const rows = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+
+    rows.forEach(r => {
+        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name || ""},${r.qty},${r.status},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    downloadCsv(csv, "supplier_purchase_history.csv");
+};
+// SUPPLIER RETURNS
+window.loadSupplierReturnOptions = async function () {
+    const suppliersRes = await fetch(API + "/suppliers");
+    const suppliers = await suppliersRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const supplierSelect = document.getElementById("returnSupplier");
+    const productSelect = document.getElementById("returnProduct");
+    const branchSelect = document.getElementById("returnBranch");
+
+    if (!supplierSelect || !productSelect || !branchSelect) return;
+
+    supplierSelect.innerHTML = "";
+    productSelect.innerHTML = "";
+    branchSelect.innerHTML = "";
+
+    suppliers.forEach(s => {
+        supplierSelect.innerHTML += `<option value="${s.id}">${safeHtml(s.name)}</option>`;
+    });
+
+    products.forEach(p => {
+        productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+    });
+
+    branches.forEach(b => {
+        branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+    });
+};
+
+window.returnToSupplier = async function () {
+    const supplier_id = document.getElementById("returnSupplier").value;
+    const product_id = document.getElementById("returnProduct").value;
+    const branch_id = document.getElementById("returnBranch").value;
+    const qty = Number(document.getElementById("returnQty").value);
+    const reason = document.getElementById("returnReason").value.trim();
+
+    if (!supplier_id || !product_id || !branch_id || qty <= 0) {
+        alert("Please select supplier/product/branch and valid quantity");
+        return;
+    }
+
+    const res = await fetch(API + "/supplier-returns", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            supplier_id,
+            product_id,
+            branch_id,
+            qty,
+            reason
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("returnQty").value = "";
+    document.getElementById("returnReason").value = "";
+
+    loadSupplierReturns();
+    loadProducts();
+    loadDashboard();
+
+    if (typeof loadBranchStock === "function") loadBranchStock();
+    if (typeof loadBranchDashboard === "function") loadBranchDashboard();
+};
+
+window.loadSupplierReturns = async function () {
+    const res = await fetch(API + "/supplier-returns");
+    const returns = await res.json();
+
+    const table = document.getElementById("supplierReturnsTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    returns.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.supplier_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${r.qty}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printSupplierReturns = async function () {
+    const res = await fetch(API + "/supplier-returns");
+    const returns = await res.json();
+
+    let rows = "";
+
+    returns.forEach(r => {
+        rows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.supplier_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${r.qty}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Supplier Returns Report", `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Supplier</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Branch</th>
+                    <th>Qty</th>
+                    <th>Reason</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `);
+};
+
+window.exportSupplierReturnsExcel = async function () {
+    const res = await fetch(API + "/supplier-returns");
+    const returns = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Reason,Date\n";
+
+    returns.forEach(r => {
+        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    downloadCsv(csv, "supplier_returns_report.csv");
+};
+
+// PURCHASE CONTROL REPORTS
+window.loadPurchaseControlOptions = async function () {
+    const suppliersRes = await fetch(API + "/suppliers");
+    const suppliers = await suppliersRes.json();
+
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const poSupplier = document.getElementById("poReportSupplier");
+    const poBranch = document.getElementById("poReportBranch");
+    const returnSupplier = document.getElementById("returnReportSupplier");
+    const returnBranch = document.getElementById("returnReportBranch");
+
+    if (poSupplier) poSupplier.innerHTML = `<option value="">All Suppliers</option>`;
+    if (returnSupplier) returnSupplier.innerHTML = `<option value="">All Suppliers</option>`;
+
+    if (poBranch) poBranch.innerHTML = `<option value="">All Branches</option>`;
+    if (returnBranch) returnBranch.innerHTML = `<option value="">All Branches</option>`;
+
+    suppliers.forEach(s => {
+        if (poSupplier) poSupplier.innerHTML += `<option value="${s.id}">${safeHtml(s.name)}</option>`;
+        if (returnSupplier) returnSupplier.innerHTML += `<option value="${s.id}">${safeHtml(s.name)}</option>`;
+    });
+
+    branches.forEach(b => {
+        if (poBranch) poBranch.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+        if (returnBranch) returnBranch.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+    });
+};
+
+window.getPOReportQuery = function () {
+    const status = document.getElementById("poReportStatus").value;
+    const supplier = document.getElementById("poReportSupplier").value;
+    const branch = document.getElementById("poReportBranch").value;
+
+    const params = new URLSearchParams();
+
+    if (status) params.append("status", status);
+    if (supplier) params.append("supplier_id", supplier);
+    if (branch) params.append("branch_id", branch);
+
+    return params.toString();
+};
+
+window.loadFilteredPOReport = async function () {
+    const query = getPOReportQuery();
+
+    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    const table = document.getElementById("filteredPOReportTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(o => {
+        table.innerHTML += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${safeHtml(o.supplier_name)}</td>
+                <td>${safeHtml(o.product_name)}</td>
+                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.branch_name || "")}</td>
+                <td>${o.qty}</td>
+                <td>${safeHtml(o.status)}</td>
+                <td>${new Date(o.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printFilteredPOReport = async function () {
+    const query = getPOReportQuery();
+
+    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(o => {
+        htmlRows += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${safeHtml(o.supplier_name)}</td>
+                <td>${safeHtml(o.product_name)}</td>
+                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.branch_name || "")}</td>
+                <td>${o.qty}</td>
+                <td>${safeHtml(o.status)}</td>
+                <td>${new Date(o.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Filtered Purchase Order Report", `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Supplier</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Branch</th>
+                    <th>Qty</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
+};
+
+window.exportFilteredPOReportExcel = async function () {
+    const query = getPOReportQuery();
+
+    const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+
+    rows.forEach(o => {
+        csv += `${o.id},${o.supplier_name},${o.product_name},${o.barcode},${o.branch_name || ""},${o.qty},${o.status},${new Date(o.date).toLocaleString()}\n`;
+    });
+
+    downloadCsv(csv, "filtered_purchase_order_report.csv");
+};
+
+window.getReturnsReportQuery = function () {
+    const supplier = document.getElementById("returnReportSupplier").value;
+    const branch = document.getElementById("returnReportBranch").value;
+
+    const params = new URLSearchParams();
+
+    if (supplier) params.append("supplier_id", supplier);
+    if (branch) params.append("branch_id", branch);
+
+    return params.toString();
+};
+
+window.loadFilteredReturnsReport = async function () {
+    const query = getReturnsReportQuery();
+
+    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    const table = document.getElementById("filteredReturnsReportTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.supplier_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${r.qty}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+};
+window.printFilteredReturnsReport = async function () {
+    const query = getReturnsReportQuery();
+
+    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(r => {
+        htmlRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${safeHtml(r.supplier_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${r.qty}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Filtered Supplier Returns Report", `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Supplier</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Branch</th>
+                    <th>Qty</th>
+                    <th>Reason</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
+};
+
+window.exportFilteredReturnsExcel = async function () {
+    const query = getReturnsReportQuery();
+
+    const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
+    const rows = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Reason,Date\n";
+
+    rows.forEach(r => {
+        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+    });
+
+    downloadCsv(csv, "filtered_supplier_returns_report.csv");
+};
+
+// SUPPLIER BALANCE
+window.loadSupplierBalanceReport = async function () {
+    const res = await fetch(API + "/supplier-balance-report");
+    const rows = await res.json();
+
+    const table = document.getElementById("supplierBalanceTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${safeHtml(r.supplier_name)}</td>
+                <td>${r.total_received_qty}</td>
+                <td>${formatMoney(r.total_received_value || 0)}</td>
+                <td>${r.total_returned_qty}</td>
+                <td>${formatMoney(r.total_returned_value || 0)}</td>
+                <td>${r.net_qty}</td>
+                <td>${formatMoney(r.net_value || 0)}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printSupplierBalanceReport = async function () {
+    const res = await fetch(API + "/supplier-balance-report");
+    const rows = await res.json();
+
+    let htmlRows = "";
+
+    rows.forEach(r => {
+        htmlRows += `
+            <tr>
+                <td>${safeHtml(r.supplier_name)}</td>
+                <td>${r.total_received_qty}</td>
+                <td>${formatMoney(r.total_received_value || 0)}</td>
+                <td>${r.total_returned_qty}</td>
+                <td>${formatMoney(r.total_returned_value || 0)}</td>
+                <td>${r.net_qty}</td>
+                <td>${formatMoney(r.net_value || 0)}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Supplier Balance / Net Purchase Report", `
+        <p><strong>Currency:</strong> ${systemCurrency}</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Supplier</th>
+                    <th>Received Qty</th>
+                    <th>Received Value</th>
+                    <th>Returned Qty</th>
+                    <th>Returned Value</th>
+                    <th>Net Qty</th>
+                    <th>Net Value</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
+};
+
+window.exportSupplierBalanceExcel = async function () {
+    const res = await fetch(API + "/supplier-balance-report");
+    const rows = await res.json();
+
+    let csv = "Supplier,Received Qty,Received Value,Returned Qty,Returned Value,Net Qty,Net Value\n";
+
+    rows.forEach(r => {
+        csv += `${r.supplier_name},${r.total_received_qty},${Number(r.total_received_value || 0).toFixed(2)},${r.total_returned_qty},${Number(r.total_returned_value || 0).toFixed(2)},${r.net_qty},${Number(r.net_value || 0).toFixed(2)}\n`;
+    });
+
+    downloadCsv(csv, "supplier_balance_report.csv");
+};
+
+// PURCHASE ORDER REPORT
+window.printPurchaseOrderReport = async function () {
+    const res = await fetch(API + "/purchase-orders-report");
+    const orders = await res.json();
+
+    let rows = "";
+
+    orders.forEach(o => {
+        rows += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${safeHtml(o.supplier_name)}</td>
+                <td>${safeHtml(o.product_name)}</td>
+                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.branch_name || "")}</td>
+                <td>${o.qty}</td>
+                <td>${safeHtml(o.status)}</td>
+                <td>${new Date(o.date).toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Purchase Order Report", `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Supplier</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Branch</th>
+                    <th>Qty</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `);
+};
+
+window.exportPurchaseOrderExcel = async function () {
+    const res = await fetch(API + "/purchase-orders-report");
+    const orders = await res.json();
+
+    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+
+    orders.forEach(o => {
+        csv += `${o.id},${o.supplier_name},${o.product_name},${o.barcode},${o.branch_name || ""},${o.qty},${o.status},${new Date(o.date).toLocaleString()}\n`;
+    });
+
+    downloadCsv(csv, "purchase_order_report.csv");
+};
+
+// STOCK CONTROL
 window.loadStockControlOptions = async function () {
     const branchesRes = await fetch(API + "/branches");
     const branches = await branchesRes.json();
@@ -4259,11 +4351,11 @@ window.loadStockControlOptions = async function () {
     productSelect.innerHTML = "";
 
     branches.forEach(b => {
-        branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+        branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
     });
 
     products.forEach(p => {
-        productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+        productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
     });
 };
 
@@ -4305,16 +4397,12 @@ window.saveStockAdjustment = async function () {
     document.getElementById("adjustNotes").value = "";
 
     loadStockAdjustments();
+    loadStockAdjustmentReport();
     loadProducts();
     loadDashboard();
 
-    if (typeof loadBranchStock === "function") {
-        loadBranchStock();
-    }
-
-    if (typeof loadBranchDashboard === "function") {
-        loadBranchDashboard();
-    }
+    if (typeof loadBranchStock === "function") loadBranchStock();
+    if (typeof loadBranchDashboard === "function") loadBranchDashboard();
 };
 
 window.loadStockAdjustments = async function () {
@@ -4330,20 +4418,46 @@ window.loadStockAdjustments = async function () {
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.adjustment_type}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.adjustment_type)}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.unit_cost || 0)}</td>
                 <td>${formatMoney(r.total_cost_value || 0)}</td>
-                <td>${r.reason || ""}</td>
-                <td>${r.username || ""}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${safeHtml(r.username || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
     });
 };
+// STOCK ADJUSTMENT REPORT
+window.loadStockAdjustmentReportOptions = async function () {
+    const branchesRes = await fetch(API + "/branches");
+    const branches = await branchesRes.json();
+
+    const productsRes = await fetch(API + "/products");
+    const products = await productsRes.json();
+
+    const branchSelect = document.getElementById("adjustReportBranch");
+    const productSelect = document.getElementById("adjustReportProduct");
+
+    if (branchSelect) {
+        branchSelect.innerHTML = `<option value="">All Branches</option>`;
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+        });
+    }
+
+    if (productSelect) {
+        productSelect.innerHTML = `<option value="">All Products</option>`;
+        products.forEach(p => {
+            productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+        });
+    }
+};
+
 window.getStockAdjustmentReportQuery = function () {
     const branch = document.getElementById("adjustReportBranch").value;
     const product = document.getElementById("adjustReportProduct").value;
@@ -4361,6 +4475,7 @@ window.getStockAdjustmentReportQuery = function () {
 
     return params.toString();
 };
+
 window.loadStockAdjustmentReport = async function () {
     const query = getStockAdjustmentReportQuery();
 
@@ -4380,15 +4495,15 @@ window.loadStockAdjustmentReport = async function () {
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.adjustment_type}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.adjustment_type)}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.unit_cost || 0)}</td>
                 <td>${formatMoney(r.total_cost_value || 0)}</td>
-                <td>${r.reason || ""}</td>
-                <td>${r.username || ""}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${safeHtml(r.username || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
@@ -4396,6 +4511,7 @@ window.loadStockAdjustmentReport = async function () {
 
     setText("adjustReportTotalValue", formatMoney(totalValue));
 };
+
 window.printStockAdjustmentReport = async function () {
     const query = getStockAdjustmentReportQuery();
 
@@ -4411,15 +4527,15 @@ window.printStockAdjustmentReport = async function () {
         htmlRows += `
             <tr>
                 <td>${r.id}</td>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
-                <td>${r.adjustment_type}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.adjustment_type)}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.unit_cost || 0)}</td>
                 <td>${formatMoney(r.total_cost_value || 0)}</td>
-                <td>${r.reason || ""}</td>
-                <td>${r.username || ""}</td>
+                <td>${safeHtml(r.reason || "")}</td>
+                <td>${safeHtml(r.username || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
@@ -4461,9 +4577,7 @@ window.printStockAdjustmentReport = async function () {
                         <th>Date</th>
                     </tr>
                 </thead>
-                <tbody>
-                    ${htmlRows}
-                </tbody>
+                <tbody>${htmlRows}</tbody>
             </table>
 
             <div class="total">Total Cost Value: ${formatMoney(totalValue)}</div>
@@ -4476,6 +4590,7 @@ window.printStockAdjustmentReport = async function () {
     reportWindow.document.write(html);
     reportWindow.document.close();
 };
+
 window.exportStockAdjustmentReportExcel = async function () {
     const query = getStockAdjustmentReportQuery();
 
@@ -4488,13 +4603,9 @@ window.exportStockAdjustmentReportExcel = async function () {
         csv += `${r.id},${r.branch_name},${r.product_name},${r.barcode},${r.adjustment_type},${r.qty},${Number(r.unit_cost || 0).toFixed(2)},${Number(r.total_cost_value || 0).toFixed(2)},${r.reason || ""},${r.username || ""},${new Date(r.date).toLocaleString()}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "stock_adjustment_report.csv";
-    link.click();
+    downloadCsv(csv, "stock_adjustment_report.csv");
 };
+
 window.clearStockAdjustmentReportFilters = function () {
     document.getElementById("adjustReportBranch").value = "";
     document.getElementById("adjustReportProduct").value = "";
@@ -4505,30 +4616,7 @@ window.clearStockAdjustmentReportFilters = function () {
     loadStockAdjustmentReport();
 };
 
-window.loadStockAdjustmentReportOptions = async function () {
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
-
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
-
-    const branchSelect = document.getElementById("adjustReportBranch");
-    const productSelect = document.getElementById("adjustReportProduct");
-
-    if (branchSelect) {
-        branchSelect.innerHTML = `<option value="">All Branches</option>`;
-        branches.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-        });
-    }
-
-    if (productSelect) {
-        productSelect.innerHTML = `<option value="">All Products</option>`;
-        products.forEach(p => {
-            productSelect.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
-        });
-    }
-};
+// MIN STOCK / LOW STOCK
 window.loadMinStockOptions = async function () {
     const branchesRes = await fetch(API + "/branches");
     const branches = await branchesRes.json();
@@ -4543,24 +4631,25 @@ window.loadMinStockOptions = async function () {
     if (minBranch) {
         minBranch.innerHTML = "";
         branches.forEach(b => {
-            minBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+            minBranch.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
         });
     }
 
     if (minProduct) {
         minProduct.innerHTML = "";
         products.forEach(p => {
-            minProduct.innerHTML += `<option value="${p.id}">${p.name} - ${p.barcode}</option>`;
+            minProduct.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
         });
     }
 
     if (lowBranch) {
         lowBranch.innerHTML = `<option value="">All Branches</option>`;
         branches.forEach(b => {
-            lowBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+            lowBranch.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
         });
     }
 };
+
 window.saveMinStock = async function () {
     const branch_id = document.getElementById("minStockBranch").value;
     const product_id = document.getElementById("minStockProduct").value;
@@ -4590,12 +4679,12 @@ window.saveMinStock = async function () {
 
     document.getElementById("minStockQty").value = "";
 
-    if (typeof loadBranchStock === "function") {
-        loadBranchStock();
-    }
+    if (typeof loadBranchStock === "function") loadBranchStock();
 
     loadLowStockBranchReport();
+    loadReorderSuggestions();
 };
+
 window.getLowStockBranchQuery = function () {
     const branch = document.getElementById("lowStockBranchFilter").value;
 
@@ -4620,9 +4709,9 @@ window.loadLowStockBranchReport = async function () {
     rows.forEach(r => {
         table.innerHTML += `
             <tr>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
                 <td>${r.stock}</td>
                 <td>${r.min_stock}</td>
                 <td>${r.reorder_qty}</td>
@@ -4642,9 +4731,9 @@ window.printLowStockBranchReport = async function () {
     rows.forEach(r => {
         htmlRows += `
             <tr>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
                 <td>${r.stock}</td>
                 <td>${r.min_stock}</td>
                 <td>${r.reorder_qty}</td>
@@ -4652,45 +4741,21 @@ window.printLowStockBranchReport = async function () {
         `;
     });
 
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Low Stock Alerts by Branch</title>
-            <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-            <h1>Low Stock Alerts by Branch</h1>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>Branch</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Current Stock</th>
-                        <th>Min Stock</th>
-                        <th>Suggested Reorder Qty</th>
-                    </tr>
-                </thead>
-                <tbody>${htmlRows}</tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
+    openReportWindow("Low Stock Alerts by Branch", `
+        <table>
+            <thead>
+                <tr>
+                    <th>Branch</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>Current Stock</th>
+                    <th>Min Stock</th>
+                    <th>Suggested Reorder Qty</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
 };
 
 window.exportLowStockBranchReportExcel = async function () {
@@ -4705,13 +4770,9 @@ window.exportLowStockBranchReportExcel = async function () {
         csv += `${r.branch_name},${r.product_name},${r.barcode},${r.stock},${r.min_stock},${r.reorder_qty}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "low_stock_branch_report.csv";
-    link.click();
+    downloadCsv(csv, "low_stock_branch_report.csv");
 };
+// REORDER SUGGESTIONS
 window.loadReorderOptions = async function () {
     const branchesRes = await fetch(API + "/branches");
     const branches = await branchesRes.json();
@@ -4722,10 +4783,11 @@ window.loadReorderOptions = async function () {
         branchSelect.innerHTML = `<option value="">All Branches</option>`;
 
         branches.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
         });
     }
 };
+
 window.getReorderSuggestionsQuery = function () {
     const branch = document.getElementById("reorderBranchFilter").value;
 
@@ -4735,6 +4797,7 @@ window.getReorderSuggestionsQuery = function () {
 
     return params.toString();
 };
+
 window.loadReorderSuggestions = async function () {
     const query = getReorderSuggestionsQuery();
 
@@ -4753,14 +4816,14 @@ window.loadReorderSuggestions = async function () {
         const costValue = Number(r.cost || 0) * Number(r.suggested_qty || 0);
 
         const supplierOptions = suppliers.map(s => {
-            return `<option value="${s.id}">${s.name}</option>`;
+            return `<option value="${s.id}">${safeHtml(s.name)}</option>`;
         }).join("");
 
         table.innerHTML += `
             <tr>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
                 <td>${r.stock}</td>
                 <td>${r.min_stock}</td>
                 <td>
@@ -4789,6 +4852,7 @@ window.loadReorderSuggestions = async function () {
 
     window.reorderSuggestionsCache = rows;
 };
+
 window.createPOFromReorder = async function (index, productId, branchId) {
     const supplier_id = document.getElementById("reorderSupplier_" + index).value;
     const qty = Number(document.getElementById("reorderQty_" + index).value);
@@ -4822,6 +4886,7 @@ window.createPOFromReorder = async function (index, productId, branchId) {
 
     loadReorderSuggestions();
 };
+
 window.printReorderSuggestions = async function () {
     const query = getReorderSuggestionsQuery();
 
@@ -4837,9 +4902,9 @@ window.printReorderSuggestions = async function () {
 
         htmlRows += `
             <tr>
-                <td>${r.branch_name}</td>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
+                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
                 <td>${r.stock}</td>
                 <td>${r.min_stock}</td>
                 <td>${r.suggested_qty}</td>
@@ -4893,6 +4958,7 @@ window.printReorderSuggestions = async function () {
     reportWindow.document.write(html);
     reportWindow.document.close();
 };
+
 window.exportReorderSuggestionsExcel = async function () {
     const query = getReorderSuggestionsQuery();
 
@@ -4907,13 +4973,10 @@ window.exportReorderSuggestionsExcel = async function () {
         csv += `${r.branch_name},${r.product_name},${r.barcode},${r.stock},${r.min_stock},${r.suggested_qty},${Number(r.cost || 0).toFixed(2)},${costValue.toFixed(2)}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "reorder_suggestions.csv";
-    link.click();
+    downloadCsv(csv, "reorder_suggestions.csv");
 };
+
+// FINAL STOCK AUDIT
 window.loadStockAuditReport = async function () {
     const res = await fetch(API + "/stock-audit-report");
     const rows = await res.json();
@@ -4935,8 +4998,8 @@ window.loadStockAuditReport = async function () {
 
         table.innerHTML += `
             <tr>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
                 <td>${r.product_stock}</td>
                 <td>${r.branch_stock_total}</td>
                 <td>${diff}</td>
@@ -4949,6 +5012,7 @@ window.loadStockAuditReport = async function () {
 
     setText("stockAuditTotalDifferenceValue", formatMoney(totalDifferenceValue));
 };
+
 window.printStockAuditReport = async function () {
     const res = await fetch(API + "/stock-audit-report");
     const rows = await res.json();
@@ -4966,8 +5030,8 @@ window.printStockAuditReport = async function () {
 
         htmlRows += `
             <tr>
-                <td>${r.product_name}</td>
-                <td>${r.barcode}</td>
+                <td>${safeHtml(r.product_name)}</td>
+                <td>${safeHtml(r.barcode)}</td>
                 <td>${r.product_stock}</td>
                 <td>${r.branch_stock_total}</td>
                 <td>${diff}</td>
@@ -4991,8 +5055,6 @@ window.printStockAuditReport = async function () {
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                 th, td { border: 1px solid #000; padding: 8px; text-align: center; }
                 th { background: #f2f2f2; }
-                .ok { color: green; font-weight: bold; }
-                .bad { color: red; font-weight: bold; }
             </style>
         </head>
         <body>
@@ -5013,9 +5075,7 @@ window.printStockAuditReport = async function () {
                         <th>Status</th>
                     </tr>
                 </thead>
-                <tbody>
-                    ${htmlRows}
-                </tbody>
+                <tbody>${htmlRows}</tbody>
             </table>
 
             <div class="total">Total Difference Value: ${formatMoney(totalDifferenceValue)}</div>
@@ -5028,6 +5088,7 @@ window.printStockAuditReport = async function () {
     reportWindow.document.write(html);
     reportWindow.document.close();
 };
+
 window.exportStockAuditReportExcel = async function () {
     const res = await fetch(API + "/stock-audit-report");
     const rows = await res.json();
@@ -5042,13 +5103,9 @@ window.exportStockAuditReportExcel = async function () {
         csv += `${r.product_name},${r.barcode},${r.product_stock},${r.branch_stock_total},${diff},${Number(r.cost || 0).toFixed(2)},${diffValue.toFixed(2)},${status}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "final_stock_audit_report.csv";
-    link.click();
+    downloadCsv(csv, "final_stock_audit_report.csv");
 };
+
 window.syncProductStockFromBranches = async function () {
     if (!confirm("This will sync product total stock from branch stock totals. Continue?")) return;
 
@@ -5065,65 +5122,11 @@ window.syncProductStockFromBranches = async function () {
 
     loadStockAuditReport();
 
-    if (typeof loadProducts === "function") {
-        loadProducts();
-    }
-
-    if (typeof loadDashboard === "function") {
-        loadDashboard();
-    }
-
-    if (typeof loadBranchDashboard === "function") {
-        loadBranchDashboard();
-    }
+    if (typeof loadProducts === "function") loadProducts();
+    if (typeof loadDashboard === "function") loadDashboard();
+    if (typeof loadBranchDashboard === "function") loadBranchDashboard();
 };
-window.loadReturnInvoiceItems = async function () {
-    const invoiceId = document.getElementById("returnInvoice").value;
-    const productSelect = document.getElementById("returnCustomerProduct");
-
-    if (!productSelect) return;
-
-    if (!invoiceId) {
-        await loadCustomerReturnOptions();
-        document.getElementById("customerRefundAmount").value = "";
-        return;
-    }
-
-    const res = await fetch(API + "/invoice-items/" + invoiceId);
-    const items = await res.json();
-
-    productSelect.innerHTML = "";
-
-    items.forEach(item => {
-        productSelect.innerHTML += `
-            <option 
-                value="${item.product_id}" 
-                data-unit-price="${item.unit_price}"
-                data-sold-qty="${item.qty}"
-            >
-                ${item.product_name} - ${item.barcode} - Sold Qty: ${item.qty} - Price: ${formatMoney(item.unit_price)}
-            </option>
-        `;
-    });
-
-    calculateCustomerRefund();
-};
-window.calculateCustomerRefund = function () {
-    const productSelect = document.getElementById("returnCustomerProduct");
-    const qtyInput = document.getElementById("customerReturnQty");
-    const refundInput = document.getElementById("customerRefundAmount");
-
-    if (!productSelect || !qtyInput || !refundInput) return;
-
-    const selectedOption = productSelect.options[productSelect.selectedIndex];
-
-    if (!selectedOption) {
-        refundInput.value = "";
-        return;
-    }
-
-    const unitPrice = Number(selectedOption.getAttribute("data-unit-price") || 0);
-    const qty = Number(qtyInput.value || 0);
-
-    refundInput.value = (unitPrice * qty).toFixed(2);
-};
+// FINAL SAFETY CHECKS
+console.log("app.js loaded successfully");
+console.log("Currency function:", typeof window.formatMoney);
+console.log("Role permission function:", typeof window.applyRolePermissions);
