@@ -2642,15 +2642,15 @@ window.applyRolePermissions = function () {
         "posMenuBtn",
         "receivingMenuBtn",
         "reportsMenuBtn",
-        "invoiceReportMenuBtn",
         "customersMenuBtn",
         "customerReturnsMenuBtn",
         "expensesMenuBtn",
-        "currencyMenuBtn",
         "closingMenuBtn",
+        "invoiceReportMenuBtn",
         "branchesMenuBtn",
         "stockControlMenuBtn",
         "suppliersMenuBtn",
+        "currencyMenuBtn",
         "usersMenuBtn"
     ];
 
@@ -2667,16 +2667,16 @@ window.applyRolePermissions = function () {
             "posMenuBtn",
             "receivingMenuBtn",
             "reportsMenuBtn",
-            "invoiceReportMenuBtn",
             "customersMenuBtn",
             "customerReturnsMenuBtn",
             "expensesMenuBtn",
             "closingMenuBtn",
+            "invoiceReportMenuBtn",
             "branchesMenuBtn",
             "stockControlMenuBtn",
             "suppliersMenuBtn",
-            "usersMenuBtn",
-            "currencyMenuBtn"
+            "currencyMenuBtn",
+            "usersMenuBtn"
         ],
 
         cashier: [
@@ -2696,18 +2696,18 @@ window.applyRolePermissions = function () {
             "dashboardMenuBtn",
             "branchDashboardMenuBtn",
             "reportsMenuBtn",
-            "invoiceReportMenuBtn",
             "customersMenuBtn",
             "customerReturnsMenuBtn",
-            "stockControlMenuBtn",
             "expensesMenuBtn",
-            "closingMenuBtn"
+            "closingMenuBtn",
+            "invoiceReportMenuBtn",
+            "stockControlMenuBtn"
         ]
     };
 
-    const allowed = permissions[role] || [];
+    const allowedButtons = permissions[role] || [];
 
-    allowed.forEach(id => {
+    allowedButtons.forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.style.display = "block";
     });
