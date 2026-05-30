@@ -5162,7 +5162,8 @@ window.debugCustomerReturnRefunds = async function () {
 
     const data = await res.json();
 
-    console.log("DEBUG CUSTOMER RETURN REFUNDS:", data);
+    console.log("DEBUG CUSTOMER RETURN REFUNDS FULL:");
+    console.log(JSON.stringify(data, null, 2));
 
-    alert("Debug result loaded. Please open Console and copy the result.");
+    alert("Debug result loaded. Open Console and copy the JSON text.");
 };
