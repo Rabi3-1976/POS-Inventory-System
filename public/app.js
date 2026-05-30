@@ -5152,3 +5152,17 @@ window.fixOldCustomerReturnRefunds = async function () {
         loadDailyClosing();
     }
 };
+window.debugCustomerReturnRefunds = async function () {
+    const res = await fetch(API + "/debug-customer-return-refunds", {
+        method: "GET",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+
+    console.log("DEBUG CUSTOMER RETURN REFUNDS:", data);
+
+    alert("Debug result loaded. Please open Console and copy the result.");
+};
