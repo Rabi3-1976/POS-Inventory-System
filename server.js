@@ -1772,7 +1772,7 @@ app.get("/supplier-balance-report", async (req, res) => {
 });
 // CUSTOMER RETURNS
 app.post("/customer-returns", verifyToken, async (req, res) => {
-    const { customer_id, invoice_id, product_id, branch_id, qty, refund_amount, reason } = req.body;
+    const { customer_id, invoice_id, product_id, branch_id, qty, reason } = req.body;
 
     if (!product_id || !branch_id || !qty || Number(qty) <= 0) {
         return res.status(400).json({ error: "Please select product, branch, and valid return quantity" });
@@ -1817,10 +1817,32 @@ app.post("/customer-returns", verifyToken, async (req, res) => {
             product_id,
             branch_id,
             Number(qty),
-            Number(refund_amount || 0),
+            calculatedRefundAmount,
             reason || ""
         ]);
+let calculatedRefundAmount = 0;
 
+if (invoice_id) {
+    const invoiceItemResult = await client.query(`
+        SELECT unit_price
+        FROM invoice_items
+        WHERE invoice_id = $1
+        AND product_id = $2
+        LIMIT 1
+    `, [invoice_id, product_id]);
+
+    if (invoiceItemResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+            error: "Selected product was not found in selected invoice"
+        });
+    }
+
+    calculatedRefundAmount =
+        Number(invoiceItemResult.rows[0].unit_price || 0) * Number(qty);
+} else {
+    calculatedRefundAmount = Number(product.price || 0) * Number(qty);
+}
         await client.query("COMMIT");
 
         res.json({ message: "Customer return completed successfully" });
@@ -2297,6 +2319,31 @@ app.post("/sync-product-stock-from-branches", verifyToken, adminOnly, async (req
         res.status(500).json({ error: "Stock sync failed: " + err.message });
     } finally {
         client.release();
+    }
+});
+// GET ITEMS FOR SELECTED INVOICE
+app.get("/invoice-items/:invoiceId", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                ii.id,
+                ii.invoice_id,
+                ii.product_id,
+                ii.product_name,
+                ii.barcode,
+                ii.qty,
+                ii.unit_price,
+                ii.line_total
+            FROM invoice_items ii
+            WHERE ii.invoice_id = $1
+            ORDER BY ii.id
+        `, [req.params.invoiceId]);
+
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error("INVOICE ITEMS ERROR:", err);
+        res.status(500).json({ error: "Invoice items failed to load" });
     }
 });
 
