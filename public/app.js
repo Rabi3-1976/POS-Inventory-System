@@ -2600,125 +2600,6 @@ window.loadDailyClosing = async function () {
     }
 };
 
-window.printDailyClosing = async function () {
-    const date = getClosingDate();
-
-    const res = await fetch(API + "/daily-closing?date=" + encodeURIComponent(date));
-    const data = await res.json();
-
-    let expenseRows = "";
-    let returnRows = "";
-
-    (data.expenses || []).forEach(e => {
-        expenseRows += `
-            <tr>
-                <td>${e.id}</td>
-                <td>${safeHtml(e.category)}</td>
-                <td>${formatMoney(e.amount || 0)}</td>
-                <td>${safeHtml(e.notes || "")}</td>
-                <td>${new Date(e.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-
-    (data.returns || []).forEach(r => {
-        returnRows += `
-            <tr>
-                <td>${r.id}</td>
-                <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${r.qty}</td>
-                <td>${formatMoney(r.refund_amount || 0)}</td>
-                <td>${safeHtml(r.reason || "")}</td>
-                <td>${new Date(r.date).toLocaleString()}</td>
-            </tr>
-        `;
-    });
-
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Daily Closing Report - ${safeHtml(data.date)}</title>
-            <style>
-            ${reportHeaderCss()}
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                .summary {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 10px;
-                    margin-top: 20px;
-                }
-                .card {
-                    border: 1px solid #000;
-                    padding: 12px;
-                    font-size: 18px;
-                    font-weight: bold;
-                }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-             ${reportHeaderHtml("Daily Closing Report")}
-            <p><strong>Closing Date:</strong> ${safeHtml(data.date)}</p>
-            
-            <div class="summary">
-                <div class="card">Sales: ${formatMoney(data.total_sales || 0)}</div>
-                <div class="card">Profit: ${formatMoney(data.total_profit || 0)}</div>
-                <div class="card">Expenses: ${formatMoney(data.total_expenses || 0)}</div>
-                <div class="card">Refunds: ${formatMoney(data.total_refunds || 0)}</div>
-                <div class="card">Net Profit: ${formatMoney(data.net_profit || 0)}</div>
-                <div class="card">Transactions: ${data.total_transactions || 0}</div>
-                <div class="card">Returns Count: ${data.total_returns || 0}</div>
-            </div>
-
-            <h2>Expenses</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Category</th>
-                        <th>Amount</th>
-                        <th>Notes</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>${expenseRows}</tbody>
-            </table>
-
-            <h2>Customer Returns / Refunds</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Customer</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Branch</th>
-                        <th>Qty</th>
-                        <th>Refund</th>
-                        <th>Reason</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>${returnRows}</tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-};
-
 window.exportDailyClosingExcel = async function () {
     const date = getClosingDate();
 
@@ -3156,30 +3037,75 @@ window.printDailyClosing = async function () {
         <head>
             <title>Daily Closing Report - ${safeHtml(data.date)}</title>
             <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
+                ${reportHeaderCss()}
+
+                body { 
+                    font-family: Arial; 
+                    padding: 20px; 
+                    color: #111827;
+                }
+
+                .closing-date {
+                    font-size: 15px;
+                    font-weight: bold;
+                    margin-bottom: 20px;
+                }
+
                 .summary {
                     display: grid;
                     grid-template-columns: repeat(2, 1fr);
                     gap: 10px;
                     margin-top: 20px;
+                    margin-bottom: 25px;
                 }
+
                 .card {
-                    border: 1px solid #000;
+                    border: 1px solid #111827;
                     padding: 12px;
-                    font-size: 18px;
+                    font-size: 16px;
                     font-weight: bold;
+                    background: #f9fafb;
                 }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
+
+                h2 {
+                    margin-top: 25px;
+                    border-bottom: 2px solid #111827;
+                    padding-bottom: 6px;
+                }
+
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin-top: 15px; 
+                    font-size: 13px;
+                }
+
+                th, td { 
+                    border: 1px solid #000; 
+                    padding: 8px; 
+                    text-align: center; 
+                }
+
+                th { 
+                    background: #111827; 
+                    color: white;
+                }
+
+                @media print {
+                    body {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                }
             </style>
         </head>
+
         <body>
-            <h1>Daily Closing Report</h1>
-            <p><strong>Closing Date:</strong> ${safeHtml(data.date)}</p>
-            <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Currency:</strong> ${systemCurrency}</p>
+            ${reportHeaderHtml("Daily Closing Report")}
+
+            <div class="closing-date">
+                Closing Date: ${safeHtml(data.date)}
+            </div>
 
             <div class="summary">
                 <div class="card">Sales: ${formatMoney(data.total_sales || 0)}</div>
@@ -3223,7 +3149,9 @@ window.printDailyClosing = async function () {
                 <tbody>${returnRows}</tbody>
             </table>
 
-            <script>window.print();</script>
+            <script>
+                setTimeout(() => window.print(), 500);
+            </script>
         </body>
         </html>
     `;
