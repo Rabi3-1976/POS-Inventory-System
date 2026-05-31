@@ -4689,6 +4689,7 @@ window.printStockAdjustmentReport = async function () {
         <head>
             <title>Stock Adjustment Report</title>
             <style>
+            ${reportHeaderCss()}
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
                 .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
@@ -4698,7 +4699,7 @@ window.printStockAdjustmentReport = async function () {
             </style>
         </head>
         <body>
-            <h1>Stock Adjustment Report</h1>
+        ${reportHeaderHtml("Stock Adjustment Report")}
             <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Currency:</strong> ${systemCurrency}</p>
 
