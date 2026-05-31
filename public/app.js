@@ -2665,11 +2665,9 @@ window.printDailyClosing = async function () {
             </style>
         </head>
         <body>
-            ${reportHeaderHtml("Daily Closing Report")}
+             ${reportHeaderHtml("Daily Closing Report")}
             <p><strong>Closing Date:</strong> ${safeHtml(data.date)}</p>
-            <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Currency:</strong> ${systemCurrency}</p>
-
+            
             <div class="summary">
                 <div class="card">Sales: ${formatMoney(data.total_sales || 0)}</div>
                 <div class="card">Profit: ${formatMoney(data.total_profit || 0)}</div>
