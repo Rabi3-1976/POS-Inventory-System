@@ -233,6 +233,19 @@ await pool.query(`
     ALTER TABLE branch_stock
     ADD COLUMN IF NOT EXISTS min_stock INTEGER DEFAULT 0
 `);
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS profit_transfers (
+        id SERIAL PRIMARY KEY,
+        transfer_date DATE DEFAULT CURRENT_DATE,
+        amount NUMERIC DEFAULT 0,
+        wallet_name TEXT DEFAULT 'Wish Money',
+        wallet_reference TEXT,
+        notes TEXT,
+        status TEXT DEFAULT 'Transferred',
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
 
     console.log("PostgreSQL tables ready");
 }

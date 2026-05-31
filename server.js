@@ -2373,6 +2373,62 @@ app.get("/invoice-items/:invoiceId", async (req, res) => {
         res.status(500).json({ error: "Invoice items failed to load" });
     }
 });
+// PROFIT TRANSFERS TO E-WALLET
+app.post("/profit-transfers", verifyToken, adminOnly, async (req, res) => {
+    const { transfer_date, amount, wallet_name, wallet_reference, notes, status } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+        return res.status(400).json({ error: "Please enter valid transfer amount" });
+    }
+
+    try {
+        await pool.query(`
+            INSERT INTO profit_transfers
+            (transfer_date, amount, wallet_name, wallet_reference, notes, status, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+            transfer_date || new Date().toISOString().slice(0, 10),
+            Number(amount),
+            wallet_name || "Wish Money",
+            wallet_reference || "",
+            notes || "",
+            status || "Transferred",
+            req.user.id
+        ]);
+
+        res.json({ message: "Profit transfer recorded successfully" });
+
+    } catch (err) {
+        console.error("PROFIT TRANSFER ERROR:", err);
+        res.status(500).json({ error: "Profit transfer failed" });
+    }
+});
+
+app.get("/profit-transfers", verifyToken, adminOnly, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                pt.id,
+                pt.transfer_date,
+                pt.amount,
+                pt.wallet_name,
+                pt.wallet_reference,
+                pt.notes,
+                pt.status,
+                u.username AS created_by,
+                pt.created_at
+            FROM profit_transfers pt
+            LEFT JOIN users u ON pt.created_by = u.id
+            ORDER BY pt.transfer_date DESC, pt.id DESC
+        `);
+
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error("LOAD PROFIT TRANSFERS ERROR:", err);
+        res.status(500).json({ error: "Profit transfers failed to load" });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
