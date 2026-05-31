@@ -1479,7 +1479,77 @@ window.receivePurchaseOrder = async function (id, remainingQty) {
     if (typeof loadSupplierHistory === "function") loadSupplierHistory();
     if (typeof loadSupplierBalanceReport === "function") loadSupplierBalanceReport();
 };
+function reportHeaderCss() {
+    return `
+        .report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 3px solid #111827;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
 
+        .company-block {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .company-block img {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+        }
+
+        .company-block h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .company-block p {
+            margin: 3px 0;
+            font-size: 13px;
+            color: #4b5563;
+        }
+
+        .report-title {
+            text-align: right;
+        }
+
+        .report-title h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .report-title p {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+    `;
+}
+
+function reportHeaderHtml(title) {
+    return `
+        <div class="report-header">
+            <div class="company-block">
+                <img src="logo.png" alt="Logo">
+                <div>
+                    <h2>Mart & Wholesales</h2>
+                    <p>Beirut, Lebanon</p>
+                    <p>Phone: +961 3 743 351</p>
+                    <p>Email: martwholesales@gmail.com</p>
+                </div>
+            </div>
+
+            <div class="report-title">
+                <h1>${safeHtml(title)}</h1>
+                <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+                <p><strong>Currency:</strong> ${systemCurrency}</p>
+            </div>
+        </div>
+    `;
+}
 // REPORTS
 function openReportWindow(title, bodyHtml) {
     const reportWindow = window.open("", "_blank");
@@ -2235,6 +2305,7 @@ window.printCustomerHistory = async function () {
         <head>
             <title>Customer Purchase History</title>
             <style>
+            ${reportHeaderCss()}
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -2243,7 +2314,7 @@ window.printCustomerHistory = async function () {
             </style>
         </head>
         <body>
-            <h1>Customer Purchase History</h1>
+        ${reportHeaderHtml("Customer Purchase History")}
             <p><strong>Customer:</strong> ${safeHtml(selectedText)}</p>
             <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Currency:</strong> ${systemCurrency}</p>
@@ -2403,6 +2474,7 @@ window.printExpensesReport = async function () {
         <head>
             <title>Expenses Report</title>
             <style>
+            ${reportHeaderCss()}
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -2412,7 +2484,8 @@ window.printExpensesReport = async function () {
             </style>
         </head>
         <body>
-            <h1>Expenses Report</h1>
+            <body>
+    ${reportHeaderHtml("Expenses Report")}
             <p>Date: ${new Date().toLocaleString()}</p>
             <p>Currency: ${systemCurrency}</p>
 
@@ -2571,6 +2644,7 @@ window.printDailyClosing = async function () {
         <head>
             <title>Daily Closing Report - ${safeHtml(data.date)}</title>
             <style>
+            ${reportHeaderCss()}
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
                 .summary {
@@ -2591,7 +2665,7 @@ window.printDailyClosing = async function () {
             </style>
         </head>
         <body>
-            <h1>Daily Closing Report</h1>
+            ${reportHeaderHtml("Daily Closing Report")}
             <p><strong>Closing Date:</strong> ${safeHtml(data.date)}</p>
             <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Currency:</strong> ${systemCurrency}</p>
@@ -3725,6 +3799,7 @@ window.printCustomerReturns = async function () {
         <head>
             <title>Customer Returns Report</title>
             <style>
+            ${reportHeaderCss()}
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -3733,7 +3808,8 @@ window.printCustomerReturns = async function () {
             </style>
         </head>
         <body>
-            <h1>Customer Returns Report</h1>
+            <body>
+            ${reportHeaderHtml("Customer Returns Report")}
             <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Currency:</strong> ${systemCurrency}</p>
 
@@ -4985,6 +5061,7 @@ window.printReorderSuggestions = async function () {
         <head>
             <title>Reorder Suggestions</title>
             <style>
+            ${reportHeaderCss()}
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
                 .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
@@ -4994,7 +5071,7 @@ window.printReorderSuggestions = async function () {
             </style>
         </head>
         <body>
-            <h1>Reorder Suggestions</h1>
+    ${reportHeaderHtml("Reorder Suggestions")}
             <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Currency:</strong> ${systemCurrency}</p>
 
@@ -5114,6 +5191,7 @@ window.printStockAuditReport = async function () {
         <head>
             <title>Final Stock Audit Report</title>
             <style>
+            ${reportHeaderCss()}
                 body { font-family: Arial; padding: 20px; }
                 h1 { text-align: center; }
                 .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
@@ -5123,7 +5201,7 @@ window.printStockAuditReport = async function () {
             </style>
         </head>
         <body>
-            <h1>Final Stock Audit Report</h1>
+    ${reportHeaderHtml("Final Stock Audit Report")}
             <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Currency:</strong> ${systemCurrency}</p>
 
