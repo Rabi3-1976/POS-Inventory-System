@@ -282,7 +282,13 @@ window.showPage = function (pageId) {
         if (input && !input.value) {
             input.value = new Date().toISOString().slice(0, 10);
         }
-        loadDailyClosing();
+        const transferDate = document.getElementById("profitTransferDate");
+    if (transferDate && !transferDate.value) {
+        transferDate.value = new Date().toISOString().slice(0, 10);
+    }
+
+    loadDailyClosing();
+    loadProfitTransfers();
     }
 
     if (pageId === "currencyPage") {
@@ -1483,17 +1489,76 @@ function openReportWindow(title, bodyHtml) {
         <head>
             <title>${safeHtml(title)}</title>
             <style>
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
+                body { font-family: Arial; padding: 20px; color: #111827; }
+                .report-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    border-bottom: 3px solid #111827;
+                    padding-bottom: 12px;
+                    margin-bottom: 20px;
+                }
+                .company-block {
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                }
+                .company-block img {
+                    width: 70px;
+                    height: 70px;
+                    object-fit: contain;
+                }
+                .company-block h2 {
+                    margin: 0;
+                    font-size: 22px;
+                }
+                .company-block p {
+                    margin: 3px 0;
+                    font-size: 13px;
+                    color: #4b5563;
+                }
+                .report-title {
+                    text-align: right;
+                }
+                .report-title h1 {
+                    margin: 0;
+                    font-size: 24px;
+                }
+                .report-title p {
+                    margin: 5px 0;
+                    font-size: 13px;
+                }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                 th, td { border: 1px solid #000; padding: 8px; text-align: center; }
                 th { background: #f2f2f2; }
+                .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
+
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
             </style>
         </head>
         <body>
-            <h1>${safeHtml(title)}</h1>
-            <p>Date: ${new Date().toLocaleString()}</p>
+            <div class="report-header">
+                <div class="company-block">
+                    <img src="logo.png" alt="Logo">
+                    <div>
+                        <h2>Mart & Wholesales</h2>
+                        <p>Beirut, Lebanon</p>
+                        <p>Phone: +961 3 743 351</p>
+                        <p>Email: martwholesales@gmail.com</p>
+                    </div>
+                </div>
+
+                <div class="report-title">
+                    <h1>${safeHtml(title)}</h1>
+                    <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+                    <p><strong>Currency:</strong> ${systemCurrency}</p>
+                </div>
+            </div>
+
             ${bodyHtml}
+
             <script>window.print();</script>
         </body>
         </html>
@@ -5130,3 +5195,139 @@ window.syncProductStockFromBranches = async function () {
 console.log("app.js loaded successfully");
 console.log("Currency function:", typeof window.formatMoney);
 console.log("Role permission function:", typeof window.applyRolePermissions);
+window.saveProfitTransfer = async function () {
+    const transfer_date = document.getElementById("profitTransferDate").value || new Date().toISOString().slice(0, 10);
+    const amount = Number(document.getElementById("profitTransferAmount").value);
+    const wallet_name = document.getElementById("profitWalletName").value || "Wish Money";
+    const wallet_reference = document.getElementById("profitWalletReference").value.trim();
+    const notes = document.getElementById("profitTransferNotes").value.trim();
+
+    if (amount <= 0) {
+        alert("Please enter valid transfer amount");
+        return;
+    }
+
+    const res = await fetch(API + "/profit-transfers", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            transfer_date,
+            amount,
+            wallet_name,
+            wallet_reference,
+            notes,
+            status: "Transferred"
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    document.getElementById("profitTransferAmount").value = "";
+    document.getElementById("profitWalletReference").value = "";
+    document.getElementById("profitTransferNotes").value = "";
+
+    loadProfitTransfers();
+};
+
+window.loadProfitTransfers = async function () {
+    const res = await fetch(API + "/profit-transfers", {
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const rows = await res.json();
+
+    const table = document.getElementById("profitTransfersTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.transfer_date}</td>
+                <td>${formatMoney(r.amount || 0)}</td>
+                <td>${safeHtml(r.wallet_name || "Wish Money")}</td>
+                <td>${safeHtml(r.wallet_reference || "")}</td>
+                <td>${safeHtml(r.status || "")}</td>
+                <td>${safeHtml(r.notes || "")}</td>
+                <td>${safeHtml(r.created_by || "")}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printProfitTransfers = async function () {
+    const res = await fetch(API + "/profit-transfers", {
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const rows = await res.json();
+
+    let htmlRows = "";
+    let total = 0;
+
+    rows.forEach(r => {
+        total += Number(r.amount || 0);
+
+        htmlRows += `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.transfer_date}</td>
+                <td>${formatMoney(r.amount || 0)}</td>
+                <td>${safeHtml(r.wallet_name || "Wish Money")}</td>
+                <td>${safeHtml(r.wallet_reference || "")}</td>
+                <td>${safeHtml(r.status || "")}</td>
+                <td>${safeHtml(r.notes || "")}</td>
+                <td>${safeHtml(r.created_by || "")}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Profit Transfers to E-wallet", `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Wallet</th>
+                    <th>Reference</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Created By</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+
+        <div class="total">Total Transferred: ${formatMoney(total)}</div>
+    `);
+};
+
+window.exportProfitTransfersExcel = async function () {
+    const res = await fetch(API + "/profit-transfers", {
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const rows = await res.json();
+
+    let csv = "ID,Date,Amount,Wallet,Reference,Status,Notes,Created By\n";
+
+    rows.forEach(r => {
+        csv += `${r.id},${r.transfer_date},${Number(r.amount || 0).toFixed(2)},${r.wallet_name || "Wish Money"},${r.wallet_reference || ""},${r.status || ""},${r.notes || ""},${r.created_by || ""}\n`;
+    });
+
+    downloadCsv(csv, "profit_transfers_wish_money.csv");
+};

@@ -520,7 +520,40 @@
         <div class="card">Transactions<br><span id="closingTransactions">0</span></div>
         <div class="card">Returns Count<br><span id="closingReturnsCount">0</span></div>
     </div>
+<div class="box">
+    <h2>Transfer Profit to E-wallet</h2>
 
+    <input id="profitTransferDate" type="date">
+    <input id="profitTransferAmount" type="number" placeholder="Amount to Transfer">
+
+    <select id="profitWalletName">
+        <option value="Wish Money">Wish Money</option>
+    </select>
+
+    <input id="profitWalletReference" placeholder="Wallet Reference / Transaction ID">
+    <input id="profitTransferNotes" placeholder="Notes">
+
+    <button onclick="saveProfitTransfer()">Record Profit Transfer</button>
+    <button onclick="loadProfitTransfers()">Load Transfers</button>
+    <button onclick="printProfitTransfers()">Print Transfers</button>
+    <button onclick="exportProfitTransfersExcel()">Export Transfers Excel</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Wallet</th>
+                <th>Reference</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Created By</th>
+            </tr>
+        </thead>
+        <tbody id="profitTransfersTable"></tbody>
+    </table>
+</div>
     <div class="box">
         <h2>Today Expenses</h2>
 <div class="box">
