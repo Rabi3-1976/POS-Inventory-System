@@ -5451,21 +5451,3 @@ window.exportProfitTransfersExcel = async function () {
 
     downloadCsv(csv, "profit_transfers_wish_money.csv");
 };
-window.fixPONoColumn = async function () {
-    if (!confirm("Fix PO number column? Run this only once.")) return;
-
-    const res = await fetch(API + "/fix-po-no-column", {
-        method: "POST",
-        headers: {
-            "Authorization": "Bearer " + localStorage.getItem("token")
-        }
-    });
-
-    const data = await res.json();
-
-    alert((data.message || data.error) + "\nUpdated: " + (data.updated || 0));
-
-    if (typeof loadPurchaseOrders === "function") {
-        loadPurchaseOrders();
-    }
-};
