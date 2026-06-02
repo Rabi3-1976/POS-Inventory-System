@@ -1316,7 +1316,49 @@ window.syncStockToMain = async function () {
         alert(err.message);
     }
 };
+window.receiveAllPurchaseOrder = async function (poNo) {
+    if (!poNo) {
+        alert("PO number is missing");
+        return;
+    }
 
+    if (!confirm("Receive all remaining items for PO " + poNo + "?")) return;
+
+    const res = await fetch(API + "/purchase-orders/" + encodeURIComponent(poNo) + "/receive-all", {
+        method: "PUT",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadPurchaseOrders();
+    loadProducts();
+    loadDashboard();
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
+    }
+
+    if (typeof loadBranchDashboard === "function") {
+        loadBranchDashboard();
+    }
+
+    if (typeof loadSupplierHistory === "function") {
+        loadSupplierHistory();
+    }
+
+    if (typeof loadSupplierBalanceReport === "function") {
+        loadSupplierBalanceReport();
+    }
+
+    if (typeof loadStockAuditReport === "function") {
+        loadStockAuditReport();
+    }
+};
 // SUPPLIERS / PURCHASE ORDERS
 window.addSupplier = async function () {
     const name = document.getElementById("supplierName").value.trim();
@@ -1547,6 +1589,13 @@ window.loadPurchaseOrders = async function () {
                         ? "Received"
                         : `<button onclick="receivePurchaseOrder(${o.id}, ${o.remaining_qty || o.qty})">Receive</button>`
                     }
+                </td>
+                <td>
+                    ${
+                        o.status === "Received"
+                        ? ""
+                            : `<button onclick="receiveAllPurchaseOrder('${o.po_no || ("PO-" + o.id)}')">Receive All</button>`
+    }
                 </td>
             </tr>
         `;
