@@ -2485,30 +2485,7 @@ app.post("/purchase-orders-multiple", verifyToken, adminOnly, async (req, res) =
         client.release();
     }
 });
-// TEMP: ADD PO NUMBER COLUMN
-app.post("/fix-po-no-column", verifyToken, adminOnly, async (req, res) => {
-    try {
-        await pool.query(`
-            ALTER TABLE purchase_orders
-            ADD COLUMN IF NOT EXISTS po_no TEXT
-        `);
 
-        const result = await pool.query(`
-            UPDATE purchase_orders
-            SET po_no = 'PO-' || id
-            WHERE po_no IS NULL OR po_no = ''
-        `);
-
-        res.json({
-            message: "PO number column fixed successfully",
-            updated: result.rowCount
-        });
-
-    } catch (err) {
-        console.error("FIX PO NO COLUMN ERROR:", err);
-        res.status(500).json({ error: err.message });
-    }
-});
 
 // START SERVER
 app.listen(PORT, () => {
