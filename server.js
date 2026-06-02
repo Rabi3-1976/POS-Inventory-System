@@ -407,6 +407,8 @@ app.get("/purchase-orders", async (req, res) => {
                 p.barcode,
                 b.name AS branch_name,
                 po.qty,
+                po.cancel_reason,
+                po.cancelled_at,
                 COALESCE(po.received_qty, 0) AS received_qty,
                 (po.qty - COALESCE(po.received_qty, 0)) AS remaining_qty,
                 po.status,
@@ -439,7 +441,7 @@ app.put("/purchase-orders/:id/receive", verifyToken, adminOnly, async (req, res)
         await client.query("BEGIN");
 
         const result = await client.query(
-            "SELECT * FROM purchase_orders WHERE id = $1",
+            "SELECT * FROM purchase_orders WHERE po_no = $1 AND status NOT IN ('Received', 'Cancelled') ORDER BY id",
             [poId]
         );
 
@@ -454,7 +456,10 @@ app.put("/purchase-orders/:id/receive", verifyToken, adminOnly, async (req, res)
             await client.query("ROLLBACK");
             return res.status(400).json({ error: "Purchase order already fully received" });
         }
-
+        if (po.status === "Cancelled") {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Cancelled PO cannot be received" });
+}
         if (!po.branch_id) {
             await client.query("ROLLBACK");
             return res.status(400).json({ error: "Purchase order has no branch assigned" });
@@ -2562,6 +2567,82 @@ app.put("/purchase-orders/:poNo/receive-all", verifyToken, async (req, res) => {
         res.status(500).json({ error: "Receive all failed: " + err.message });
     } finally {
         client.release();
+    }
+});
+// CANCEL PURCHASE ORDER LINE
+app.put("/purchase-orders/:id/cancel", verifyToken, async (req, res) => {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const poResult = await client.query(`
+            SELECT *
+            FROM purchase_orders
+            WHERE id = $1
+        `, [id]);
+
+        const po = poResult.rows[0];
+
+        if (!po) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Purchase order not found" });
+        }
+
+        if (po.status === "Received") {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Received PO cannot be cancelled" });
+        }
+
+        if (po.status === "Cancelled") {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "PO is already cancelled" });
+        }
+
+        await client.query(`
+            UPDATE purchase_orders
+            SET status = 'Cancelled',
+                cancel_reason = $1,
+                cancelled_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+        `, [
+            reason || "Cancelled by user",
+            id
+        ]);
+
+        await client.query("COMMIT");
+
+        res.json({ message: "Purchase order cancelled successfully" });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("CANCEL PO ERROR:", err);
+        res.status(500).json({ error: "Cancel PO failed: " + err.message });
+    } finally {
+        client.release();
+    }
+});
+// TEMP: FIX PO CANCEL COLUMNS
+app.post("/fix-po-cancel-columns", verifyToken, adminOnly, async (req, res) => {
+    try {
+        await pool.query(`
+            ALTER TABLE purchase_orders
+            ADD COLUMN IF NOT EXISTS cancel_reason TEXT
+        `);
+
+        await pool.query(`
+            ALTER TABLE purchase_orders
+            ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP
+        `);
+
+        res.json({ message: "PO cancel columns fixed successfully" });
+
+    } catch (err) {
+        console.error("FIX PO CANCEL COLUMNS ERROR:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 

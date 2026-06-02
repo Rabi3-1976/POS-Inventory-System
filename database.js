@@ -251,6 +251,16 @@ await pool.query(`
     SET po_no = 'PO-' || id
     WHERE po_no IS NULL OR po_no = ''
 `);
+await pool.query(`
+    ALTER TABLE purchase_orders
+    ADD COLUMN IF NOT EXISTS cancel_reason TEXT
+`);
+
+await pool.query(`
+    ALTER TABLE purchase_orders
+    ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP
+`);
+
     console.log("PostgreSQL tables ready");
 }
 initializeDatabase().catch(err => {
