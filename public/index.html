@@ -741,7 +741,7 @@
                     <input id="supplierAddress" placeholder="Address">
                     <button onclick="addSupplier()">Add Supplier</button>
                 </div>
-
+<button onclick="fixPOCancelColumns()">Fix PO Cancel Columns</button>
                 <div class="box">
     <h2>Create Purchase Order</h2>
 
@@ -797,9 +797,11 @@
                                 <th>Received Qty</th>
                                 <th>Remaining Qty</th>
                                 <th>Status</th>
+                                <th>Cancel Reason</th>
                                 <th>Date</th>
                                 <th>Receive</th>
                                 <th>Receive All</th>
+                                <th>Cancel</th>
                             </tr>
                         </thead>
                         <tbody id="purchaseOrdersTable"></tbody>

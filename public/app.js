@@ -1560,6 +1560,44 @@ window.createPurchaseOrder = async function () {
     }
 };
 
+window.cancelPurchaseOrder = async function (id) {
+    const reason = prompt("Enter cancellation reason:");
+
+    if (reason === null) return;
+
+    if (!reason.trim()) {
+        alert("Cancellation reason is required");
+        return;
+    }
+
+    if (!confirm("Cancel this purchase order line?")) return;
+
+    const res = await fetch(API + "/purchase-orders/" + id + "/cancel", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            reason: reason.trim()
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadPurchaseOrders();
+
+    if (typeof loadSupplierHistory === "function") {
+        loadSupplierHistory();
+    }
+
+    if (typeof loadSupplierBalanceReport === "function") {
+        loadSupplierBalanceReport();
+    }
+};
+
 window.loadPurchaseOrders = async function () {
     const res = await fetch(API + "/purchase-orders");
     const orders = await res.json();
@@ -1570,36 +1608,46 @@ window.loadPurchaseOrders = async function () {
     table.innerHTML = "";
 
     orders.forEach(o => {
-        table.innerHTML += `
-            <tr>
-                <td>${o.id}</td>
-                <td>${o.po_no || ("PO-" + o.id)}</td>
-                <td>${safeHtml(o.supplier_name)}</td>
-                <td>${safeHtml(o.product_name)}</td>
-                <td>${safeHtml(o.barcode)}</td>
-                <td>${safeHtml(o.branch_name || "")}</td>
-                <td>${o.qty}</td>
-                <td>${o.received_qty || 0}</td>
-                <td>${o.remaining_qty || 0}</td>
-                <td>${safeHtml(o.status)}</td>
-                <td>${new Date(o.date).toLocaleString()}</td>
-                <td>
-                    ${
-                        o.status === "Received"
-                        ? "Received"
+    table.innerHTML += `
+        <tr>
+            <td>${o.id}</td>
+            <td>${safeHtml(o.po_no || ("PO-" + o.id))}</td>
+            <td>${safeHtml(o.supplier_name)}</td>
+            <td>${safeHtml(o.product_name)}</td>
+            <td>${safeHtml(o.barcode)}</td>
+            <td>${safeHtml(o.branch_name || "")}</td>
+            <td>${o.qty}</td>
+            <td>${o.received_qty || 0}</td>
+            <td>${o.remaining_qty || 0}</td>
+            <td>${safeHtml(o.status)}</td>
+            <td>${safeHtml(o.cancel_reason || "")}</td>
+            <td>${new Date(o.date).toLocaleString()}</td>
+            <td>
+                ${
+                    o.status === "Received"
+                    ? "Received"
+                    : o.status === "Cancelled"
+                        ? "Cancelled"
                         : `<button onclick="receivePurchaseOrder(${o.id}, ${o.remaining_qty || o.qty})">Receive</button>`
-                    }
-                </td>
-                <td>
-                    ${
-                        o.status === "Received"
-                        ? ""
-                            : `<button onclick="receiveAllPurchaseOrder('${o.po_no || ("PO-" + o.id)}')">Receive All</button>`
-    }
-                </td>
-            </tr>
-        `;
-    });
+                }
+            </td>
+            <td>
+                ${
+                    o.status === "Received" || o.status === "Cancelled"
+                    ? ""
+                    : `<button onclick="receiveAllPurchaseOrder('${o.po_no || ("PO-" + o.id)}')">Receive All</button>`
+                }
+            </td>
+            <td>
+                ${
+                    o.status === "Received" || o.status === "Cancelled"
+                    ? ""
+                    : `<button onclick="cancelPurchaseOrder(${o.id})">Cancel</button>`
+                }
+            </td>
+        </tr>
+    `;
+});
 };
 
 window.receivePurchaseOrder = async function (id, remainingQty) {
@@ -5499,4 +5547,20 @@ window.exportProfitTransfersExcel = async function () {
     });
 
     downloadCsv(csv, "profit_transfers_wish_money.csv");
+};
+window.fixPOCancelColumns = async function () {
+    if (!confirm("Fix PO cancel columns? Run this only once.")) return;
+
+    const res = await fetch(API + "/fix-po-cancel-columns", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadPurchaseOrders();
 };
