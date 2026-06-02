@@ -2485,7 +2485,85 @@ app.post("/purchase-orders-multiple", verifyToken, adminOnly, async (req, res) =
         client.release();
     }
 });
+// RECEIVE ALL ITEMS IN SAME PO NO
+app.put("/purchase-orders/:poNo/receive-all", verifyToken, async (req, res) => {
+    const { poNo } = req.params;
 
+    if (!poNo) {
+        return res.status(400).json({ error: "PO number is required" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const poResult = await client.query(`
+            SELECT *
+            FROM purchase_orders
+            WHERE po_no = $1
+            AND status <> 'Received'
+            ORDER BY id
+        `, [poNo]);
+
+        const lines = poResult.rows;
+
+        if (lines.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "No pending items found for this PO" });
+        }
+
+        for (const line of lines) {
+            const orderedQty = Number(line.qty || 0);
+            const receivedQty = Number(line.received_qty || 0);
+            const remainingQty = orderedQty - receivedQty;
+
+            if (remainingQty <= 0) continue;
+
+            await client.query(`
+                INSERT INTO branch_stock (branch_id, product_id, stock)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (branch_id, product_id)
+                DO UPDATE SET stock = branch_stock.stock + EXCLUDED.stock
+            `, [
+                line.branch_id,
+                line.product_id,
+                remainingQty
+            ]);
+
+            await client.query(`
+                UPDATE products
+                SET stock = stock + $1
+                WHERE id = $2
+            `, [
+                remainingQty,
+                line.product_id
+            ]);
+
+            await client.query(`
+                UPDATE purchase_orders
+                SET received_qty = qty,
+                    status = 'Received'
+                WHERE id = $1
+            `, [line.id]);
+        }
+
+        await client.query("COMMIT");
+
+        res.json({
+            message: "All remaining PO items received successfully",
+            po_no: poNo,
+            lines_received: lines.length
+        });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("RECEIVE ALL PO ERROR:", err);
+        res.status(500).json({ error: "Receive all failed: " + err.message });
+    } finally {
+        client.release();
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
