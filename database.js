@@ -246,7 +246,11 @@ await pool.query(`
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
-
+await pool.query(`
+    UPDATE purchase_orders
+    SET po_no = 'PO-' || id
+    WHERE po_no IS NULL OR po_no = ''
+`);
     console.log("PostgreSQL tables ready");
 }
 initializeDatabase().catch(err => {

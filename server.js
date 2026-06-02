@@ -401,6 +401,7 @@ app.get("/purchase-orders", async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 po.id,
+                COALESCE(po.po_no, 'PO-' || po.id) AS po_no,
                 s.name AS supplier_name,
                 p.name AS product_name,
                 p.barcode,
@@ -414,7 +415,7 @@ app.get("/purchase-orders", async (req, res) => {
             JOIN suppliers s ON po.supplier_id = s.id
             JOIN products p ON po.product_id = p.id
             LEFT JOIN branches b ON po.branch_id = b.id
-            ORDER BY po.date DESC
+            ORDER BY po.date DESC, po.id DESC
         `);
 
         res.json(result.rows);
@@ -2427,6 +2428,61 @@ app.get("/profit-transfers", verifyToken, adminOnly, async (req, res) => {
     } catch (err) {
         console.error("LOAD PROFIT TRANSFERS ERROR:", err);
         res.status(500).json({ error: "Profit transfers failed to load" });
+    }
+});
+// CREATE MULTI-LINE PURCHASE ORDER
+app.post("/purchase-orders-multiple", verifyToken, adminOnly, async (req, res) => {
+    const { supplier_id, branch_id, items } = req.body;
+
+    if (!supplier_id || !branch_id || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+            error: "Please select supplier, branch, and add at least one product line"
+        });
+    }
+
+    for (const item of items) {
+        if (!item.product_id || !item.qty || Number(item.qty) <= 0) {
+            return res.status(400).json({
+                error: "Each PO line must have product and valid quantity"
+            });
+        }
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const poNo = "PO-" + Date.now();
+
+        for (const item of items) {
+            await client.query(`
+                INSERT INTO purchase_orders 
+                (po_no, supplier_id, product_id, branch_id, qty, received_qty, status)
+                VALUES ($1, $2, $3, $4, $5, 0, 'Pending')
+            `, [
+                poNo,
+                supplier_id,
+                item.product_id,
+                branch_id,
+                Number(item.qty)
+            ]);
+        }
+
+        await client.query("COMMIT");
+
+        res.json({
+            message: "Purchase order created successfully",
+            po_no: poNo,
+            lines: items.length
+        });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("MULTI PO CREATE ERROR:", err);
+        res.status(500).json({ error: "Multi-line purchase order failed: " + err.message });
+    } finally {
+        client.release();
     }
 });
 
