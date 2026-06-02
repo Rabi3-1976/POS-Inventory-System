@@ -743,13 +743,43 @@
                 </div>
 
                 <div class="box">
-                    <h2>Create Purchase Order</h2>
-                    <select id="poSupplier"></select>
-                    <select id="poProduct"></select>
-                    <select id="poBranch"></select>
-                    <input id="poQty" type="number" placeholder="Qty">
-                    <button onclick="createPurchaseOrder()">Create PO</button>
-                </div>
+    <h2>Create Purchase Order</h2>
+
+    <label>Supplier</label>
+    <select id="poSupplier"></select>
+
+    <label>Branch</label>
+    <select id="poBranch"></select>
+
+    <hr>
+
+    <h3>Add PO Line</h3>
+
+    <label>Product</label>
+    <select id="poProduct"></select>
+
+    <label>Qty</label>
+    <input id="poQty" type="number" placeholder="Qty">
+
+    <button onclick="addPOLine()">Add Line</button>
+    <button onclick="clearPOLines()">Clear Lines</button>
+
+    <h3>PO Lines</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>Qty</th>
+                <th>Remove</th>
+            </tr>
+        </thead>
+        <tbody id="poLinesTable"></tbody>
+    </table>
+
+    <button onclick="createMultiPurchaseOrder()">Create Purchase Order</button>
+</div>
 
                 <div class="box">
                     <h2>Purchase Orders</h2>
@@ -758,6 +788,7 @@
                         <thead>
                             <tr>
                                 <th>ID</th>
+                                <th>PO No</th>
                                 <th>Supplier</th>
                                 <th>Product</th>
                                 <th>Barcode</th>

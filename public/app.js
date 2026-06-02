@@ -1,5 +1,7 @@
 const API = "";
 
+let poLines = [];
+let poProductsCache = [];
 let token = "";
 let currentRole = "";
 let cart = [];
@@ -1351,6 +1353,7 @@ window.loadSupplierOptions = async function () {
         const suppliers = await fetchJson("/suppliers");
         const products = await fetchJson("/products");
         const branches = await fetchJson("/branches");
+        poProductsCache = products;
 
         const supplierSelect = document.getElementById("poSupplier");
         const productSelect = document.getElementById("poProduct");
@@ -1375,6 +1378,117 @@ window.loadSupplierOptions = async function () {
         });
     } catch (err) {
         console.error("Supplier options error:", err);
+    }
+};
+window.addPOLine = function () {
+    const productSelect = document.getElementById("poProduct");
+    const qtyInput = document.getElementById("poQty");
+
+    const product_id = productSelect.value;
+    const qty = Number(qtyInput.value);
+
+    if (!product_id || qty <= 0) {
+        alert("Please select product and enter valid quantity");
+        return;
+    }
+
+    const product = poProductsCache.find(p => Number(p.id) === Number(product_id));
+
+    if (!product) {
+        alert("Product not found");
+        return;
+    }
+
+    const existing = poLines.find(line => Number(line.product_id) === Number(product_id));
+
+    if (existing) {
+        existing.qty += qty;
+    } else {
+        poLines.push({
+            product_id: product.id,
+            product_name: product.name,
+            barcode: product.barcode,
+            qty: qty
+        });
+    }
+
+    qtyInput.value = "";
+
+    displayPOLines();
+};
+
+window.displayPOLines = function () {
+    const table = document.getElementById("poLinesTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    poLines.forEach((line, index) => {
+        table.innerHTML += `
+            <tr>
+                <td>${safeHtml(line.product_name)}</td>
+                <td>${safeHtml(line.barcode)}</td>
+                <td>${line.qty}</td>
+                <td><button onclick="removePOLine(${index})">Remove</button></td>
+            </tr>
+        `;
+    });
+};
+
+window.removePOLine = function (index) {
+    poLines.splice(index, 1);
+    displayPOLines();
+};
+
+window.clearPOLines = function () {
+    poLines = [];
+    displayPOLines();
+};
+
+window.createMultiPurchaseOrder = async function () {
+    const supplier_id = document.getElementById("poSupplier").value;
+    const branch_id = document.getElementById("poBranch").value;
+
+    if (!supplier_id || !branch_id) {
+        alert("Please select supplier and branch");
+        return;
+    }
+
+    if (poLines.length === 0) {
+        alert("Please add at least one PO line");
+        return;
+    }
+
+    const items = poLines.map(line => ({
+        product_id: line.product_id,
+        qty: line.qty
+    }));
+
+    const res = await fetch(API + "/purchase-orders-multiple", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            supplier_id,
+            branch_id,
+            items
+        })
+    });
+
+    const data = await res.json();
+
+    alert(
+        data.message
+        ? `${data.message}\nPO No: ${data.po_no}\nLines: ${data.lines}`
+        : data.error
+    );
+
+    if (data.message) {
+        poLines = [];
+        displayPOLines();
+        loadPurchaseOrders();
     }
 };
 
@@ -1417,6 +1531,7 @@ window.loadPurchaseOrders = async function () {
         table.innerHTML += `
             <tr>
                 <td>${o.id}</td>
+                <td>${o.po_no || ("PO-" + o.id)}</td>
                 <td>${safeHtml(o.supplier_name)}</td>
                 <td>${safeHtml(o.product_name)}</td>
                 <td>${safeHtml(o.barcode)}</td>
