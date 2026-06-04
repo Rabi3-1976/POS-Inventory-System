@@ -2646,7 +2646,77 @@ app.post("/fix-po-cancel-columns", verifyToken, adminOnly, async (req, res) => {
     }
 });
 
+// UPDATE PRODUCT NAME
+app.put("/products/:id/name", verifyToken, adminOnly, async (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
 
+    if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Product name is required" });
+    }
+
+    try {
+        const duplicate = await pool.query(
+            "SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND id <> $2",
+            [name.trim(), id]
+        );
+
+        if (duplicate.rows.length > 0) {
+            return res.status(400).json({ error: "Another product with this name already exists" });
+        }
+
+        const result = await pool.query(
+            "UPDATE products SET name = $1 WHERE id = $2 RETURNING *",
+            [name.trim(), id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        res.json({ message: "Product name updated successfully", product: result.rows[0] });
+
+    } catch (err) {
+        console.error("UPDATE PRODUCT NAME ERROR:", err);
+        res.status(500).json({ error: "Product name update failed: " + err.message });
+    }
+});
+
+// UPDATE SUPPLIER NAME
+app.put("/suppliers/:id/name", verifyToken, adminOnly, async (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Supplier name is required" });
+    }
+
+    try {
+        const duplicate = await pool.query(
+            "SELECT id FROM suppliers WHERE LOWER(name) = LOWER($1) AND id <> $2",
+            [name.trim(), id]
+        );
+
+        if (duplicate.rows.length > 0) {
+            return res.status(400).json({ error: "Another supplier with this name already exists" });
+        }
+
+        const result = await pool.query(
+            "UPDATE suppliers SET name = $1 WHERE id = $2 RETURNING *",
+            [name.trim(), id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Supplier not found" });
+        }
+
+        res.json({ message: "Supplier name updated successfully", supplier: result.rows[0] });
+
+    } catch (err) {
+        console.error("UPDATE SUPPLIER NAME ERROR:", err);
+        res.status(500).json({ error: "Supplier name update failed: " + err.message });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
