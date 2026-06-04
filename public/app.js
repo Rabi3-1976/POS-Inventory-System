@@ -327,6 +327,20 @@ window.showPage = function (pageId) {
         loadSupplierReturns();
         loadPurchaseControlOptions();
         loadSupplierBalanceReport();
+        setTimeout(() => {
+    const poSearchInput = document.getElementById("poSearchInput");
+    const poStatusFilter = document.getElementById("poStatusFilter");
+
+    if (poSearchInput && !poSearchInput.dataset.listenerAdded) {
+        poSearchInput.addEventListener("input", loadPurchaseOrders);
+        poSearchInput.dataset.listenerAdded = "true";
+    }
+
+    if (poStatusFilter && !poStatusFilter.dataset.listenerAdded) {
+        poStatusFilter.addEventListener("change", loadPurchaseOrders);
+        poStatusFilter.dataset.listenerAdded = "true";
+    }
+}, 300);
     }
 
     if (pageId === "branchesPage") {
@@ -1622,21 +1636,30 @@ window.loadPurchaseOrders = async function () {
     const status = statusFilter ? statusFilter.value : "";
 
     const filteredOrders = orders.filter(o => {
-        setText("poFilteredCount", filteredOrders.length);
-        const text = `
-            ${o.po_no || ""}
-            ${o.supplier_name || ""}
-            ${o.product_name || ""}
-            ${o.barcode || ""}
-            ${o.branch_name || ""}
-            ${o.status || ""}
-        `.toLowerCase();
+        const poNo = String(o.po_no || ("PO-" + o.id) || "").toLowerCase();
+        const supplier = String(o.supplier_name || "").toLowerCase();
+        const product = String(o.product_name || "").toLowerCase();
+        const barcode = String(o.barcode || "").toLowerCase();
+        const branch = String(o.branch_name || "").toLowerCase();
+        const orderStatus = String(o.status || "");
 
-        const matchesSearch = !search || text.includes(search);
-        const matchesStatus = !status || String(o.status || "") === status;
-        
+        const matchesSearch =
+            !search ||
+            poNo.includes(search) ||
+            supplier.includes(search) ||
+            product.includes(search) ||
+            barcode.includes(search) ||
+            branch.includes(search) ||
+            orderStatus.toLowerCase().includes(search);
+
+        const matchesStatus =
+            !status ||
+            orderStatus === status;
+
         return matchesSearch && matchesStatus;
     });
+
+    setText("poFilteredCount", filteredOrders.length);
 
     table.innerHTML = "";
 
@@ -1645,14 +1668,14 @@ window.loadPurchaseOrders = async function () {
             <tr>
                 <td>${o.id}</td>
                 <td>${safeHtml(o.po_no || ("PO-" + o.id))}</td>
-                <td>${safeHtml(o.supplier_name)}</td>
-                <td>${safeHtml(o.product_name)}</td>
-                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.supplier_name || "")}</td>
+                <td>${safeHtml(o.product_name || "")}</td>
+                <td>${safeHtml(o.barcode || "")}</td>
                 <td>${safeHtml(o.branch_name || "")}</td>
                 <td>${o.qty}</td>
                 <td>${o.received_qty || 0}</td>
                 <td>${o.remaining_qty || 0}</td>
-                <td>${safeHtml(o.status)}</td>
+                <td>${safeHtml(o.status || "")}</td>
                 <td>${safeHtml(o.cancel_reason || "")}</td>
                 <td>${new Date(o.date).toLocaleString()}</td>
                 <td>
@@ -5606,6 +5629,15 @@ window.fixPOCancelColumns = async function () {
     const data = await res.json();
 
     alert(data.message || data.error);
+
+    loadPurchaseOrders();
+};
+window.clearPOFilters = function () {
+    const searchInput = document.getElementById("poSearchInput");
+    const statusFilter = document.getElementById("poStatusFilter");
+
+    if (searchInput) searchInput.value = "";
+    if (statusFilter) statusFilter.value = "";
 
     loadPurchaseOrders();
 };
