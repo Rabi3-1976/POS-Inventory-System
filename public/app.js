@@ -327,6 +327,7 @@ window.showPage = function (pageId) {
         loadSupplierReturns();
         loadPurchaseControlOptions();
         loadSupplierBalanceReport();
+        loadSuppliersList();
         setTimeout(() => {
     const poSearchInput = document.getElementById("poSearchInput");
     const poStatusFilter = document.getElementById("poStatusFilter");
@@ -539,7 +540,14 @@ window.displayProducts = function (products) {
         table.innerHTML += `
             <tr>
                 <td>${p.id}</td>
-                <td>${safeHtml(p.name)}</td>
+                <td>
+                    ${safeHtml(p.name)}
+                    ${
+                        currentRole === "admin"
+                     ? `<br><button onclick="editProductName(${p.id}, '${String(p.name).replace(/'/g, "\\'")}')">Edit Name</button>`
+                     : ""
+                    }
+                </td>
                 <td>${safeHtml(p.barcode)}</td>
                 <td>${formatMoney(p.price)}</td>
                 <td>${p.stock}</td>
@@ -559,6 +567,43 @@ window.displayProducts = function (products) {
         `;
     });
 };
+
+window.editProductName = async function (id, oldName) {
+    const newName = prompt("Enter new product name:", oldName);
+
+    if (newName === null) return;
+
+    if (!newName.trim()) {
+        alert("Product name cannot be empty");
+        return;
+    }
+
+    if (newName.trim() === oldName) {
+        return;
+    }
+
+    const res = await fetch(API + "/products/" + id + "/name", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            name: newName.trim()
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadProducts();
+
+    if (typeof loadDashboard === "function") {
+        loadDashboard();
+    }
+};
+
 window.addProduct = async function () {
     const name = document.getElementById("pname").value.trim();
     const barcode = document.getElementById("barcode").value.trim();
@@ -1383,6 +1428,77 @@ window.receiveAllPurchaseOrder = async function (poNo) {
         loadStockAuditReport();
     }
 };
+
+window.loadSuppliersList = async function () {
+    const res = await fetch(API + "/suppliers");
+    const suppliers = await res.json();
+
+    const table = document.getElementById("suppliersListTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    suppliers.forEach(s => {
+        table.innerHTML += `
+            <tr>
+                <td>${s.id}</td>
+                <td>${safeHtml(s.name)}</td>
+                <td>${safeHtml(s.phone || "")}</td>
+                <td>${safeHtml(s.email || "")}</td>
+                <td>${safeHtml(s.address || "")}</td>
+                <td>
+                    ${
+                        currentRole === "admin"
+                        ? `<button onclick="editSupplierName(${s.id}, '${String(s.name).replace(/'/g, "\\'")}')">Edit Name</button>`
+                        : ""
+                    }
+                </td>
+            </tr>
+        `;
+    });
+};
+
+window.editSupplierName = async function (id, oldName) {
+    const newName = prompt("Enter new supplier name:", oldName);
+
+    if (newName === null) return;
+
+    if (!newName.trim()) {
+        alert("Supplier name cannot be empty");
+        return;
+    }
+
+    if (newName.trim() === oldName) {
+        return;
+    }
+
+    const res = await fetch(API + "/suppliers/" + id + "/name", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            name: newName.trim()
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadSuppliersList();
+    loadSupplierOptions();
+
+    if (typeof loadPurchaseOrders === "function") {
+        loadPurchaseOrders();
+    }
+
+    if (typeof loadSupplierBalanceReport === "function") {
+        loadSupplierBalanceReport();
+    }
+};
+
 // SUPPLIERS / PURCHASE ORDERS
 window.addSupplier = async function () {
     const name = document.getElementById("supplierName").value.trim();

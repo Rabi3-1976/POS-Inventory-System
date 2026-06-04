@@ -732,7 +732,25 @@
 
             <section id="suppliersPage" class="page" style="display:none;">
                 <h1>Suppliers & Purchase Orders</h1>
+<div class="box">
+    <h2>Suppliers List</h2>
 
+    <button onclick="loadSuppliersList()">Load Suppliers</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Supplier Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Address</th>
+                <th>Edit</th>
+            </tr>
+        </thead>
+        <tbody id="suppliersListTable"></tbody>
+    </table>
+</div>
                 <div class="box">
                     <h2>Add Supplier</h2>
                     <input id="supplierName" placeholder="Supplier Name">
