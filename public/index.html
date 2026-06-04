@@ -784,6 +784,23 @@
                 <div class="box">
                     <h2>Purchase Orders</h2>
                     <button onclick="loadPurchaseOrders()">Load Purchase Orders</button>
+                    <p>Total Results: <strong id="poFilteredCount">0</strong></p>
+                    <div class="box">
+    <h2>Search / Filter Purchase Orders</h2>
+
+    <input id="poSearchInput" placeholder="Search PO No, Supplier, Product, Barcode, Branch">
+
+    <select id="poStatusFilter">
+        <option value="">All Status</option>
+        <option value="Pending">Pending</option>
+        <option value="Partially Received">Partially Received</option>
+        <option value="Received">Received / Closed</option>
+        <option value="Cancelled">Cancelled</option>
+    </select>
+
+    <button onclick="loadPurchaseOrders()">Search</button>
+    <button onclick="clearPOFilters()">Clear</button>
+</div>
                     <table>
                         <thead>
                             <tr>

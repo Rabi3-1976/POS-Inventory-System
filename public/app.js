@@ -1316,6 +1316,16 @@ window.syncStockToMain = async function () {
         alert(err.message);
     }
 };
+window.clearPOFilters = function () {
+    const searchInput = document.getElementById("poSearchInput");
+    const statusFilter = document.getElementById("poStatusFilter");
+
+    if (searchInput) searchInput.value = "";
+    if (statusFilter) statusFilter.value = "";
+
+    loadPurchaseOrders();
+};
+
 window.receiveAllPurchaseOrder = async function (poNo) {
     if (!poNo) {
         alert("PO number is missing");
@@ -1605,49 +1615,72 @@ window.loadPurchaseOrders = async function () {
     const table = document.getElementById("purchaseOrdersTable");
     if (!table) return;
 
+    const searchInput = document.getElementById("poSearchInput");
+    const statusFilter = document.getElementById("poStatusFilter");
+
+    const search = searchInput ? searchInput.value.toLowerCase().trim() : "";
+    const status = statusFilter ? statusFilter.value : "";
+
+    const filteredOrders = orders.filter(o => {
+        setText("poFilteredCount", filteredOrders.length);
+        const text = `
+            ${o.po_no || ""}
+            ${o.supplier_name || ""}
+            ${o.product_name || ""}
+            ${o.barcode || ""}
+            ${o.branch_name || ""}
+            ${o.status || ""}
+        `.toLowerCase();
+
+        const matchesSearch = !search || text.includes(search);
+        const matchesStatus = !status || String(o.status || "") === status;
+        
+        return matchesSearch && matchesStatus;
+    });
+
     table.innerHTML = "";
 
-    orders.forEach(o => {
-    table.innerHTML += `
-        <tr>
-            <td>${o.id}</td>
-            <td>${safeHtml(o.po_no || ("PO-" + o.id))}</td>
-            <td>${safeHtml(o.supplier_name)}</td>
-            <td>${safeHtml(o.product_name)}</td>
-            <td>${safeHtml(o.barcode)}</td>
-            <td>${safeHtml(o.branch_name || "")}</td>
-            <td>${o.qty}</td>
-            <td>${o.received_qty || 0}</td>
-            <td>${o.remaining_qty || 0}</td>
-            <td>${safeHtml(o.status)}</td>
-            <td>${safeHtml(o.cancel_reason || "")}</td>
-            <td>${new Date(o.date).toLocaleString()}</td>
-            <td>
-                ${
-                    o.status === "Received"
-                    ? "Received"
-                    : o.status === "Cancelled"
-                        ? "Cancelled"
-                        : `<button onclick="receivePurchaseOrder(${o.id}, ${o.remaining_qty || o.qty})">Receive</button>`
-                }
-            </td>
-            <td>
-                ${
-                    o.status === "Received" || o.status === "Cancelled"
-                    ? ""
-                    : `<button onclick="receiveAllPurchaseOrder('${o.po_no || ("PO-" + o.id)}')">Receive All</button>`
-                }
-            </td>
-            <td>
-                ${
-                    o.status === "Received" || o.status === "Cancelled"
-                    ? ""
-                    : `<button onclick="cancelPurchaseOrder(${o.id})">Cancel</button>`
-                }
-            </td>
-        </tr>
-    `;
-});
+    filteredOrders.forEach(o => {
+        table.innerHTML += `
+            <tr>
+                <td>${o.id}</td>
+                <td>${safeHtml(o.po_no || ("PO-" + o.id))}</td>
+                <td>${safeHtml(o.supplier_name)}</td>
+                <td>${safeHtml(o.product_name)}</td>
+                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.branch_name || "")}</td>
+                <td>${o.qty}</td>
+                <td>${o.received_qty || 0}</td>
+                <td>${o.remaining_qty || 0}</td>
+                <td>${safeHtml(o.status)}</td>
+                <td>${safeHtml(o.cancel_reason || "")}</td>
+                <td>${new Date(o.date).toLocaleString()}</td>
+                <td>
+                    ${
+                        o.status === "Received"
+                        ? "Received"
+                        : o.status === "Cancelled"
+                            ? "Cancelled"
+                            : `<button onclick="receivePurchaseOrder(${o.id}, ${o.remaining_qty || o.qty})">Receive</button>`
+                    }
+                </td>
+                <td>
+                    ${
+                        o.status === "Received" || o.status === "Cancelled"
+                        ? ""
+                        : `<button onclick="receiveAllPurchaseOrder('${o.po_no || ("PO-" + o.id)}')">Receive All</button>`
+                    }
+                </td>
+                <td>
+                    ${
+                        o.status === "Received" || o.status === "Cancelled"
+                        ? ""
+                        : `<button onclick="cancelPurchaseOrder(${o.id})">Cancel</button>`
+                    }
+                </td>
+            </tr>
+        `;
+    });
 };
 
 window.receivePurchaseOrder = async function (id, remainingQty) {
@@ -2301,6 +2334,18 @@ document.addEventListener("DOMContentLoaded", function () {
     if (returnQty) {
         returnQty.addEventListener("input", calculateCustomerRefund);
     }
+    const poSearchInput = document.getElementById("poSearchInput");
+if (poSearchInput) {
+    poSearchInput.addEventListener("keyup", e => {
+        loadPurchaseOrders();
+    });
+}
+
+const poStatusFilter = document.getElementById("poStatusFilter");
+if (poStatusFilter) {
+    poStatusFilter.addEventListener("change", loadPurchaseOrders);
+}
+
 });
 
 // CUSTOMERS
