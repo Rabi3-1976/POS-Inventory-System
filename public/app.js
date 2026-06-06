@@ -5305,38 +5305,40 @@ window.loadMinStockOptions = async function () {
 };
 
 window.saveMinStock = async function () {
-    const branch_id = document.getElementById("minStockBranch").value;
-    const product_id = document.getElementById("minStockProduct").value;
-    const min_stock = Number(document.getElementById("minStockQty").value);
+    const branch_id = document.getElementById("minStockBranch")?.value;
+    const product_id = document.getElementById("minStockProduct")?.value;
+    const min_stock = Number(document.getElementById("minStockQty")?.value);
 
-    if (!branch_id || !product_id || min_stock < 0) {
-        alert("Please select branch/product and valid minimum stock");
+    if (!branch_id || !product_id || min_stock < 0 || isNaN(min_stock)) {
+        alert("Please select branch, product, and valid minimum stock");
         return;
     }
 
-    const res = await fetch(API + "/branch-stock/min-stock", {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        body: JSON.stringify({
-            branch_id,
-            product_id,
-            min_stock
-        })
-    });
+    try {
+        const data = await fetchJson("/branch-stock/min-stock", {
+            method: "PUT",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+                branch_id,
+                product_id,
+                min_stock
+            })
+        });
 
-    const data = await res.json();
+        alert(data.message || "Minimum stock saved");
 
-    alert(data.message || data.error);
+        document.getElementById("minStockQty").value = "";
 
-    document.getElementById("minStockQty").value = "";
+        if (typeof loadBranchStock === "function") loadBranchStock();
+        if (typeof loadLowStockBranchOptions === "function") loadLowStockBranchOptions();
+        if (typeof loadLowStockBranchReport === "function") loadLowStockBranchReport();
+        if (typeof loadReorderOptions === "function") loadReorderOptions();
+        if (typeof loadReorderSuggestions === "function") loadReorderSuggestions();
+        if (typeof loadBranchDashboard === "function") loadBranchDashboard();
 
-    if (typeof loadBranchStock === "function") loadBranchStock();
-
-    loadLowStockBranchReport();
-    loadReorderSuggestions();
+    } catch (err) {
+        alert("Save minimum stock failed: " + err.message);
+    }
 };
 
 window.getLowStockBranchQuery = function () {
@@ -5533,7 +5535,7 @@ window.loadReorderSuggestions = async function () {
             `<option value="${s.id}">${safeHtml(s.name)}</option>`
         ).join("");
 
-        const suggestedQty = Number(r.suggested_qty || 0);
+        const suggestedQty = Number(r.suggested_qty || r.reorder_qty || 0);
         const costValue = suggestedQty * Number(r.cost || 0);
 
         table.innerHTML += `
@@ -5542,8 +5544,8 @@ window.loadReorderSuggestions = async function () {
                 <td>${safeHtml(r.product_name || "")}</td>
                 <td>${safeHtml(r.barcode || "")}</td>
                 <td>${safeHtml(r.uom || "PCS")}</td>
-                <td>${r.stock}</td>
-                <td>${r.min_stock}</td>
+                <td>${r.stock || 0}</td>
+                <td>${r.min_stock || 0}</td>
                 <td>
                     <input id="reorder_qty_${r.branch_id}_${r.product_id}" 
                            type="number" 
