@@ -337,6 +337,7 @@ app.get("/receiving-report", async (req, res) => {
                 r.id,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 r.qty,
                 r.date
             FROM receiving r
@@ -652,6 +653,7 @@ app.post("/branch-stock", verifyToken, adminOnly, async (req, res) => {
         client.release();
     }
 });
+
 // GET BRANCH STOCK
 app.get("/branch-stock", async (req, res) => {
     try {
@@ -661,6 +663,7 @@ app.get("/branch-stock", async (req, res) => {
                 b.name AS branch_name,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 bs.stock,
                 COALESCE(bs.min_stock, 0) AS min_stock
             FROM branch_stock bs
@@ -675,6 +678,7 @@ app.get("/branch-stock", async (req, res) => {
         res.status(500).json({ error: "Branch stock failed to load" });
     }
 });
+
 // STOCK TRANSFER
 app.post("/stock-transfer", verifyToken, adminOnly, async (req, res) => {
     const { from_branch_id, to_branch_id, product_id, qty } = req.body;
@@ -731,6 +735,7 @@ app.post("/stock-transfer", verifyToken, adminOnly, async (req, res) => {
         client.release();
     }
 });
+
 // TRANSFER HISTORY
 app.get("/stock-transfers", async (req, res) => {
     try {
@@ -741,6 +746,7 @@ app.get("/stock-transfers", async (req, res) => {
                 tb.name AS to_branch,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 st.qty,
                 st.date
             FROM stock_transfers st
@@ -755,6 +761,7 @@ app.get("/stock-transfers", async (req, res) => {
         res.status(500).json({ error: "Transfer history failed" });
     }
 });
+
 // RECEIVE PRODUCT TO BRANCH
 app.post("/receive-to-branch", verifyToken, adminOnly, async (req, res) => {
     const { branch_id, product_id, qty } = req.body;
@@ -971,6 +978,7 @@ app.get("/branch-dashboard", async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 // BRANCH STOCK CHECK
 app.get("/branch-stock-check", async (req, res) => {
     const { branch_id, barcode } = req.query;
@@ -981,6 +989,7 @@ app.get("/branch-stock-check", async (req, res) => {
                 p.id,
                 p.name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 p.price,
                 COALESCE(bs.stock, 0) AS branch_stock
             FROM products p
@@ -1000,6 +1009,7 @@ app.get("/branch-stock-check", async (req, res) => {
         res.status(500).json({ error: "Branch stock check failed" });
     }
 });
+
 // SYNC UNASSIGNED STOCK TO MAIN BRANCH
 app.post("/sync-stock-to-main", verifyToken, adminOnly, async (req, res) => {
     const client = await pool.connect();
