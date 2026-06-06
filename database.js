@@ -260,6 +260,10 @@ await pool.query(`
     ALTER TABLE purchase_orders
     ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP
 `);
+await pool.query(`
+    ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS uom TEXT DEFAULT 'PCS'
+`);
 
     console.log("PostgreSQL tables ready");
 }

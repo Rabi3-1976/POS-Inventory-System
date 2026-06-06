@@ -129,12 +129,12 @@ app.get("/products", async (req, res) => {
 });
 
 app.post("/products", verifyToken, adminOnly, async (req, res) => {
-    const { name, barcode, price, cost } = req.body;
+    const { name, barcode, price, cost, uom } = req.body;
 
     try {
         await pool.query(
-            "INSERT INTO products (name, barcode, price, cost, stock) VALUES ($1, $2, $3, $4, 0)",
-            [name, barcode, Number(price), Number(cost || 0)]
+            "INSERT INTO products (name, barcode, price, cost, stock, uom) VALUES ($1, $2, $3, $4, 0, $5)",
+            [name.trim(), barcode.trim(), Number(price), Number(cost || 0), uom || "pcs"]   
         );
 
         res.json({ message: "Product added" });
@@ -405,6 +405,7 @@ app.get("/purchase-orders", async (req, res) => {
                 s.name AS supplier_name,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 b.name AS branch_name,
                 po.qty,
                 po.cancel_reason,
@@ -2715,6 +2716,31 @@ app.put("/suppliers/:id/name", verifyToken, adminOnly, async (req, res) => {
     } catch (err) {
         console.error("UPDATE SUPPLIER NAME ERROR:", err);
         res.status(500).json({ error: "Supplier name update failed: " + err.message });
+    }
+});
+
+// TEMP: FIX PRODUCT UOM COLUMN
+app.post("/fix-product-uom-column", verifyToken, adminOnly, async (req, res) => {
+    try {
+        await pool.query(`
+            ALTER TABLE products
+            ADD COLUMN IF NOT EXISTS uom TEXT DEFAULT 'PCS'
+        `);
+
+        const result = await pool.query(`
+            UPDATE products
+            SET uom = 'PCS'
+            WHERE uom IS NULL OR uom = ''
+        `);
+
+        res.json({
+            message: "Product UOM column fixed successfully",
+            updated: result.rowCount
+        });
+
+    } catch (err) {
+        console.error("FIX PRODUCT UOM COLUMN ERROR:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 
