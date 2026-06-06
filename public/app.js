@@ -6057,3 +6057,317 @@ window.debugStockDropdowns = function () {
         });
     });
 };
+// ===============================
+// FINAL FIX: LOW STOCK + REORDER UOM ALIGNMENT
+// Paste this at the very bottom of app.js
+// ===============================
+
+window.loadLowStockBranchOptions = async function () {
+    try {
+        const branches = await fetchJson("/branches");
+        const select = document.getElementById("lowStockBranchFilter");
+
+        if (!select) {
+            console.warn("lowStockBranchFilter not found");
+            return;
+        }
+
+        select.innerHTML = `<option value="">All Branches</option>`;
+
+        branches.forEach(b => {
+            select.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
+        });
+
+        select.style.minWidth = "130px";
+
+    } catch (err) {
+        console.error("LOW STOCK BRANCH OPTIONS ERROR:", err);
+        alert("Failed to load low stock branches: " + err.message);
+    }
+};
+
+window.getLowStockBranchQuery = function () {
+    const branch = document.getElementById("lowStockBranchFilter")?.value || "";
+    const params = new URLSearchParams();
+
+    if (branch) params.append("branch_id", branch);
+
+    return params.toString();
+};
+
+window.loadLowStockBranchReport = async function () {
+    const query = getLowStockBranchQuery();
+
+    const rows = await fetchJson("/low-stock-branch-report" + (query ? "?" + query : ""));
+
+    const table = document.getElementById("lowStockBranchReportTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${r.stock || 0}</td>
+                <td>${r.min_stock || 0}</td>
+                <td>${r.reorder_qty || 0}</td>
+            </tr>
+        `;
+    });
+};
+
+window.printLowStockBranchReport = async function () {
+    const query = getLowStockBranchQuery();
+
+    const rows = await fetchJson("/low-stock-branch-report" + (query ? "?" + query : ""));
+
+    let htmlRows = "";
+
+    rows.forEach(r => {
+        htmlRows += `
+            <tr>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${r.stock || 0}</td>
+                <td>${r.min_stock || 0}</td>
+                <td>${r.reorder_qty || 0}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Low Stock Alerts by Branch", `
+        <table>
+            <thead>
+                <tr>
+                    <th>Branch</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>UOM</th>
+                    <th>Current Stock</th>
+                    <th>Min Stock</th>
+                    <th>Suggested Reorder Qty</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
+};
+
+window.exportLowStockBranchReportExcel = async function () {
+    const query = getLowStockBranchQuery();
+
+    const rows = await fetchJson("/low-stock-branch-report" + (query ? "?" + query : ""));
+
+    let csv = "Branch,Product,Barcode,UOM,Current Stock,Min Stock,Suggested Reorder Qty\n";
+
+    rows.forEach(r => {
+        csv += `${r.branch_name || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.stock || 0},${r.min_stock || 0},${r.reorder_qty || 0}\n`;
+    });
+
+    downloadCsv(csv, "low_stock_branch_report.csv");
+};
+
+window.loadReorderOptions = async function () {
+    try {
+        const branches = await fetchJson("/branches");
+        const select = document.getElementById("reorderBranchFilter");
+
+        if (!select) {
+            console.warn("reorderBranchFilter not found");
+            return;
+        }
+
+        select.innerHTML = `<option value="">All Branches</option>`;
+
+        branches.forEach(b => {
+            select.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
+        });
+
+        select.style.minWidth = "130px";
+
+    } catch (err) {
+        console.error("REORDER OPTIONS ERROR:", err);
+        alert("Failed to load reorder branches: " + err.message);
+    }
+};
+
+window.getReorderSuggestionsQuery = function () {
+    const branch = document.getElementById("reorderBranchFilter")?.value || "";
+    const params = new URLSearchParams();
+
+    if (branch) params.append("branch_id", branch);
+
+    return params.toString();
+};
+
+window.loadReorderSuggestions = async function () {
+    const query = getReorderSuggestionsQuery();
+
+    const rows = await fetchJson("/reorder-suggestions" + (query ? "?" + query : ""));
+    const suppliers = await fetchJson("/suppliers");
+
+    const table = document.getElementById("reorderSuggestionsTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach((r, index) => {
+        const suggestedQty = Number(r.suggested_qty || 0);
+        const costValue = suggestedQty * Number(r.cost || 0);
+
+        const supplierOptions = suppliers.map(s => {
+            return `<option value="${s.id}">${safeHtml(s.name)}</option>`;
+        }).join("");
+
+        table.innerHTML += `
+            <tr>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${r.stock || 0}</td>
+                <td>${r.min_stock || 0}</td>
+                <td>
+                    <input 
+                        id="reorderQty_${index}" 
+                        type="number" 
+                        value="${suggestedQty}" 
+                        min="1" 
+                        style="width:80px;"
+                    >
+                </td>
+                <td>${formatMoney(costValue)}</td>
+                <td>
+                    <select id="reorderSupplier_${index}">
+                        ${supplierOptions}
+                    </select>
+                </td>
+                <td>
+                    <button onclick="createPOFromReorder(${index}, ${r.product_id}, ${r.branch_id})">
+                        Create PO
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    window.reorderSuggestionsCache = rows;
+};
+
+window.printReorderSuggestions = async function () {
+    const query = getReorderSuggestionsQuery();
+
+    const rows = await fetchJson("/reorder-suggestions" + (query ? "?" + query : ""));
+
+    let htmlRows = "";
+    let totalCostValue = 0;
+
+    rows.forEach(r => {
+        const suggestedQty = Number(r.suggested_qty || 0);
+        const costValue = Number(r.cost || 0) * suggestedQty;
+        totalCostValue += costValue;
+
+        htmlRows += `
+            <tr>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${r.stock || 0}</td>
+                <td>${r.min_stock || 0}</td>
+                <td>${suggestedQty}</td>
+                <td>${formatMoney(costValue)}</td>
+            </tr>
+        `;
+    });
+
+    openReportWindow("Reorder Suggestions", `
+        <table>
+            <thead>
+                <tr>
+                    <th>Branch</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>UOM</th>
+                    <th>Current Stock</th>
+                    <th>Min Stock</th>
+                    <th>Suggested Qty</th>
+                    <th>Cost Value</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+
+        <div class="total">Total Cost Value: ${formatMoney(totalCostValue)}</div>
+    `);
+};
+
+window.exportReorderSuggestionsExcel = async function () {
+    const query = getReorderSuggestionsQuery();
+
+    const rows = await fetchJson("/reorder-suggestions" + (query ? "?" + query : ""));
+
+    let csv = "Branch,Product,Barcode,UOM,Current Stock,Min Stock,Suggested Qty,Cost Value\n";
+
+    rows.forEach(r => {
+        const suggestedQty = Number(r.suggested_qty || 0);
+        const costValue = Number(r.cost || 0) * suggestedQty;
+
+        csv += `${r.branch_name || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.stock || 0},${r.min_stock || 0},${suggestedQty},${costValue.toFixed(2)}\n`;
+    });
+
+    downloadCsv(csv, "reorder_suggestions.csv");
+};
+
+window.saveMinStock = async function () {
+    const branch_id = document.getElementById("minStockBranch")?.value;
+    const product_id = document.getElementById("minStockProduct")?.value;
+    const min_stock = Number(document.getElementById("minStockQty")?.value);
+
+    if (!branch_id || !product_id || min_stock < 0 || isNaN(min_stock)) {
+        alert("Please select branch/product and valid minimum stock");
+        return;
+    }
+
+    try {
+        const data = await fetchJson("/branch-stock/min-stock", {
+            method: "PUT",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+                branch_id,
+                product_id,
+                min_stock
+            })
+        });
+
+        alert(data.message || "Minimum stock updated");
+
+        document.getElementById("minStockQty").value = "";
+
+        if (typeof loadBranchStock === "function") loadBranchStock();
+        if (typeof loadLowStockBranchOptions === "function") loadLowStockBranchOptions();
+        if (typeof loadLowStockBranchReport === "function") loadLowStockBranchReport();
+        if (typeof loadReorderOptions === "function") loadReorderOptions();
+        if (typeof loadReorderSuggestions === "function") loadReorderSuggestions();
+        if (typeof loadBranchDashboard === "function") loadBranchDashboard();
+
+    } catch (err) {
+        alert("Save minimum stock failed: " + err.message);
+    }
+};
+
+window.saveMinimumStock = window.saveMinStock;
