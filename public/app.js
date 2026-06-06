@@ -154,13 +154,24 @@ window.login = async function () {
     }
 
     try {
-        await window.loadSystemCurrency();
+        if (typeof window.loadSystemCurrency === "function") {
+            await window.loadSystemCurrency();
+        }
 
-        const data = await fetchJson("/login", {
+        const res = await fetch(API + "/login", {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
+            headers: {
+                "Content-Type": "application/json"
+            },
             body: JSON.stringify({ username, password })
         });
+
+        const data = await res.json();
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
 
         token = data.token;
         currentRole = data.role;
@@ -169,30 +180,34 @@ window.login = async function () {
         localStorage.setItem("role", currentRole);
         localStorage.setItem("username", username);
 
-        window.applyRolePermissions();
+        if (typeof window.applyRolePermissions === "function") {
+            window.applyRolePermissions();
+        }
 
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("mainSection").style.display = "block";
 
         const adminSection = document.getElementById("adminSection");
-        if (adminSection) adminSection.style.display = currentRole === "admin" ? "block" : "none";
+        if (adminSection) {
+            adminSection.style.display = currentRole === "admin" ? "block" : "none";
+        }
 
         const usersMenuBtn = document.getElementById("usersMenuBtn");
-        if (usersMenuBtn) usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
+        if (usersMenuBtn) {
+            usersMenuBtn.style.display = currentRole === "admin" ? "block" : "none";
+        }
 
         if (currentRole === "cashier") {
             showPage("posPage");
         } else if (currentRole === "warehouse") {
             showPage("productsPage");
-        } else if (currentRole === "manager") {
-            showPage("dashboardPage");
         } else {
             showPage("dashboardPage");
         }
 
     } catch (err) {
         console.error("LOGIN ERROR:", err);
-        alert(err.message || "Login failed");
+        alert("Login failed: " + err.message);
     }
 };
 
