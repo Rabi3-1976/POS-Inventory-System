@@ -942,13 +942,16 @@
         <tbody id="supplierReturnsTable"></tbody>
     </table>
 </div>
+
 <div class="box">
     <h2>Purchase Control Reports</h2>
 
     <select id="poReportStatus">
         <option value="">All PO Status</option>
-        <option value="Open">Pending / Open</option>
+        <option value="Pending">Pending</option>
+        <option value="Partially Received">Partially Received</option>
         <option value="Received">Received</option>
+        <option value="Cancelled">Cancelled</option>
     </select>
 
     <select id="poReportSupplier"></select>
@@ -959,45 +962,30 @@
     <button onclick="exportFilteredPOReportExcel()">Export PO Excel</button>
 
     <table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>PO No</th>
-            <th>Supplier</th>
-            <th>Product</th>
-            <th>Barcode</th>
-            <th>UOM</th>
-            <th>Branch</th>
-            <th>Ordered Qty</th>
-            <th>Received Qty</th>
-            <th>Remaining Qty</th>
-            <th>Status</th>
-            <th>Cancel Reason</th>
-            <th>Date</th>
-        </tr>
-    </thead>
-    <tbody id="filteredPOReportTable"></tbody>
-</table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>PO No</th>
+                <th>Supplier</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>UOM</th>
+                <th>Branch</th>
+                <th>Ordered Qty</th>
+                <th>Received Qty</th>
+                <th>Remaining Qty</th>
+                <th>Status</th>
+                <th>Cancel Reason</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="filteredPOReportTable"></tbody>
+    </table>
 </div>
 
 <div class="box">
     <h2>Filtered Supplier Returns</h2>
-<table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Supplier</th>
-            <th>Product</th>
-            <th>Barcode</th>
-            <th>UOM</th>
-            <th>Branch</th>
-            <th>Qty</th>
-            <th>Reason</th>
-            <th>Date</th>
-        </tr>
-    </thead>
-    <tbody id="filteredReturnsReportTable"></tbody>
-</table>
+
     <select id="returnReportSupplier"></select>
     <select id="returnReportBranch"></select>
 
@@ -1006,26 +994,22 @@
     <button onclick="exportFilteredReturnsExcel()">Export Returns Excel</button>
 
     <table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>PO No</th>
-            <th>Supplier</th>
-            <th>Product</th>
-            <th>Barcode</th>
-            <th>UOM</th>
-            <th>Branch</th>
-            <th>Ordered Qty</th>
-            <th>Received Qty</th>
-            <th>Remaining Qty</th>
-            <th>Status</th>
-            <th>Cancel Reason</th>
-            <th>Date</th>
-        </tr>
-    </thead>
-    <tbody id="filteredPOReportTable"></tbody>
-</table>
-    </div>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Supplier</th>
+                <th>Product</th>
+                <th>Barcode</th>
+                <th>UOM</th>
+                <th>Branch</th>
+                <th>Qty</th>
+                <th>Reason</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="filteredReturnsReportTable"></tbody>
+    </table>
+</div>
 
     <div class="box">
     <h2>Supplier Balance / Net Purchase Report</h2>

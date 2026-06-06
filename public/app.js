@@ -4745,7 +4745,10 @@ window.loadFilteredReturnsReport = async function () {
     const rows = await res.json();
 
     const table = document.getElementById("filteredReturnsReportTable");
-    if (!table) return;
+    if (!table) {
+        alert("Filtered Supplier Returns table is missing in index.html");
+        return;
+    }
 
     table.innerHTML = "";
 
