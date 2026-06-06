@@ -2190,14 +2190,14 @@ app.get("/low-stock-branch-report", async (req, res) => {
                 p.name AS product_name,
                 p.barcode,
                 COALESCE(p.uom, 'PCS') AS uom,
-                bs.stock,
+                COALESCE(bs.stock, 0) AS stock,
                 COALESCE(bs.min_stock, 0) AS min_stock,
                 GREATEST(COALESCE(bs.min_stock, 0) - COALESCE(bs.stock, 0), 0) AS reorder_qty
             FROM branch_stock bs
             JOIN branches b ON bs.branch_id = b.id
             JOIN products p ON bs.product_id = p.id
-            WHERE COALESCE(bs.stock, 0) <= COALESCE(bs.min_stock, 0)
-            AND COALESCE(bs.min_stock, 0) > 0
+            WHERE COALESCE(bs.min_stock, 0) > 0
+            AND COALESCE(bs.stock, 0) <= COALESCE(bs.min_stock, 0)
         `;
 
         const params = [];
@@ -2233,7 +2233,7 @@ app.get("/reorder-suggestions", async (req, res) => {
                 p.barcode,
                 COALESCE(p.uom, 'PCS') AS uom,
                 p.cost,
-                bs.stock,
+                COALESCE(bs.stock, 0) AS stock,
                 COALESCE(bs.min_stock, 0) AS min_stock,
                 GREATEST(COALESCE(bs.min_stock, 0) - COALESCE(bs.stock, 0), 0) AS suggested_qty
             FROM branch_stock bs
