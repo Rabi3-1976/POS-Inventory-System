@@ -672,6 +672,7 @@
                     <button onclick="stopScanner()">Stop Scanner</button>
                     <div id="receivingReader" style="width:300px; margin-top:15px;"></div>
                 </div>
+                
             </section>
 
             <section id="branchesPage" class="page" style="display:none;">
@@ -716,17 +717,17 @@
                     <h2>Branch Stock List</h2>
                     <button onclick="loadBranchStock()">Load Branch Stock</button>
                     <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Branch</th>
-                                <th>Product</th>
-                                <th>Barcode</th>
-                                <th>UOM</th>
-                                <th>Stock</th>
-                                <th>Min Stock</th>
-                            </tr>
-                        </thead>
+<thead>
+    <tr>
+        <th>ID</th>
+        <th>Branch</th>
+        <th>Product</th>
+        <th>Barcode</th>
+        <th>UOM</th>
+        <th>Stock</th>
+        <th>Min Stock</th>
+    </tr>
+</thead>
                         <tbody id="branchStockTable"></tbody>
                     </table>
                 </div>
@@ -745,16 +746,16 @@
                     <button onclick="loadStockTransfers()">Load Transfers</button>
                     <table>
                         <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>From Branch</th>
-                                <th>To Branch</th>
-                                <th>Product</th>
-                                <th>Barcode</th>
-                                <th>UOM</th>
-                                <th>Qty</th>
-                                <th>Date</th>
-                            </tr>
+                        <tr>
+                            <th>ID</th>
+                            <th>From Branch</th>
+                            <th>To Branch</th>
+                            <th>Product</th>
+                            <th>Barcode</th>
+                            <th>UOM</th>
+                            <th>Qty</th>
+                            <th>Date</th>
+                        </tr>
                         </thead>
                         <tbody id="stockTransfersTable"></tbody>
                     </table>

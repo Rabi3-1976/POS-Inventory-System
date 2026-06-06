@@ -1311,7 +1311,11 @@ window.loadBranchStockOptions = async function () {
         });
 
         products.forEach(p => {
-            productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+            productSelect.innerHTML += `
+                <option value="${p.id}">
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}
+                </option>
+            `;
         });
     } catch (err) {
         console.error("Branch stock options error:", err);
@@ -1360,9 +1364,10 @@ window.loadBranchStock = async function () {
             table.innerHTML += `
                 <tr>
                     <td>${r.id}</td>
-                    <td>${safeHtml(r.branch_name)}</td>
-                    <td>${safeHtml(r.product_name)}</td>
-                    <td>${safeHtml(r.barcode)}</td>
+                    <td>${safeHtml(r.branch_name || "")}</td>
+                    <td>${safeHtml(r.product_name || "")}</td>
+                    <td>${safeHtml(r.barcode || "")}</td>
+                    <td>${safeHtml(r.uom || "PCS")}</td>
                     <td>${r.stock}</td>
                     <td>${r.min_stock || 0}</td>
                 </tr>
@@ -1395,7 +1400,11 @@ window.loadTransferOptions = async function () {
         });
 
         products.forEach(p => {
-            transferProduct.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+            transferProduct.innerHTML += `
+                <option value="${p.id}">
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}
+                </option>
+            `;
         });
     } catch (err) {
         console.error("Transfer options error:", err);
@@ -1444,12 +1453,13 @@ window.loadStockTransfers = async function () {
             table.innerHTML += `
                 <tr>
                     <td>${t.id}</td>
-                    <td>${safeHtml(t.from_branch)}</td>
-                    <td>${safeHtml(t.to_branch)}</td>
-                    <td>${safeHtml(t.product_name)}</td>
-                    <td>${safeHtml(t.barcode)}</td>
+                    <td>${safeHtml(t.from_branch || "")}</td>
+                    <td>${safeHtml(t.to_branch || "")}</td>
+                    <td>${safeHtml(t.product_name || "")}</td>
+                    <td>${safeHtml(t.barcode || "")}</td>
+                    <td>${safeHtml(t.uom || "PCS")}</td>
                     <td>${t.qty}</td>
-                    <td>${safeHtml(t.date)}</td>
+                    <td>${new Date(t.date).toLocaleString()}</td>
                 </tr>
             `;
         });
@@ -2231,10 +2241,11 @@ window.printReceivingReport = async function () {
     const rows = receiving.map(r => `
         <tr>
             <td>${r.id}</td>
-            <td>${safeHtml(r.product_name)}</td>
-            <td>${safeHtml(r.barcode)}</td>
+            <td>${safeHtml(r.product_name || "")}</td>
+            <td>${safeHtml(r.barcode || "")}</td>
+            <td>${safeHtml(r.uom || "PCS")}</td>
             <td>${r.qty}</td>
-            <td>${safeHtml(r.date)}</td>
+            <td>${new Date(r.date).toLocaleString()}</td>
         </tr>
     `).join("");
 
@@ -2245,6 +2256,7 @@ window.printReceivingReport = async function () {
                     <th>ID</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Qty</th>
                     <th>Date</th>
                 </tr>
@@ -2256,10 +2268,10 @@ window.printReceivingReport = async function () {
 
 window.exportReceivingExcel = async function () {
     const receiving = await fetchJson("/receiving-report");
-    let csv = "ID,Product,Barcode,Qty,Date\n";
+    let csv = "ID,Product,Barcode,UOM,Qty,Date\n";
 
     receiving.forEach(r => {
-        csv += `${r.id},${r.product_name},${r.barcode},${r.qty},${r.date}\n`;
+        csv += `${r.id},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.qty},${new Date(r.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "receiving_report.csv");
@@ -2331,12 +2343,13 @@ window.printTransferReport = async function () {
     const rows = transfers.map(t => `
         <tr>
             <td>${t.id}</td>
-            <td>${safeHtml(t.from_branch)}</td>
-            <td>${safeHtml(t.to_branch)}</td>
-            <td>${safeHtml(t.product_name)}</td>
-            <td>${safeHtml(t.barcode)}</td>
+            <td>${safeHtml(t.from_branch || "")}</td>
+            <td>${safeHtml(t.to_branch || "")}</td>
+            <td>${safeHtml(t.product_name || "")}</td>
+            <td>${safeHtml(t.barcode || "")}</td>
+            <td>${safeHtml(t.uom || "PCS")}</td>
             <td>${t.qty}</td>
-            <td>${safeHtml(t.date)}</td>
+            <td>${new Date(t.date).toLocaleString()}</td>
         </tr>
     `).join("");
 
@@ -2349,6 +2362,7 @@ window.printTransferReport = async function () {
                     <th>To Branch</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Qty</th>
                     <th>Date</th>
                 </tr>
@@ -2360,10 +2374,10 @@ window.printTransferReport = async function () {
 
 window.exportTransferExcel = async function () {
     const transfers = await fetchJson("/stock-transfers");
-    let csv = "ID,From Branch,To Branch,Product,Barcode,Qty,Date\n";
+    let csv = "ID,From Branch,To Branch,Product,Barcode,UOM,Qty,Date\n";
 
     transfers.forEach(t => {
-        csv += `${t.id},${t.from_branch},${t.to_branch},${t.product_name},${t.barcode},${t.qty},${t.date}\n`;
+        csv += `${t.id},${t.from_branch || ""},${t.to_branch || ""},${t.product_name || ""},${t.barcode || ""},${t.uom || "PCS"},${t.qty},${new Date(t.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "stock_transfer_report.csv");
