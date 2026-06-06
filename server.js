@@ -2743,6 +2743,37 @@ app.post("/fix-product-uom-column", verifyToken, adminOnly, async (req, res) => 
         res.status(500).json({ error: err.message });
     }
 });
+// UPDATE PRODUCT UOM
+app.put("/products/:id/uom", verifyToken, adminOnly, async (req, res) => {
+    const { id } = req.params;
+    const { uom } = req.body;
+
+    if (!uom || !uom.trim()) {
+        return res.status(400).json({ error: "Unit of measure is required" });
+    }
+
+    try {
+        const result = await pool.query(
+            "UPDATE products SET uom = $1 WHERE id = $2 RETURNING *",
+            [uom.trim().toUpperCase(), id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Product not found" });
+        }
+
+        res.json({
+            message: "Product UOM updated successfully",
+            product: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error("UPDATE PRODUCT UOM ERROR:", err);
+        res.status(500).json({
+            error: "Product UOM update failed: " + err.message
+        });
+    }
+});
 
 // START SERVER
 app.listen(PORT, () => {
