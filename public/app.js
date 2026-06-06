@@ -624,7 +624,8 @@ window.addProduct = async function () {
     const barcode = document.getElementById("barcode").value.trim();
     const price = Number(document.getElementById("price").value);
     const cost = Number(document.getElementById("cost").value);
-    const uom = document.getElementById("uom").value || "PCS";
+    const uomInput = document.getElementById("uom");
+    const uom = uomInput ? uomInput.value : "PCS";
 
     if (!name || !barcode || price <= 0) {
         alert("Please enter product name, barcode, and valid price");
@@ -644,7 +645,8 @@ window.addProduct = async function () {
         document.getElementById("barcode").value = "";
         document.getElementById("price").value = "";
         document.getElementById("cost").value = "";
-        document.getElementById("uom").value = "PCS";
+       const uomClear = document.getElementById("uom");
+        if (uomClear) uomClear.value = "PCS";
 
         loadProducts();
         loadDashboard();
@@ -1555,6 +1557,7 @@ window.loadSupplierOptions = async function () {
         const suppliers = await fetchJson("/suppliers");
         const products = await fetchJson("/products");
         const branches = await fetchJson("/branches");
+
         poProductsCache = products;
 
         const supplierSelect = document.getElementById("poSupplier");
@@ -1568,20 +1571,34 @@ window.loadSupplierOptions = async function () {
         branchSelect.innerHTML = "";
 
         suppliers.forEach(s => {
-            supplierSelect.innerHTML += `<option value="${s.id}">${safeHtml(s.name)}</option>`;
+            supplierSelect.innerHTML += `
+                <option value="${s.id}">
+                    ${safeHtml(s.name)}
+                </option>
+            `;
         });
 
         products.forEach(p => {
-            productSelect.innerHTML += <option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}</option>
+            productSelect.innerHTML += `
+                <option value="${p.id}">
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}
+                </option>
+            `;
         });
 
         branches.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+            branchSelect.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
         });
+
     } catch (err) {
         console.error("Supplier options error:", err);
     }
 };
+
 window.addPOLine = function () {
     const productSelect = document.getElementById("poProduct");
     const qtyInput = document.getElementById("poQty");
