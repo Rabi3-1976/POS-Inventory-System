@@ -49,6 +49,15 @@ function safeHtml(value) {
         "'": "&#039;"
     }[c]));
 }
+function fillSelectOptionsByIds(ids, optionsHtml) {
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.innerHTML = optionsHtml;
+            console.log("Dropdown loaded:", id);
+        }
+    });
+}
 
 // CURRENCY HELPERS
 window.loadSystemCurrency = async function () {
@@ -375,6 +384,8 @@ window.showPage = function (pageId) {
     loadStockAdjustmentReport();
 
     loadMinStockOptions();
+
+    loadLowStockBranchOptions();
     loadLowStockBranchReport();
 
     loadReorderOptions();
@@ -5105,53 +5116,56 @@ window.loadStockAdjustmentReportOptions = async function () {
         const branches = await fetchJson("/branches");
         const products = await fetchJson("/products");
 
-        const branchOptions = `<option value="">All Branches</option>` + branches.map(b => `
-            <option value="${b.id}">${safeHtml(b.name)}</option>
-        `).join("");
+        const branchSelect = document.getElementById("adjustReportBranch");
+        const productSelect = document.getElementById("adjustReportProduct");
 
-        const productOptions = `<option value="">All Products</option>` + products.map(p => `
-            <option value="${p.id}">
-                ${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}
-            </option>
-        `).join("");
+        if (!branchSelect || !productSelect) {
+            console.warn("adjustReportBranch or adjustReportProduct not found");
+            return;
+        }
 
-        fillSelectByIds([
-            "adjustmentReportBranch",
-            "stockAdjustmentReportBranch",
-            "stockReportBranch",
-            "saReportBranch"
-        ], branchOptions);
+        branchSelect.innerHTML = `<option value="">All Branches</option>`;
+        productSelect.innerHTML = `<option value="">All Products</option>`;
 
-        fillSelectByIds([
-            "adjustmentReportProduct",
-            "stockAdjustmentReportProduct",
-            "stockReportProduct",
-            "saReportProduct"
-        ], productOptions);
+        branches.forEach(b => {
+            branchSelect.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
+        });
+
+        products.forEach(p => {
+            productSelect.innerHTML += `
+                <option value="${p.id}">
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}
+                </option>
+            `;
+        });
 
     } catch (err) {
-        console.error("Stock adjustment report options error:", err);
+        console.error("STOCK ADJUSTMENT REPORT OPTIONS ERROR:", err);
         alert("Failed to load stock adjustment report dropdowns: " + err.message);
     }
 };
 
-window.getStockAdjustmentReportQuery = function () {
-    const branch = document.getElementById("adjustReportBranch").value;
-    const product = document.getElementById("adjustReportProduct").value;
-    const type = document.getElementById("adjustReportType").value;
-    const dateFrom = document.getElementById("adjustReportDateFrom").value;
-    const dateTo = document.getElementById("adjustReportDateTo").value;
-
+function getStockAdjustmentReportQuery() {
     const params = new URLSearchParams();
 
-    if (branch) params.append("branch_id", branch);
-    if (product) params.append("product_id", product);
+    const branchId = document.getElementById("adjustReportBranch")?.value || "";
+    const productId = document.getElementById("adjustReportProduct")?.value || "";
+    const type = document.getElementById("adjustmentReportType")?.value || "";
+    const dateFrom = document.getElementById("adjustmentDateFrom")?.value || "";
+    const dateTo = document.getElementById("adjustmentDateTo")?.value || "";
+
+    if (branchId) params.append("branch_id", branchId);
+    if (productId) params.append("product_id", productId);
     if (type) params.append("adjustment_type", type);
     if (dateFrom) params.append("date_from", dateFrom);
     if (dateTo) params.append("date_to", dateTo);
 
     return params.toString();
-};
+}
 
 window.loadStockAdjustmentReport = async function () {
     const query = getStockAdjustmentReportQuery();
@@ -5361,6 +5375,31 @@ window.loadLowStockBranchReport = async function () {
     });
 };
 
+window.loadLowStockBranchReport = async function () {
+    const branchId = document.getElementById("lowStockBranchFilter")?.value || "";
+    const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
+
+    const rows = await fetchJson("/low-stock-branch-report" + query);
+
+    const table = document.getElementById("lowStockBranchReportTable");
+    if (!table) return;
+
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        table.innerHTML += `
+            <tr>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${r.stock}</td>
+                <td>${r.min_stock}</td>
+                <td>${r.reorder_qty}</td>
+            </tr>
+        `;
+    });
+};
 
 window.printLowStockBranchReport = async function () {
     const branchId = document.getElementById("lowStockBranch")?.value || "";
@@ -5422,26 +5461,31 @@ window.loadReorderOptions = async function () {
     try {
         const branches = await fetchJson("/branches");
 
-        const branchOptions = `<option value="">All Branches</option>` + branches.map(b => `
-            <option value="${b.id}">${safeHtml(b.name)}</option>
-        `).join("");
+        const select = document.getElementById("reorderBranchFilter");
+        if (!select) {
+            console.warn("reorderBranchFilter not found");
+            return;
+        }
 
-        fillSelectByIds([
-            "reorderBranch",
-            "reorderSuggestionBranch",
-            "reorderReportBranch",
-            "suggestionBranch"
-        ], branchOptions);
+        select.innerHTML = `<option value="">All Branches</option>`;
+
+        branches.forEach(b => {
+            select.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
+        });
 
     } catch (err) {
-        console.error("Reorder options error:", err);
-        alert("Failed to load reorder dropdowns: " + err.message);
+        console.error("REORDER OPTIONS ERROR:", err);
+        alert("Failed to load reorder branches: " + err.message);
     }
 };
 
 // REORDER SUGGESTIONS
 window.loadReorderSuggestions = async function () {
-    const branchId = document.getElementById("reorderBranch")?.value || "";
+    const branchId = document.getElementById("reorderBranchFilter")?.value || "";
     const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
 
     const rows = await fetchJson("/reorder-suggestions" + query);
@@ -5469,7 +5513,11 @@ window.loadReorderSuggestions = async function () {
                 <td>${r.stock}</td>
                 <td>${r.min_stock}</td>
                 <td>
-                    <input id="reorder_qty_${r.branch_id}_${r.product_id}" type="number" value="${suggestedQty}" min="1" style="width:80px;">
+                    <input id="reorder_qty_${r.branch_id}_${r.product_id}" 
+                           type="number" 
+                           value="${suggestedQty}" 
+                           min="1" 
+                           style="width:80px;">
                 </td>
                 <td>${formatMoney(costValue)}</td>
                 <td>
@@ -5478,7 +5526,9 @@ window.loadReorderSuggestions = async function () {
                     </select>
                 </td>
                 <td>
-                    <button onclick="createPOFromSuggestion(${r.branch_id}, ${r.product_id})">Create PO</button>
+                    <button onclick="createPOFromSuggestion(${r.branch_id}, ${r.product_id})">
+                        Create PO
+                    </button>
                 </td>
             </tr>
         `;
