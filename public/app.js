@@ -564,6 +564,14 @@ window.displayProducts = function (products) {
                     }
                 </td>
                 <td>${safeHtml(p.barcode)}</td>
+                <td>
+                    ${safeHtml(p.uom || "PCS")}
+                    ${
+                        currentRole === "admin"
+                        ? `<br><button onclick="editProductUOM(${p.id}, '${String(p.uom || "PCS").replace(/'/g, "\\'")}')">Edit UOM</button>`
+        : ""
+                    }
+</td>
                 <td>${formatMoney(p.price)}</td>
                 <td>${p.stock}</td>
                 <td>
@@ -652,6 +660,79 @@ window.addProduct = async function () {
         loadDashboard();
     } catch (err) {
         alert(err.message);
+    }
+};
+
+window.editProductUOM = async function (id, oldUOM) {
+    const allowedUOMs = [
+        "PCS",
+        "BOX",
+        "PACK",
+        "KG",
+        "GRAM",
+        "LITER",
+        "ML",
+        "BOTTLE",
+        "CARTON",
+        "DOZEN",
+        "CASE",
+        "TRAY",
+        "ROLL",
+        "CAN",
+        "JAR",
+        "BAG"
+    ];
+
+    const newUOM = prompt(
+        "Enter new UOM:\n\nAllowed: " + allowedUOMs.join(", "),
+        oldUOM || "PCS"
+    );
+
+    if (newUOM === null) return;
+
+    const cleanUOM = newUOM.trim().toUpperCase();
+
+    if (!cleanUOM) {
+        alert("UOM cannot be empty");
+        return;
+    }
+
+    if (!allowedUOMs.includes(cleanUOM)) {
+        alert("Invalid UOM. Allowed values are:\n" + allowedUOMs.join(", "));
+        return;
+    }
+
+    if (cleanUOM === oldUOM) {
+        return;
+    }
+
+    const res = await fetch(API + "/products/" + id + "/uom", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: JSON.stringify({
+            uom: cleanUOM
+        })
+    });
+
+    const data = await res.json();
+
+    alert(data.message || data.error);
+
+    loadProducts();
+
+    if (typeof loadSupplierOptions === "function") {
+        loadSupplierOptions();
+    }
+
+    if (typeof loadPurchaseOrders === "function") {
+        loadPurchaseOrders();
+    }
+
+    if (typeof loadBranchStock === "function") {
+        loadBranchStock();
     }
 };
 
