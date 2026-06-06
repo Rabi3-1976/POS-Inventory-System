@@ -2189,6 +2189,7 @@ app.get("/low-stock-branch-report", async (req, res) => {
                 p.id AS product_id,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 bs.stock,
                 COALESCE(bs.min_stock, 0) AS min_stock,
                 GREATEST(COALESCE(bs.min_stock, 0) - COALESCE(bs.stock, 0), 0) AS reorder_qty
@@ -2217,6 +2218,7 @@ app.get("/low-stock-branch-report", async (req, res) => {
         res.status(500).json({ error: "Low stock branch report failed" });
     }
 });
+
 // REORDER SUGGESTIONS BY BRANCH
 app.get("/reorder-suggestions", async (req, res) => {
     const { branch_id } = req.query;
@@ -2229,6 +2231,7 @@ app.get("/reorder-suggestions", async (req, res) => {
                 bs.product_id,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 p.cost,
                 bs.stock,
                 COALESCE(bs.min_stock, 0) AS min_stock,
@@ -2258,6 +2261,7 @@ app.get("/reorder-suggestions", async (req, res) => {
         res.status(500).json({ error: "Reorder suggestions failed" });
     }
 });
+
 // FINAL STOCK AUDIT REPORT
 app.get("/stock-audit-report", async (req, res) => {
     try {
@@ -2266,6 +2270,7 @@ app.get("/stock-audit-report", async (req, res) => {
                 p.id AS product_id,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 COALESCE(p.stock, 0) AS product_stock,
                 COALESCE(branch_totals.branch_stock_total, 0) AS branch_stock_total,
                 COALESCE(p.stock, 0) - COALESCE(branch_totals.branch_stock_total, 0) AS difference,
