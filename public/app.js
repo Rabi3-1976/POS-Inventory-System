@@ -368,16 +368,20 @@ window.showPage = function (pageId) {
     }
 
     if (pageId === "stockControlPage") {
-        loadStockControlOptions();
-        loadStockAdjustments();
-        loadStockAdjustmentReportOptions();
-        loadStockAdjustmentReport();
-        loadMinStockOptions();
-        loadLowStockBranchReport();
-        loadReorderOptions();
-        loadReorderSuggestions();
-        loadStockAuditReport();
-    }
+    loadStockControlOptions();
+    loadStockAdjustments();
+
+    loadStockAdjustmentReportOptions();
+    loadStockAdjustmentReport();
+
+    loadMinStockOptions();
+    loadLowStockBranchReport();
+
+    loadReorderOptions();
+    loadReorderSuggestions();
+
+    loadStockAuditReport();
+}
 
     if (pageId === "usersPage") {
         loadUsers();
@@ -4991,11 +4995,13 @@ window.loadStockControlOptions = async function () {
 
         const branchSelect =
             document.getElementById("adjustmentBranch") ||
-            document.getElementById("stockAdjustmentBranch");
+            document.getElementById("stockAdjustmentBranch") ||
+            document.getElementById("stockControlBranch");
 
         const productSelect =
             document.getElementById("adjustmentProduct") ||
-            document.getElementById("stockAdjustmentProduct");
+            document.getElementById("stockAdjustmentProduct") ||
+            document.getElementById("stockControlProduct");
 
         if (!branchSelect || !productSelect) {
             console.warn("Stock adjustment dropdown IDs not found");
@@ -5006,7 +5012,11 @@ window.loadStockControlOptions = async function () {
         productSelect.innerHTML = "";
 
         branches.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+            branchSelect.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
         });
 
         products.forEach(p => {
@@ -5019,6 +5029,7 @@ window.loadStockControlOptions = async function () {
 
     } catch (err) {
         console.error("Stock control options error:", err);
+        alert("Failed to load stock adjustment branches/products: " + err.message);
     }
 };
 
@@ -5104,11 +5115,13 @@ window.loadStockAdjustmentReportOptions = async function () {
 
         const branchSelect =
             document.getElementById("adjustmentReportBranch") ||
-            document.getElementById("stockAdjustmentReportBranch");
+            document.getElementById("stockAdjustmentReportBranch") ||
+            document.getElementById("stockReportBranch");
 
         const productSelect =
             document.getElementById("adjustmentReportProduct") ||
-            document.getElementById("stockAdjustmentReportProduct");
+            document.getElementById("stockAdjustmentReportProduct") ||
+            document.getElementById("stockReportProduct");
 
         if (!branchSelect || !productSelect) {
             console.warn("Stock adjustment report dropdown IDs not found");
@@ -5119,7 +5132,11 @@ window.loadStockAdjustmentReportOptions = async function () {
         productSelect.innerHTML = `<option value="">All Products</option>`;
 
         branches.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+            branchSelect.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
         });
 
         products.forEach(p => {
@@ -5132,6 +5149,7 @@ window.loadStockAdjustmentReportOptions = async function () {
 
     } catch (err) {
         console.error("Stock adjustment report options error:", err);
+        alert("Failed to load stock adjustment report branches/products: " + err.message);
     }
 };
 
@@ -5258,35 +5276,45 @@ window.clearStockAdjustmentReportFilters = function () {
 
 // MIN STOCK / LOW STOCK
 window.loadMinStockOptions = async function () {
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
+    try {
+        const branches = await fetchJson("/branches");
+        const products = await fetchJson("/products");
 
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
+        const branchSelect =
+            document.getElementById("minStockBranch") ||
+            document.getElementById("minimumStockBranch");
 
-    const minBranch = document.getElementById("minStockBranch");
-    const minProduct = document.getElementById("minStockProduct");
-    const lowBranch = document.getElementById("lowStockBranchFilter");
+        const productSelect =
+            document.getElementById("minStockProduct") ||
+            document.getElementById("minimumStockProduct");
 
-    if (minBranch) {
-        minBranch.innerHTML = "";
+        if (!branchSelect || !productSelect) {
+            console.warn("Minimum stock dropdown IDs not found");
+            return;
+        }
+
+        branchSelect.innerHTML = "";
+        productSelect.innerHTML = "";
+
         branches.forEach(b => {
-            minBranch.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+            branchSelect.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
         });
-    }
 
-    if (minProduct) {
-        minProduct.innerHTML = "";
         products.forEach(p => {
-            minProduct.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+            productSelect.innerHTML += `
+                <option value="${p.id}">
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}
+                </option>
+            `;
         });
-    }
 
-    if (lowBranch) {
-        lowBranch.innerHTML = `<option value="">All Branches</option>`;
-        branches.forEach(b => {
-            lowBranch.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
-        });
+    } catch (err) {
+        console.error("Minimum stock options error:", err);
+        alert("Failed to load minimum stock branches/products: " + err.message);
     }
 };
 
@@ -5415,6 +5443,37 @@ window.exportLowStockBranchReportExcel = async function () {
     });
 
     downloadCsv(csv, "low_stock_branch_report.csv");
+};
+
+// REORDER OPTIONS
+window.loadReorderOptions = async function () {
+    try {
+        const branches = await fetchJson("/branches");
+
+        const branchSelect =
+            document.getElementById("reorderBranch") ||
+            document.getElementById("reorderSuggestionBranch") ||
+            document.getElementById("reorderReportBranch");
+
+        if (!branchSelect) {
+            console.warn("Reorder branch dropdown ID not found");
+            return;
+        }
+
+        branchSelect.innerHTML = `<option value="">All Branches</option>`;
+
+        branches.forEach(b => {
+            branchSelect.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
+        });
+
+    } catch (err) {
+        console.error("Reorder options error:", err);
+        alert("Failed to load reorder branches: " + err.message);
+    }
 };
 
 // REORDER SUGGESTIONS
