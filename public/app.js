@@ -1728,7 +1728,8 @@ window.displayPOLines = function () {
             <tr>
                 <td>${safeHtml(line.product_name)}</td>
                 <td>${safeHtml(line.barcode)}</td>
-                <td>${line.qty} ${safeHtml(line.uom || "PCS")}</td>
+                <td>${safeHtml(line.uom || "PCS")}</td>
+                <td>${line.qty}</td>
                 <td><button onclick="removePOLine(${index})">Remove</button></td>
             </tr>
         `;
@@ -1874,6 +1875,7 @@ window.loadPurchaseOrders = async function () {
         const supplier = String(o.supplier_name || "").toLowerCase();
         const product = String(o.product_name || "").toLowerCase();
         const barcode = String(o.barcode || "").toLowerCase();
+        const uom = String(o.uom || "PCS").toLowerCase();
         const branch = String(o.branch_name || "").toLowerCase();
         const orderStatus = String(o.status || "");
 
@@ -1883,6 +1885,7 @@ window.loadPurchaseOrders = async function () {
             supplier.includes(search) ||
             product.includes(search) ||
             barcode.includes(search) ||
+            uom.includes(search) ||
             branch.includes(search) ||
             orderStatus.toLowerCase().includes(search);
 
@@ -4329,12 +4332,17 @@ window.loadSupplierHistory = async function () {
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.supplier_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.po_no || ("PO-" + r.id))}</td>
+                <td>${safeHtml(r.supplier_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${safeHtml(r.branch_name || "")}</td>
                 <td>${r.qty}</td>
-                <td>${safeHtml(r.status)}</td>
+                <td>${r.received_qty || 0}</td>
+                <td>${r.remaining_qty || 0}</td>
+                <td>${safeHtml(r.status || "")}</td>
+                <td>${safeHtml(r.cancel_reason || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
@@ -4358,12 +4366,17 @@ window.printSupplierHistory = async function () {
         htmlRows += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.supplier_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.po_no || ("PO-" + r.id))}</td>
+                <td>${safeHtml(r.supplier_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${safeHtml(r.branch_name || "")}</td>
                 <td>${r.qty}</td>
-                <td>${safeHtml(r.status)}</td>
+                <td>${r.received_qty || 0}</td>
+                <td>${r.remaining_qty || 0}</td>
+                <td>${safeHtml(r.status || "")}</td>
+                <td>${safeHtml(r.cancel_reason || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
@@ -4374,12 +4387,17 @@ window.printSupplierHistory = async function () {
             <thead>
                 <tr>
                     <th>ID</th>
+                    <th>PO No</th>
                     <th>Supplier</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Branch</th>
-                    <th>Qty</th>
+                    <th>Ordered Qty</th>
+                    <th>Received Qty</th>
+                    <th>Remaining Qty</th>
                     <th>Status</th>
+                    <th>Cancel Reason</th>
                     <th>Date</th>
                 </tr>
             </thead>
@@ -4399,14 +4417,15 @@ window.exportSupplierHistoryExcel = async function () {
     const res = await fetch(API + "/supplier-history/" + supplierId);
     const rows = await res.json();
 
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+    let csv = "ID,PO No,Supplier,Product,Barcode,UOM,Branch,Ordered Qty,Received Qty,Remaining Qty,Status,Cancel Reason,Date\n";
 
     rows.forEach(r => {
-        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name || ""},${r.qty},${r.status},${new Date(r.date).toLocaleString()}\n`;
+        csv += `${r.id},${r.po_no || ("PO-" + r.id)},${r.supplier_name || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.branch_name || ""},${r.qty},${r.received_qty || 0},${r.remaining_qty || 0},${r.status || ""},${r.cancel_reason || ""},${new Date(r.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "supplier_purchase_history.csv");
 };
+
 // SUPPLIER RETURNS
 window.loadSupplierReturnOptions = async function () {
     const suppliersRes = await fetch(API + "/suppliers");
@@ -4623,12 +4642,17 @@ window.loadFilteredPOReport = async function () {
         table.innerHTML += `
             <tr>
                 <td>${o.id}</td>
-                <td>${safeHtml(o.supplier_name)}</td>
-                <td>${safeHtml(o.product_name)}</td>
-                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.po_no || ("PO-" + o.id))}</td>
+                <td>${safeHtml(o.supplier_name || "")}</td>
+                <td>${safeHtml(o.product_name || "")}</td>
+                <td>${safeHtml(o.barcode || "")}</td>
+                <td>${safeHtml(o.uom || "PCS")}</td>
                 <td>${safeHtml(o.branch_name || "")}</td>
                 <td>${o.qty}</td>
-                <td>${safeHtml(o.status)}</td>
+                <td>${o.received_qty || 0}</td>
+                <td>${o.remaining_qty || 0}</td>
+                <td>${safeHtml(o.status || "")}</td>
+                <td>${safeHtml(o.cancel_reason || "")}</td>
                 <td>${new Date(o.date).toLocaleString()}</td>
             </tr>
         `;
@@ -4647,12 +4671,17 @@ window.printFilteredPOReport = async function () {
         htmlRows += `
             <tr>
                 <td>${o.id}</td>
-                <td>${safeHtml(o.supplier_name)}</td>
-                <td>${safeHtml(o.product_name)}</td>
-                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.po_no || ("PO-" + o.id))}</td>
+                <td>${safeHtml(o.supplier_name || "")}</td>
+                <td>${safeHtml(o.product_name || "")}</td>
+                <td>${safeHtml(o.barcode || "")}</td>
+                <td>${safeHtml(o.uom || "PCS")}</td>
                 <td>${safeHtml(o.branch_name || "")}</td>
                 <td>${o.qty}</td>
-                <td>${safeHtml(o.status)}</td>
+                <td>${o.received_qty || 0}</td>
+                <td>${o.remaining_qty || 0}</td>
+                <td>${safeHtml(o.status || "")}</td>
+                <td>${safeHtml(o.cancel_reason || "")}</td>
                 <td>${new Date(o.date).toLocaleString()}</td>
             </tr>
         `;
@@ -4663,12 +4692,17 @@ window.printFilteredPOReport = async function () {
             <thead>
                 <tr>
                     <th>ID</th>
+                    <th>PO No</th>
                     <th>Supplier</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Branch</th>
-                    <th>Qty</th>
+                    <th>Ordered Qty</th>
+                    <th>Received Qty</th>
+                    <th>Remaining Qty</th>
                     <th>Status</th>
+                    <th>Cancel Reason</th>
                     <th>Date</th>
                 </tr>
             </thead>
@@ -4683,10 +4717,10 @@ window.exportFilteredPOReportExcel = async function () {
     const res = await fetch(API + "/purchase-orders-filtered" + (query ? "?" + query : ""));
     const rows = await res.json();
 
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+    let csv = "ID,PO No,Supplier,Product,Barcode,UOM,Branch,Ordered Qty,Received Qty,Remaining Qty,Status,Cancel Reason,Date\n";
 
     rows.forEach(o => {
-        csv += `${o.id},${o.supplier_name},${o.product_name},${o.barcode},${o.branch_name || ""},${o.qty},${o.status},${new Date(o.date).toLocaleString()}\n`;
+        csv += `${o.id},${o.po_no || ("PO-" + o.id)},${o.supplier_name || ""},${o.product_name || ""},${o.barcode || ""},${o.uom || "PCS"},${o.branch_name || ""},${o.qty},${o.received_qty || 0},${o.remaining_qty || 0},${o.status || ""},${o.cancel_reason || ""},${new Date(o.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "filtered_purchase_order_report.csv");
@@ -4879,12 +4913,17 @@ window.printPurchaseOrderReport = async function () {
         rows += `
             <tr>
                 <td>${o.id}</td>
-                <td>${safeHtml(o.supplier_name)}</td>
-                <td>${safeHtml(o.product_name)}</td>
-                <td>${safeHtml(o.barcode)}</td>
+                <td>${safeHtml(o.po_no || ("PO-" + o.id))}</td>
+                <td>${safeHtml(o.supplier_name || "")}</td>
+                <td>${safeHtml(o.product_name || "")}</td>
+                <td>${safeHtml(o.barcode || "")}</td>
+                <td>${safeHtml(o.uom || "PCS")}</td>
                 <td>${safeHtml(o.branch_name || "")}</td>
                 <td>${o.qty}</td>
-                <td>${safeHtml(o.status)}</td>
+                <td>${o.received_qty || 0}</td>
+                <td>${o.remaining_qty || 0}</td>
+                <td>${safeHtml(o.status || "")}</td>
+                <td>${safeHtml(o.cancel_reason || "")}</td>
                 <td>${new Date(o.date).toLocaleString()}</td>
             </tr>
         `;
@@ -4895,12 +4934,17 @@ window.printPurchaseOrderReport = async function () {
             <thead>
                 <tr>
                     <th>ID</th>
+                    <th>PO No</th>
                     <th>Supplier</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Branch</th>
-                    <th>Qty</th>
+                    <th>Ordered Qty</th>
+                    <th>Received Qty</th>
+                    <th>Remaining Qty</th>
                     <th>Status</th>
+                    <th>Cancel Reason</th>
                     <th>Date</th>
                 </tr>
             </thead>
@@ -4913,10 +4957,10 @@ window.exportPurchaseOrderExcel = async function () {
     const res = await fetch(API + "/purchase-orders-report");
     const orders = await res.json();
 
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Status,Date\n";
+    let csv = "ID,PO No,Supplier,Product,Barcode,UOM,Branch,Ordered Qty,Received Qty,Remaining Qty,Status,Cancel Reason,Date\n";
 
     orders.forEach(o => {
-        csv += `${o.id},${o.supplier_name},${o.product_name},${o.barcode},${o.branch_name || ""},${o.qty},${o.status},${new Date(o.date).toLocaleString()}\n`;
+        csv += `${o.id},${o.po_no || ("PO-" + o.id)},${o.supplier_name || ""},${o.product_name || ""},${o.barcode || ""},${o.uom || "PCS"},${o.branch_name || ""},${o.qty},${o.received_qty || 0},${o.remaining_qty || 0},${o.status || ""},${o.cancel_reason || ""},${new Date(o.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "purchase_order_report.csv");
