@@ -5375,6 +5375,35 @@ window.loadLowStockBranchReport = async function () {
     });
 };
 
+window.loadLowStockBranchOptions = async function () {
+    try {
+        const branches = await fetchJson("/branches");
+
+        const select = document.getElementById("lowStockBranchFilter");
+
+        if (!select) {
+            console.warn("lowStockBranchFilter not found");
+            return;
+        }
+
+        select.innerHTML = `<option value="">All Branches</option>`;
+
+        branches.forEach(b => {
+            select.innerHTML += `
+                <option value="${b.id}">
+                    ${safeHtml(b.name)}
+                </option>
+            `;
+        });
+
+        select.style.minWidth = "130px";
+
+    } catch (err) {
+        console.error("LOW STOCK BRANCH OPTIONS ERROR:", err);
+        alert("Failed to load low stock branches: " + err.message);
+    }
+};
+
 window.loadLowStockBranchReport = async function () {
     const branchId = document.getElementById("lowStockBranchFilter")?.value || "";
     const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
@@ -5462,6 +5491,7 @@ window.loadReorderOptions = async function () {
         const branches = await fetchJson("/branches");
 
         const select = document.getElementById("reorderBranchFilter");
+
         if (!select) {
             console.warn("reorderBranchFilter not found");
             return;
@@ -5476,6 +5506,8 @@ window.loadReorderOptions = async function () {
                 </option>
             `;
         });
+
+        select.style.minWidth = "130px";
 
     } catch (err) {
         console.error("REORDER OPTIONS ERROR:", err);
