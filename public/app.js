@@ -609,6 +609,7 @@ window.addProduct = async function () {
     const barcode = document.getElementById("barcode").value.trim();
     const price = Number(document.getElementById("price").value);
     const cost = Number(document.getElementById("cost").value);
+    const uom = document.getElementById("uom").value || "PCS";
 
     if (!name || !barcode || price <= 0) {
         alert("Please enter product name, barcode, and valid price");
@@ -619,7 +620,7 @@ window.addProduct = async function () {
         const data = await fetchJson("/products", {
             method: "POST",
             headers: authHeaders({"Content-Type": "application/json"}),
-            body: JSON.stringify({ name, barcode, price, cost })
+            body: JSON.stringify({ name, barcode, price, cost, uom })
         });
 
         alert(data.message || "Product added");
@@ -628,6 +629,7 @@ window.addProduct = async function () {
         document.getElementById("barcode").value = "";
         document.getElementById("price").value = "";
         document.getElementById("cost").value = "";
+        document.getElementById("uom").value = "PCS";
 
         loadProducts();
         loadDashboard();
@@ -819,6 +821,7 @@ window.addToCart = async function () {
                 barcode: product.barcode,
                 price: Number(product.price),
                 qty: qty,
+                uom: product.uom || "PCS",
                 branch_id: branch_id,
                 customer_name: customerName
             });
@@ -851,7 +854,9 @@ window.displayCart = function () {
             <tr>
                 <td>${safeHtml(item.name)}</td>
                 <td>${safeHtml(item.barcode)}</td>
+                <td>${safeHtml(item.uom)}</td>
                 <td>${item.qty}</td>
+                <td>${safeHtml(item.uom || "PCS")}</td>
                 <td>${formatMoney(item.price)}</td>
                 <td>${formatMoney(lineTotal)}</td>
                 <td><button onclick="removeFromCart(${index})">Remove</button></td>
@@ -951,7 +956,7 @@ window.printCartReceipt = function (invoiceNo) {
             <tr>
                 <td>${safeHtml(item.name)}</td>
                 <td>${safeHtml(item.barcode)}</td>
-                <td>${item.qty}</td>
+                <td>${item.qty} ${safeHtml(item.uom || "PCS")}</td>
                 <td>${formatMoney(item.price)}</td>
                 <td>${formatMoney(lineTotal)}</td>
             </tr>
@@ -1552,7 +1557,7 @@ window.loadSupplierOptions = async function () {
         });
 
         products.forEach(p => {
-            productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+            productSelect.innerHTML += <option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}</option>
         });
 
         branches.forEach(b => {
@@ -1590,6 +1595,7 @@ window.addPOLine = function () {
             product_id: product.id,
             product_name: product.name,
             barcode: product.barcode,
+            uom: product.uom || "PCS",
             qty: qty
         });
     }
@@ -1610,7 +1616,7 @@ window.displayPOLines = function () {
             <tr>
                 <td>${safeHtml(line.product_name)}</td>
                 <td>${safeHtml(line.barcode)}</td>
-                <td>${line.qty}</td>
+                <td>${line.qty} ${safeHtml(line.uom || "PCS")}</td>
                 <td><button onclick="removePOLine(${index})">Remove</button></td>
             </tr>
         `;
@@ -1787,6 +1793,7 @@ window.loadPurchaseOrders = async function () {
                 <td>${safeHtml(o.supplier_name || "")}</td>
                 <td>${safeHtml(o.product_name || "")}</td>
                 <td>${safeHtml(o.barcode || "")}</td>
+                <td>${safeHtml(o.uom || "PCS")}</td>
                 <td>${safeHtml(o.branch_name || "")}</td>
                 <td>${o.qty}</td>
                 <td>${o.received_qty || 0}</td>
@@ -5756,4 +5763,20 @@ window.clearPOFilters = function () {
     if (statusFilter) statusFilter.value = "";
 
     loadPurchaseOrders();
+};
+window.fixProductUOMColumn = async function () {
+    if (!confirm("Fix Product UOM column? Run this only once.")) return;
+
+    const res = await fetch(API + "/fix-product-uom-column", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    const data = await res.json();
+
+    alert((data.message || data.error) + "\nUpdated: " + (data.updated || 0));
+
+    if (typeof loadProducts === "function") loadProducts();
 };

@@ -99,11 +99,25 @@
                 <h1>Products</h1>
 
                 <div id="adminSection" class="box">
+                    <button onclick="fixProductUOMColumn()">Fix Product UOM Column</button>
                     <h2>Add Product</h2>
                     <input id="pname" placeholder="Product Name">
                     <input id="barcode" placeholder="Barcode">
                     <input id="price" type="number" placeholder="Price">
                     <input id="cost" type="number" placeholder="Cost Price">
+                    <select id="uom">
+                        <option value="PCS">PCS</option>
+                        <option value="BOX">BOX</option>
+                        <option value="PACK">PACK</option>
+                        <option value="KG">KG</option>
+                        <option value="GRAM">GRAM</option>
+                        <option value="LITER">LITER</option>
+                        <option value="ML">ML</option>
+                        <option value="BOTTLE">BOTTLE</option>
+                        <option value="CARTON">CARTON</option>
+                        <option value="DOZEN">DOZEN</option>
+                        <option value="BAG">BAG</option>
+                    </select>
                     <button onclick="addProduct()">Add Product</button>
                 </div>
 
@@ -125,6 +139,7 @@
                                 <th>ID</th>
                                 <th>Name</th>
                                 <th>Barcode</th>
+                                <th>UOM</th>
                                 <th>Price</th>
                                 <th>Stock</th>
                                 <th>Branch</th>
@@ -157,6 +172,7 @@
                 <th>Branch</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Qty</th>
                 <th>Unit Price</th>
                 <th>Total</th>
@@ -241,6 +257,7 @@
                     <th>Invoice</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Branch</th>
                     <th>Qty</th>
                     <th>Refund</th>
@@ -339,6 +356,7 @@
                     <th>Branch</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Type</th>
                     <th>Qty</th>
                     <th>Unit Cost</th>
@@ -366,6 +384,7 @@
                 <th>Branch</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Current Stock</th>
                 <th>Min Stock</th>
                 <th>Suggested Reorder Qty</th>
@@ -389,6 +408,7 @@
                 <th>Branch</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Current Stock</th>
                 <th>Min Stock</th>
                 <th>Suggested Qty</th>
@@ -415,6 +435,7 @@
             <tr>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Product Stock</th>
                 <th>Branch Stock Total</th>
                 <th>Difference</th>
@@ -455,6 +476,7 @@
                 <th>Branch</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Type</th>
                 <th>Qty</th>
                 <th>Unit Cost</th>
@@ -566,6 +588,7 @@
                 <th>Customer</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Branch</th>
                 <th>Qty</th>
                 <th>Refund</th>
@@ -617,6 +640,7 @@
                             <tr>
                                 <th>Product</th>
                                 <th>Barcode</th>
+                                <th>UOM</th>
                                 <th>Qty</th>
                                 <th>Price</th>
                                 <th>Total</th>
@@ -693,6 +717,7 @@
                                 <th>Branch</th>
                                 <th>Product</th>
                                 <th>Barcode</th>
+                                <th>UOM</th>
                                 <th>Stock</th>
                                 <th>Min Stock</th>
                             </tr>
@@ -721,6 +746,7 @@
                                 <th>To Branch</th>
                                 <th>Product</th>
                                 <th>Barcode</th>
+                                <th>UOM</th>
                                 <th>Qty</th>
                                 <th>Date</th>
                             </tr>
@@ -789,6 +815,7 @@
             <tr>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Qty</th>
                 <th>Remove</th>
             </tr>
@@ -827,6 +854,7 @@
                                 <th>Supplier</th>
                                 <th>Product</th>
                                 <th>Barcode</th>
+                                <th>UOM</th>
                                 <th>Branch</th>
                                 <th>Ordered Qty</th>
                                 <th>Received Qty</th>
@@ -858,6 +886,7 @@
                 <th>Supplier</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Branch</th>
                 <th>Qty</th>
                 <th>Status</th>
@@ -893,6 +922,7 @@
                 <th>Supplier</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Branch</th>
                 <th>Qty</th>
                 <th>Reason</th>
@@ -925,6 +955,7 @@
                 <th>Supplier</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Branch</th>
                 <th>Qty</th>
                 <th>Status</th>
@@ -952,6 +983,7 @@
                 <th>Supplier</th>
                 <th>Product</th>
                 <th>Barcode</th>
+                <th>UOM</th>
                 <th>Branch</th>
                 <th>Qty</th>
                 <th>Reason</th>
