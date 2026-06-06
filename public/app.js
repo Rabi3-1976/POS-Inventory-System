@@ -4985,27 +4985,33 @@ window.exportPurchaseOrderExcel = async function () {
 
 // STOCK CONTROL
 window.loadStockControlOptions = async function () {
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
+    try {
+        const branches = await fetchJson("/branches");
+        const products = await fetchJson("/products");
 
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
+        const branchSelect = document.getElementById("adjustmentBranch");
+        const productSelect = document.getElementById("adjustmentProduct");
 
-    const branchSelect = document.getElementById("adjustBranch");
-    const productSelect = document.getElementById("adjustProduct");
+        if (!branchSelect || !productSelect) return;
 
-    if (!branchSelect || !productSelect) return;
+        branchSelect.innerHTML = "";
+        productSelect.innerHTML = "";
 
-    branchSelect.innerHTML = "";
-    productSelect.innerHTML = "";
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
+        });
 
-    branches.forEach(b => {
-        branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
-    });
+        products.forEach(p => {
+            productSelect.innerHTML += `
+                <option value="${p.id}">
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}
+                </option>
+            `;
+        });
 
-    products.forEach(p => {
-        productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
-    });
+    } catch (err) {
+        console.error("Stock control options error:", err);
+    }
 };
 
 window.saveStockAdjustment = async function () {
@@ -5055,8 +5061,7 @@ window.saveStockAdjustment = async function () {
 };
 
 window.loadStockAdjustments = async function () {
-    const res = await fetch(API + "/stock-adjustments");
-    const rows = await res.json();
+    const rows = await fetchJson("/stock-adjustments");
 
     const table = document.getElementById("stockAdjustmentsTable");
     if (!table) return;
@@ -5067,10 +5072,11 @@ window.loadStockAdjustments = async function () {
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.adjustment_type)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.adjustment_type || "")}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.unit_cost || 0)}</td>
                 <td>${formatMoney(r.total_cost_value || 0)}</td>
@@ -5081,29 +5087,35 @@ window.loadStockAdjustments = async function () {
         `;
     });
 };
+
 // STOCK ADJUSTMENT REPORT
 window.loadStockAdjustmentReportOptions = async function () {
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
+    try {
+        const branches = await fetchJson("/branches");
+        const products = await fetchJson("/products");
 
-    const productsRes = await fetch(API + "/products");
-    const products = await productsRes.json();
+        const branchSelect = document.getElementById("adjustmentReportBranch");
+        const productSelect = document.getElementById("adjustmentReportProduct");
 
-    const branchSelect = document.getElementById("adjustReportBranch");
-    const productSelect = document.getElementById("adjustReportProduct");
+        if (!branchSelect || !productSelect) return;
 
-    if (branchSelect) {
         branchSelect.innerHTML = `<option value="">All Branches</option>`;
+        productSelect.innerHTML = `<option value="">All Products</option>`;
+
         branches.forEach(b => {
             branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
         });
-    }
 
-    if (productSelect) {
-        productSelect.innerHTML = `<option value="">All Products</option>`;
         products.forEach(p => {
-            productSelect.innerHTML += `<option value="${p.id}">${safeHtml(p.name)} - ${safeHtml(p.barcode)}</option>`;
+            productSelect.innerHTML += `
+                <option value="${p.id}">
+                    ${safeHtml(p.name)} - ${safeHtml(p.barcode)} - ${safeHtml(p.uom || "PCS")}
+                </option>
+            `;
         });
+
+    } catch (err) {
+        console.error("Stock adjustment report options error:", err);
     }
 };
 
@@ -5128,26 +5140,22 @@ window.getStockAdjustmentReportQuery = function () {
 window.loadStockAdjustmentReport = async function () {
     const query = getStockAdjustmentReportQuery();
 
-    const res = await fetch(API + "/stock-adjustments-report" + (query ? "?" + query : ""));
-    const rows = await res.json();
+    const rows = await fetchJson("/stock-adjustments-report" + (query ? "?" + query : ""));
 
     const table = document.getElementById("stockAdjustmentReportTable");
     if (!table) return;
 
     table.innerHTML = "";
 
-    let totalValue = 0;
-
     rows.forEach(r => {
-        totalValue += Number(r.total_cost_value || 0);
-
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.adjustment_type)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.adjustment_type || "")}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.unit_cost || 0)}</td>
                 <td>${formatMoney(r.total_cost_value || 0)}</td>
@@ -5157,29 +5165,24 @@ window.loadStockAdjustmentReport = async function () {
             </tr>
         `;
     });
-
-    setText("adjustReportTotalValue", formatMoney(totalValue));
 };
 
 window.printStockAdjustmentReport = async function () {
     const query = getStockAdjustmentReportQuery();
 
-    const res = await fetch(API + "/stock-adjustments-report" + (query ? "?" + query : ""));
-    const rows = await res.json();
+    const rows = await fetchJson("/stock-adjustments-report" + (query ? "?" + query : ""));
 
     let htmlRows = "";
-    let totalValue = 0;
 
     rows.forEach(r => {
-        totalValue += Number(r.total_cost_value || 0);
-
         htmlRows += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.adjustment_type)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.adjustment_type || "")}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.unit_cost || 0)}</td>
                 <td>${formatMoney(r.total_cost_value || 0)}</td>
@@ -5190,67 +5193,38 @@ window.printStockAdjustmentReport = async function () {
         `;
     });
 
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Stock Adjustment Report</title>
-            <style>
-            ${reportHeaderCss()}
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-                th, td { border: 1px solid #000; padding: 6px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-        ${reportHeaderHtml("Stock Adjustment Report")}
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Currency:</strong> ${systemCurrency}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Branch</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Type</th>
-                        <th>Qty</th>
-                        <th>Unit Cost</th>
-                        <th>Total Cost Value</th>
-                        <th>Reason</th>
-                        <th>User</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>${htmlRows}</tbody>
-            </table>
-
-            <div class="total">Total Cost Value: ${formatMoney(totalValue)}</div>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
+    openReportWindow("Stock Adjustment Report", `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Branch</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>UOM</th>
+                    <th>Type</th>
+                    <th>Qty</th>
+                    <th>Unit Cost</th>
+                    <th>Total Cost Value</th>
+                    <th>Reason</th>
+                    <th>User</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
 };
 
 window.exportStockAdjustmentReportExcel = async function () {
     const query = getStockAdjustmentReportQuery();
 
-    const res = await fetch(API + "/stock-adjustments-report" + (query ? "?" + query : ""));
-    const rows = await res.json();
+    const rows = await fetchJson("/stock-adjustments-report" + (query ? "?" + query : ""));
 
-    let csv = "ID,Branch,Product,Barcode,Type,Qty,Unit Cost,Total Cost Value,Reason,User,Date\n";
+    let csv = "ID,Branch,Product,Barcode,UOM,Type,Qty,Unit Cost,Total Cost Value,Reason,User,Date\n";
 
     rows.forEach(r => {
-        csv += `${r.id},${r.branch_name},${r.product_name},${r.barcode},${r.adjustment_type},${r.qty},${Number(r.unit_cost || 0).toFixed(2)},${Number(r.total_cost_value || 0).toFixed(2)},${r.reason || ""},${r.username || ""},${new Date(r.date).toLocaleString()}\n`;
+        csv += `${r.id},${r.branch_name || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.adjustment_type || ""},${r.qty},${Number(r.unit_cost || 0).toFixed(2)},${Number(r.total_cost_value || 0).toFixed(2)},${r.reason || ""},${r.username || ""},${new Date(r.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "stock_adjustment_report.csv");
