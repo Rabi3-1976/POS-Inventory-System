@@ -2063,6 +2063,7 @@ app.get("/stock-adjustments", async (req, res) => {
                 b.name AS branch_name,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 sa.adjustment_type,
                 sa.qty,
                 sa.reason,
@@ -2083,6 +2084,7 @@ app.get("/stock-adjustments", async (req, res) => {
         res.status(500).json({ error: "Stock adjustments failed to load" });
     }
 });
+
 // FILTERED STOCK ADJUSTMENT REPORT
 app.get("/stock-adjustments-report", async (req, res) => {
     const { branch_id, product_id, adjustment_type, date_from, date_to } = req.query;
@@ -2096,6 +2098,7 @@ app.get("/stock-adjustments-report", async (req, res) => {
                 p.id AS product_id,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 sa.adjustment_type,
                 sa.qty,
                 sa.unit_cost,
@@ -2148,6 +2151,7 @@ app.get("/stock-adjustments-report", async (req, res) => {
         res.status(500).json({ error: "Stock adjustment report failed" });
     }
 });
+
 // UPDATE BRANCH MIN STOCK
 app.put("/branch-stock/min-stock", verifyToken, async (req, res) => {
     const { branch_id, product_id, min_stock } = req.body;
