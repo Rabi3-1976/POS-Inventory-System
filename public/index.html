@@ -121,7 +121,7 @@
                         <option value="TRAY">TRAY</option>
                         <option value="ROLL">ROLL</option>
                         <option value="CAN">CAN</option>
-                        <option value="JAR">JAR</option>
+                        option value="JAR">JAR</option>
                     </select>
                     <button onclick="addProduct()">Add Product</button>
                 </div>
@@ -885,22 +885,27 @@
     <button onclick="exportSupplierHistoryExcel()">Export Excel</button>
 
     <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Supplier</th>
-                <th>Product</th>
-                <th>Barcode</th>
-                <th>UOM</th>
-                <th>Branch</th>
-                <th>Qty</th>
-                <th>Status</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody id="supplierHistoryTable"></tbody>
-    </table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>PO No</th>
+            <th>Supplier</th>
+            <th>Product</th>
+            <th>Barcode</th>
+            <th>UOM</th>
+            <th>Branch</th>
+            <th>Ordered Qty</th>
+            <th>Received Qty</th>
+            <th>Remaining Qty</th>
+            <th>Status</th>
+            <th>Cancel Reason</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody id="supplierHistoryTable"></tbody>
+</table>
 </div>
+
 <div class="box">
     <h2>Return to Supplier</h2>
 
@@ -922,17 +927,17 @@
 
     <table>
         <thead>
-            <tr>
-                <th>ID</th>
-                <th>Supplier</th>
-                <th>Product</th>
-                <th>Barcode</th>
-                <th>UOM</th>
-                <th>Branch</th>
-                <th>Qty</th>
-                <th>Reason</th>
-                <th>Date</th>
-            </tr>
+        <tr>
+        <th>ID</th>
+        <th>Supplier</th>
+        <th>Product</th>
+        <th>Barcode</th>
+        <th>UOM</th>
+        <th>Branch</th>
+        <th>Qty</th>
+        <th>Reason</th>
+        <th>Date</th>
+        </tr>
         </thead>
         <tbody id="supplierReturnsTable"></tbody>
     </table>
@@ -964,6 +969,7 @@
                 <th>Branch</th>
                 <th>Qty</th>
                 <th>Status</th>
+                <th>Reason</th>
                 <th>Date</th>
             </tr>
         </thead>
@@ -982,22 +988,27 @@
     <button onclick="exportFilteredReturnsExcel()">Export Returns Excel</button>
 
     <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Supplier</th>
-                <th>Product</th>
-                <th>Barcode</th>
-                <th>UOM</th>
-                <th>Branch</th>
-                <th>Qty</th>
-                <th>Reason</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody id="filteredReturnsReportTable"></tbody>
-        </table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>PO No</th>
+            <th>Supplier</th>
+            <th>Product</th>
+            <th>Barcode</th>
+            <th>UOM</th>
+            <th>Branch</th>
+            <th>Ordered Qty</th>
+            <th>Received Qty</th>
+            <th>Remaining Qty</th>
+            <th>Status</th>
+            <th>Cancel Reason</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody id="filteredPOReportTable"></tbody>
+</table>
     </div>
+
     <div class="box">
     <h2>Supplier Balance / Net Purchase Report</h2>
 
