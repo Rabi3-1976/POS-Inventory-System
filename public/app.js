@@ -871,9 +871,8 @@ window.displayCart = function () {
             <tr>
                 <td>${safeHtml(item.name)}</td>
                 <td>${safeHtml(item.barcode)}</td>
-                <td>${safeHtml(item.uom)}</td>
-                <td>${item.qty}</td>
                 <td>${safeHtml(item.uom || "PCS")}</td>
+                <td>${item.qty}</td>
                 <td>${formatMoney(item.price)}</td>
                 <td>${formatMoney(lineTotal)}</td>
                 <td><button onclick="removeFromCart(${index})">Remove</button></td>
