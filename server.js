@@ -2760,7 +2760,7 @@ app.get("/purchase-orders-filtered", async (req, res) => {
                 COALESCE(po.received_qty, 0) AS received_qty,
                 (po.qty - COALESCE(po.received_qty, 0)) AS remaining_qty,
                 po.status,
-                po.cancel_reason,
+                COALESCE(po.cancel_reason, '') AS cancel_reason,
                 po.date
             FROM purchase_orders po
             JOIN suppliers s ON po.supplier_id = s.id
@@ -2786,7 +2786,7 @@ app.get("/purchase-orders-filtered", async (req, res) => {
             query += ` AND po.branch_id = $${params.length}`;
         }
 
-        query += ` ORDER BY po.date DESC`;
+        query += ` ORDER BY po.date DESC, po.id DESC`;
 
         const result = await pool.query(query, params);
 
