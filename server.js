@@ -1482,18 +1482,24 @@ app.get("/invoices/:id", async (req, res) => {
         res.status(500).json({ error: "Invoice details failed" });
     }
 });
+
 // PURCHASE ORDER REPORT
 app.get("/purchase-orders-report", async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT 
                 po.id,
+                COALESCE(po.po_no, 'PO-' || po.id) AS po_no,
                 s.name AS supplier_name,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 b.name AS branch_name,
                 po.qty,
+                COALESCE(po.received_qty, 0) AS received_qty,
+                (po.qty - COALESCE(po.received_qty, 0)) AS remaining_qty,
                 po.status,
+                po.cancel_reason,
                 po.date
             FROM purchase_orders po
             JOIN suppliers s ON po.supplier_id = s.id
@@ -1508,6 +1514,7 @@ app.get("/purchase-orders-report", async (req, res) => {
         res.status(500).json({ error: "Purchase order report failed" });
     }
 });
+
 // SUPPLIER PURCHASE HISTORY
 app.get("/supplier-history/:id", async (req, res) => {
     const supplierId = req.params.id;
@@ -1516,12 +1523,17 @@ app.get("/supplier-history/:id", async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 po.id,
+                COALESCE(po.po_no, 'PO-' || po.id) AS po_no,
                 s.name AS supplier_name,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 b.name AS branch_name,
                 po.qty,
+                COALESCE(po.received_qty, 0) AS received_qty,
+                (po.qty - COALESCE(po.received_qty, 0)) AS remaining_qty,
                 po.status,
+                po.cancel_reason,
                 po.date
             FROM purchase_orders po
             JOIN suppliers s ON po.supplier_id = s.id
@@ -1537,6 +1549,7 @@ app.get("/supplier-history/:id", async (req, res) => {
         res.status(500).json({ error: "Supplier history failed" });
     }
 });
+
 // RETURN TO SUPPLIER
 app.post("/supplier-returns", verifyToken, async (req, res) => {
     const { supplier_id, product_id, branch_id, qty, reason } = req.body;
@@ -2727,6 +2740,63 @@ app.put("/products/:id/uom", verifyToken, adminOnly, async (req, res) => {
         });
     }
 });
+
+app.get("/purchase-orders-filtered", async (req, res) => {
+    const { status, supplier_id, branch_id } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                po.id,
+                COALESCE(po.po_no, 'PO-' || po.id) AS po_no,
+                s.id AS supplier_id,
+                s.name AS supplier_name,
+                p.name AS product_name,
+                p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
+                b.id AS branch_id,
+                b.name AS branch_name,
+                po.qty,
+                COALESCE(po.received_qty, 0) AS received_qty,
+                (po.qty - COALESCE(po.received_qty, 0)) AS remaining_qty,
+                po.status,
+                po.cancel_reason,
+                po.date
+            FROM purchase_orders po
+            JOIN suppliers s ON po.supplier_id = s.id
+            JOIN products p ON po.product_id = p.id
+            LEFT JOIN branches b ON po.branch_id = b.id
+            WHERE 1=1
+        `;
+
+        const params = [];
+
+        if (status) {
+            params.push(status);
+            query += ` AND po.status = $${params.length}`;
+        }
+
+        if (supplier_id) {
+            params.push(supplier_id);
+            query += ` AND po.supplier_id = $${params.length}`;
+        }
+
+        if (branch_id) {
+            params.push(branch_id);
+            query += ` AND po.branch_id = $${params.length}`;
+        }
+
+        query += ` ORDER BY po.date DESC`;
+
+        const result = await pool.query(query, params);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error("FILTERED PO REPORT ERROR:", err);
+        res.status(500).json({ error: "Filtered PO report failed" });
+    }
+});
+
 
 // START SERVER
 app.listen(PORT, () => {
