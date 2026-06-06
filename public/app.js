@@ -4989,10 +4989,18 @@ window.loadStockControlOptions = async function () {
         const branches = await fetchJson("/branches");
         const products = await fetchJson("/products");
 
-        const branchSelect = document.getElementById("adjustmentBranch");
-        const productSelect = document.getElementById("adjustmentProduct");
+        const branchSelect =
+            document.getElementById("adjustmentBranch") ||
+            document.getElementById("stockAdjustmentBranch");
 
-        if (!branchSelect || !productSelect) return;
+        const productSelect =
+            document.getElementById("adjustmentProduct") ||
+            document.getElementById("stockAdjustmentProduct");
+
+        if (!branchSelect || !productSelect) {
+            console.warn("Stock adjustment dropdown IDs not found");
+            return;
+        }
 
         branchSelect.innerHTML = "";
         productSelect.innerHTML = "";
@@ -5094,10 +5102,18 @@ window.loadStockAdjustmentReportOptions = async function () {
         const branches = await fetchJson("/branches");
         const products = await fetchJson("/products");
 
-        const branchSelect = document.getElementById("adjustmentReportBranch");
-        const productSelect = document.getElementById("adjustmentReportProduct");
+        const branchSelect =
+            document.getElementById("adjustmentReportBranch") ||
+            document.getElementById("stockAdjustmentReportBranch");
 
-        if (!branchSelect || !productSelect) return;
+        const productSelect =
+            document.getElementById("adjustmentReportProduct") ||
+            document.getElementById("stockAdjustmentReportProduct");
+
+        if (!branchSelect || !productSelect) {
+            console.warn("Stock adjustment report dropdown IDs not found");
+            return;
+        }
 
         branchSelect.innerHTML = `<option value="">All Branches</option>`;
         productSelect.innerHTML = `<option value="">All Products</option>`;
@@ -5320,10 +5336,10 @@ window.getLowStockBranchQuery = function () {
 };
 
 window.loadLowStockBranchReport = async function () {
-    const query = getLowStockBranchQuery();
+    const branchId = document.getElementById("lowStockBranch")?.value || "";
+    const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
 
-    const res = await fetch(API + "/low-stock-branch-report" + (query ? "?" + query : ""));
-    const rows = await res.json();
+    const rows = await fetchJson("/low-stock-branch-report" + query);
 
     const table = document.getElementById("lowStockBranchReportTable");
     if (!table) return;
@@ -5333,9 +5349,10 @@ window.loadLowStockBranchReport = async function () {
     rows.forEach(r => {
         table.innerHTML += `
             <tr>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${r.stock}</td>
                 <td>${r.min_stock}</td>
                 <td>${r.reorder_qty}</td>
@@ -5344,20 +5361,22 @@ window.loadLowStockBranchReport = async function () {
     });
 };
 
-window.printLowStockBranchReport = async function () {
-    const query = getLowStockBranchQuery();
 
-    const res = await fetch(API + "/low-stock-branch-report" + (query ? "?" + query : ""));
-    const rows = await res.json();
+window.printLowStockBranchReport = async function () {
+    const branchId = document.getElementById("lowStockBranch")?.value || "";
+    const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
+
+    const rows = await fetchJson("/low-stock-branch-report" + query);
 
     let htmlRows = "";
 
     rows.forEach(r => {
         htmlRows += `
             <tr>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${r.stock}</td>
                 <td>${r.min_stock}</td>
                 <td>${r.reorder_qty}</td>
@@ -5372,6 +5391,7 @@ window.printLowStockBranchReport = async function () {
                     <th>Branch</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Current Stock</th>
                     <th>Min Stock</th>
                     <th>Suggested Reorder Qty</th>
@@ -5383,33 +5403,64 @@ window.printLowStockBranchReport = async function () {
 };
 
 window.exportLowStockBranchReportExcel = async function () {
-    const query = getLowStockBranchQuery();
+    const branchId = document.getElementById("lowStockBranch")?.value || "";
+    const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
 
-    const res = await fetch(API + "/low-stock-branch-report" + (query ? "?" + query : ""));
-    const rows = await res.json();
+    const rows = await fetchJson("/low-stock-branch-report" + query);
 
-    let csv = "Branch,Product,Barcode,Current Stock,Min Stock,Suggested Reorder Qty\n";
+    let csv = "Branch,Product,Barcode,UOM,Current Stock,Min Stock,Suggested Reorder Qty\n";
 
     rows.forEach(r => {
-        csv += `${r.branch_name},${r.product_name},${r.barcode},${r.stock},${r.min_stock},${r.reorder_qty}\n`;
+        csv += `${r.branch_name || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.stock},${r.min_stock},${r.reorder_qty}\n`;
     });
 
     downloadCsv(csv, "low_stock_branch_report.csv");
 };
+
 // REORDER SUGGESTIONS
-window.loadReorderOptions = async function () {
-    const branchesRes = await fetch(API + "/branches");
-    const branches = await branchesRes.json();
+window.loadReorderSuggestions = async function () {
+    const branchId = document.getElementById("reorderBranch")?.value || "";
+    const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
 
-    const branchSelect = document.getElementById("reorderBranchFilter");
+    const rows = await fetchJson("/reorder-suggestions" + query);
+    const suppliers = await fetchJson("/suppliers");
 
-    if (branchSelect) {
-        branchSelect.innerHTML = `<option value="">All Branches</option>`;
+    const table = document.getElementById("reorderSuggestionsTable");
+    if (!table) return;
 
-        branches.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.id}">${safeHtml(b.name)}</option>`;
-        });
-    }
+    table.innerHTML = "";
+
+    rows.forEach(r => {
+        const supplierOptions = suppliers.map(s =>
+            `<option value="${s.id}">${safeHtml(s.name)}</option>`
+        ).join("");
+
+        const suggestedQty = Number(r.suggested_qty || 0);
+        const costValue = suggestedQty * Number(r.cost || 0);
+
+        table.innerHTML += `
+            <tr>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${r.stock}</td>
+                <td>${r.min_stock}</td>
+                <td>
+                    <input id="reorder_qty_${r.branch_id}_${r.product_id}" type="number" value="${suggestedQty}" min="1" style="width:80px;">
+                </td>
+                <td>${formatMoney(costValue)}</td>
+                <td>
+                    <select id="reorder_supplier_${r.branch_id}_${r.product_id}">
+                        ${supplierOptions}
+                    </select>
+                </td>
+                <td>
+                    <button onclick="createPOFromSuggestion(${r.branch_id}, ${r.product_id})">Create PO</button>
+                </td>
+            </tr>
+        `;
+    });
 };
 
 window.getReorderSuggestionsQuery = function () {
@@ -5512,90 +5563,63 @@ window.createPOFromReorder = async function (index, productId, branchId) {
 };
 
 window.printReorderSuggestions = async function () {
-    const query = getReorderSuggestionsQuery();
+    const branchId = document.getElementById("reorderBranch")?.value || "";
+    const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
 
-    const res = await fetch(API + "/reorder-suggestions" + (query ? "?" + query : ""));
-    const rows = await res.json();
+    const rows = await fetchJson("/reorder-suggestions" + query);
 
     let htmlRows = "";
-    let totalCostValue = 0;
 
     rows.forEach(r => {
-        const costValue = Number(r.cost || 0) * Number(r.suggested_qty || 0);
-        totalCostValue += costValue;
+        const suggestedQty = Number(r.suggested_qty || 0);
+        const costValue = suggestedQty * Number(r.cost || 0);
 
         htmlRows += `
             <tr>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${r.stock}</td>
                 <td>${r.min_stock}</td>
-                <td>${r.suggested_qty}</td>
+                <td>${suggestedQty}</td>
                 <td>${formatMoney(costValue)}</td>
             </tr>
         `;
     });
 
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Reorder Suggestions</title>
-            <style>
-            ${reportHeaderCss()}
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-    ${reportHeaderHtml("Reorder Suggestions")}
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Currency:</strong> ${systemCurrency}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>Branch</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Current Stock</th>
-                        <th>Min Stock</th>
-                        <th>Suggested Qty</th>
-                        <th>Cost Value</th>
-                    </tr>
-                </thead>
-                <tbody>${htmlRows}</tbody>
-            </table>
-
-            <div class="total">Total Suggested Cost Value: ${formatMoney(totalCostValue)}</div>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
+    openReportWindow("Reorder Suggestions", `
+        <table>
+            <thead>
+                <tr>
+                    <th>Branch</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>UOM</th>
+                    <th>Current Stock</th>
+                    <th>Min Stock</th>
+                    <th>Suggested Qty</th>
+                    <th>Cost Value</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
 };
 
 window.exportReorderSuggestionsExcel = async function () {
-    const query = getReorderSuggestionsQuery();
+    const branchId = document.getElementById("reorderBranch")?.value || "";
+    const query = branchId ? "?branch_id=" + encodeURIComponent(branchId) : "";
 
-    const res = await fetch(API + "/reorder-suggestions" + (query ? "?" + query : ""));
-    const rows = await res.json();
+    const rows = await fetchJson("/reorder-suggestions" + query);
 
-    let csv = "Branch,Product,Barcode,Current Stock,Min Stock,Suggested Qty,Unit Cost,Cost Value\n";
+    let csv = "Branch,Product,Barcode,UOM,Current Stock,Min Stock,Suggested Qty,Cost Value\n";
 
     rows.forEach(r => {
-        const costValue = Number(r.cost || 0) * Number(r.suggested_qty || 0);
+        const suggestedQty = Number(r.suggested_qty || 0);
+        const costValue = suggestedQty * Number(r.cost || 0);
 
-        csv += `${r.branch_name},${r.product_name},${r.barcode},${r.stock},${r.min_stock},${r.suggested_qty},${Number(r.cost || 0).toFixed(2)},${costValue.toFixed(2)}\n`;
+        csv += `${r.branch_name || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.stock},${r.min_stock},${suggestedQty},${costValue.toFixed(2)}\n`;
     });
 
     downloadCsv(csv, "reorder_suggestions.csv");
@@ -5603,10 +5627,9 @@ window.exportReorderSuggestionsExcel = async function () {
 
 // FINAL STOCK AUDIT
 window.loadStockAuditReport = async function () {
-    const res = await fetch(API + "/stock-audit-report");
-    const rows = await res.json();
+    const rows = await fetchJson("/stock-audit-report");
 
-    const table = document.getElementById("stockAuditTable");
+    const table = document.getElementById("stockAuditReportTable");
     if (!table) return;
 
     table.innerHTML = "";
@@ -5614,23 +5637,20 @@ window.loadStockAuditReport = async function () {
     let totalDifferenceValue = 0;
 
     rows.forEach(r => {
-        const diff = Number(r.difference || 0);
-        const diffValue = Number(r.difference_value || 0);
-
-        totalDifferenceValue += diffValue;
-
-        const status = diff === 0 ? "OK" : "Mismatch";
+        const differenceValue = Number(r.difference_value || 0);
+        totalDifferenceValue += differenceValue;
 
         table.innerHTML += `
             <tr>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${r.product_stock}</td>
                 <td>${r.branch_stock_total}</td>
-                <td>${diff}</td>
+                <td>${r.difference}</td>
                 <td>${formatMoney(r.cost || 0)}</td>
-                <td>${formatMoney(diffValue)}</td>
-                <td>${status}</td>
+                <td>${formatMoney(differenceValue)}</td>
+                <td>${Number(r.difference || 0) === 0 ? "OK" : "Mismatch"}</td>
             </tr>
         `;
     });
@@ -5639,94 +5659,60 @@ window.loadStockAuditReport = async function () {
 };
 
 window.printStockAuditReport = async function () {
-    const res = await fetch(API + "/stock-audit-report");
-    const rows = await res.json();
+    const rows = await fetchJson("/stock-audit-report");
 
     let htmlRows = "";
     let totalDifferenceValue = 0;
 
     rows.forEach(r => {
-        const diff = Number(r.difference || 0);
-        const diffValue = Number(r.difference_value || 0);
-
-        totalDifferenceValue += diffValue;
-
-        const status = diff === 0 ? "OK" : "Mismatch";
+        const differenceValue = Number(r.difference_value || 0);
+        totalDifferenceValue += differenceValue;
 
         htmlRows += `
             <tr>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${r.product_stock}</td>
                 <td>${r.branch_stock_total}</td>
-                <td>${diff}</td>
+                <td>${r.difference}</td>
                 <td>${formatMoney(r.cost || 0)}</td>
-                <td>${formatMoney(diffValue)}</td>
-                <td>${status}</td>
+                <td>${formatMoney(differenceValue)}</td>
+                <td>${Number(r.difference || 0) === 0 ? "OK" : "Mismatch"}</td>
             </tr>
         `;
     });
 
-    const reportWindow = window.open("", "_blank");
+    openReportWindow("Final Stock Audit Report", `
+        <p><strong>Total Difference Value:</strong> ${formatMoney(totalDifferenceValue)}</p>
 
-    const html = `
-        <html>
-        <head>
-            <title>Final Stock Audit Report</title>
-            <style>
-            ${reportHeaderCss()}
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-    ${reportHeaderHtml("Final Stock Audit Report")}
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Currency:</strong> ${systemCurrency}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Product Stock</th>
-                        <th>Branch Stock Total</th>
-                        <th>Difference</th>
-                        <th>Unit Cost</th>
-                        <th>Difference Value</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>${htmlRows}</tbody>
-            </table>
-
-            <div class="total">Total Difference Value: ${formatMoney(totalDifferenceValue)}</div>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>UOM</th>
+                    <th>Product Stock</th>
+                    <th>Branch Stock Total</th>
+                    <th>Difference</th>
+                    <th>Unit Cost</th>
+                    <th>Difference Value</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
 };
 
 window.exportStockAuditReportExcel = async function () {
-    const res = await fetch(API + "/stock-audit-report");
-    const rows = await res.json();
+    const rows = await fetchJson("/stock-audit-report");
 
-    let csv = "Product,Barcode,Product Stock,Branch Stock Total,Difference,Unit Cost,Difference Value,Status\n";
+    let csv = "Product,Barcode,UOM,Product Stock,Branch Stock Total,Difference,Unit Cost,Difference Value,Status\n";
 
     rows.forEach(r => {
-        const diff = Number(r.difference || 0);
-        const diffValue = Number(r.difference_value || 0);
-        const status = diff === 0 ? "OK" : "Mismatch";
-
-        csv += `${r.product_name},${r.barcode},${r.product_stock},${r.branch_stock_total},${diff},${Number(r.cost || 0).toFixed(2)},${diffValue.toFixed(2)},${status}\n`;
+        const status = Number(r.difference || 0) === 0 ? "OK" : "Mismatch";
+        csv += `${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.product_stock},${r.branch_stock_total},${r.difference},${Number(r.cost || 0).toFixed(2)},${Number(r.difference_value || 0).toFixed(2)},${status}\n`;
     });
 
     downloadCsv(csv, "final_stock_audit_report.csv");
