@@ -4197,9 +4197,10 @@ window.loadCustomerReturns = async function () {
                 <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
                 <td>${safeHtml(r.customer_phone || "")}</td>
                 <td>${safeHtml(r.invoice_no || "")}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.refund_amount || 0)}</td>
                 <td>${safeHtml(r.reason || "")}</td>
@@ -4222,9 +4223,10 @@ window.printCustomerReturns = async function () {
                 <td>${safeHtml(r.customer_name || "Walk-in Customer")}</td>
                 <td>${safeHtml(r.customer_phone || "")}</td>
                 <td>${safeHtml(r.invoice_no || "")}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(r.refund_amount || 0)}</td>
                 <td>${safeHtml(r.reason || "")}</td>
@@ -4240,19 +4242,15 @@ window.printCustomerReturns = async function () {
         <head>
             <title>Customer Returns Report</title>
             <style>
-            ${reportHeaderCss()}
+                ${reportHeaderCss()}
                 body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                 th, td { border: 1px solid #000; padding: 8px; text-align: center; }
                 th { background: #f2f2f2; }
             </style>
         </head>
         <body>
-            <body>
             ${reportHeaderHtml("Customer Returns Report")}
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Currency:</strong> ${systemCurrency}</p>
 
             <table>
                 <thead>
@@ -4263,6 +4261,7 @@ window.printCustomerReturns = async function () {
                         <th>Invoice</th>
                         <th>Product</th>
                         <th>Barcode</th>
+                        <th>UOM</th>
                         <th>Branch</th>
                         <th>Qty</th>
                         <th>Refund</th>
@@ -4286,10 +4285,10 @@ window.exportCustomerReturnsExcel = async function () {
     const res = await fetch(API + "/customer-returns");
     const returns = await res.json();
 
-    let csv = "ID,Customer,Phone,Invoice,Product,Barcode,Branch,Qty,Refund,Reason,Date\n";
+    let csv = "ID,Customer,Phone,Invoice,Product,Barcode,UOM,Branch,Qty,Refund,Reason,Date\n";
 
     returns.forEach(r => {
-        csv += `${r.id},${r.customer_name || "Walk-in Customer"},${r.customer_phone || ""},${r.invoice_no || ""},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${Number(r.refund_amount || 0).toFixed(2)},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+        csv += `${r.id},${r.customer_name || "Walk-in Customer"},${r.customer_phone || ""},${r.invoice_no || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.branch_name || ""},${r.qty},${Number(r.refund_amount || 0).toFixed(2)},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "customer_returns_report.csv");
@@ -4497,10 +4496,11 @@ window.loadSupplierReturns = async function () {
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.supplier_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.supplier_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
                 <td>${r.qty}</td>
                 <td>${safeHtml(r.reason || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
@@ -4519,10 +4519,11 @@ window.printSupplierReturns = async function () {
         rows += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.supplier_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.supplier_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
                 <td>${r.qty}</td>
                 <td>${safeHtml(r.reason || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
@@ -4538,6 +4539,7 @@ window.printSupplierReturns = async function () {
                     <th>Supplier</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Branch</th>
                     <th>Qty</th>
                     <th>Reason</th>
@@ -4553,10 +4555,10 @@ window.exportSupplierReturnsExcel = async function () {
     const res = await fetch(API + "/supplier-returns");
     const returns = await res.json();
 
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Reason,Date\n";
+    let csv = "ID,Supplier,Product,Barcode,UOM,Branch,Qty,Reason,Date\n";
 
     returns.forEach(r => {
-        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+        csv += `${r.id},${r.supplier_name || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.branch_name || ""},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "supplier_returns_report.csv");
@@ -4717,10 +4719,11 @@ window.loadFilteredReturnsReport = async function () {
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.supplier_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.supplier_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
                 <td>${r.qty}</td>
                 <td>${safeHtml(r.reason || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
@@ -4728,6 +4731,7 @@ window.loadFilteredReturnsReport = async function () {
         `;
     });
 };
+
 window.printFilteredReturnsReport = async function () {
     const query = getReturnsReportQuery();
 
@@ -4740,10 +4744,11 @@ window.printFilteredReturnsReport = async function () {
         htmlRows += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.supplier_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
-                <td>${safeHtml(r.branch_name)}</td>
+                <td>${safeHtml(r.supplier_name || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
                 <td>${r.qty}</td>
                 <td>${safeHtml(r.reason || "")}</td>
                 <td>${new Date(r.date).toLocaleString()}</td>
@@ -4759,6 +4764,7 @@ window.printFilteredReturnsReport = async function () {
                     <th>Supplier</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Branch</th>
                     <th>Qty</th>
                     <th>Reason</th>
@@ -4776,10 +4782,10 @@ window.exportFilteredReturnsExcel = async function () {
     const res = await fetch(API + "/supplier-returns-filtered" + (query ? "?" + query : ""));
     const rows = await res.json();
 
-    let csv = "ID,Supplier,Product,Barcode,Branch,Qty,Reason,Date\n";
+    let csv = "ID,Supplier,Product,Barcode,UOM,Branch,Qty,Reason,Date\n";
 
     rows.forEach(r => {
-        csv += `${r.id},${r.supplier_name},${r.product_name},${r.barcode},${r.branch_name},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
+        csv += `${r.id},${r.supplier_name || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.branch_name || ""},${r.qty},${r.reason || ""},${new Date(r.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "filtered_supplier_returns_report.csv");
