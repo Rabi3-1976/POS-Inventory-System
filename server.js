@@ -314,6 +314,7 @@ app.get("/sales-report", async (req, res) => {
                 s.id,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 s.qty,
                 s.price,
                 s.cost,
@@ -910,6 +911,7 @@ app.get("/branch-sales-report", async (req, res) => {
                 c.phone AS customer_phone,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 bs.qty,
                 bs.price,
                 bs.cost,
@@ -1129,6 +1131,7 @@ app.get("/customer-history/:id", async (req, res) => {
                 c.phone AS customer_phone,
                 p.name AS product_name,
                 p.barcode,
+                COALESCE(p.uom, 'PCS') AS uom,
                 bs.qty,
                 bs.price,
                 bs.cost,
@@ -1148,6 +1151,7 @@ app.get("/customer-history/:id", async (req, res) => {
         res.status(500).json({ error: "Customer history failed" });
     }
 });
+
 // EXPENSES
 app.post("/expenses", verifyToken, async (req, res) => {
     const { category, amount, notes } = req.body;
@@ -1476,11 +1480,14 @@ app.get("/invoices/:id", async (req, res) => {
         }
 
         const itemsResult = await pool.query(`
-            SELECT *
-            FROM invoice_items
-            WHERE invoice_id = $1
-            ORDER BY id
-        `, [req.params.id]);
+        SELECT 
+        ii.*,
+        COALESCE(p.uom, 'PCS') AS uom
+    FROM invoice_items ii
+    LEFT JOIN products p ON ii.product_id = p.id
+    WHERE ii.invoice_id = $1
+    ORDER BY ii.id
+`, [req.params.id]);
 
         res.json({
             invoice: invoiceResult.rows[0],
