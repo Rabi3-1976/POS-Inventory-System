@@ -2169,13 +2169,15 @@ function openReportWindow(title, bodyHtml) {
 }
 window.printInventoryReport = async function () {
     const products = await fetchJson("/products");
+
     const rows = products.map(p => `
         <tr>
             <td>${p.id}</td>
-            <td>${safeHtml(p.name)}</td>
-            <td>${safeHtml(p.barcode)}</td>
-            <td>${formatMoney(p.price)}</td>
-            <td>${p.stock}</td>
+            <td>${safeHtml(p.name || "")}</td>
+            <td>${safeHtml(p.barcode || "")}</td>
+            <td>${safeHtml(p.uom || "PCS")}</td>
+            <td>${formatMoney(p.price || 0)}</td>
+            <td>${p.stock || 0}</td>
         </tr>
     `).join("");
 
@@ -2186,6 +2188,7 @@ window.printInventoryReport = async function () {
                     <th>ID</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Price</th>
                     <th>Stock</th>
                 </tr>
@@ -2197,10 +2200,11 @@ window.printInventoryReport = async function () {
 
 window.exportInventoryExcel = async function () {
     const products = await fetchJson("/products");
-    let csv = "ID,Product,Barcode,Price,Stock\n";
+
+    let csv = "ID,Product,Barcode,UOM,Price,Stock\n";
 
     products.forEach(p => {
-        csv += `${p.id},${p.name},${p.barcode},${p.price},${p.stock}\n`;
+        csv += `${p.id},${p.name || ""},${p.barcode || ""},${p.uom || "PCS"},${p.price || 0},${p.stock || 0}\n`;
     });
 
     downloadCsv(csv, "inventory_report.csv");
@@ -2209,17 +2213,22 @@ window.exportInventoryExcel = async function () {
 window.printSalesReport = async function () {
     const sales = await fetchJson("/sales-report");
 
-    const rows = sales.map(s => `
-        <tr>
-            <td>${s.id}</td>
-            <td>${safeHtml(s.product_name)}</td>
-            <td>${safeHtml(s.barcode)}</td>
-            <td>${s.qty}</td>
-            <td>${formatMoney(Number(s.price) / Number(s.qty || 1))}</td>
-            <td>${formatMoney(s.price)}</td>
-            <td>${safeHtml(s.date)}</td>
-        </tr>
-    `).join("");
+    const rows = sales.map(s => {
+        const unitPrice = Number(s.price || 0) / Number(s.qty || 1);
+
+        return `
+            <tr>
+                <td>${s.id}</td>
+                <td>${safeHtml(s.product_name || "")}</td>
+                <td>${safeHtml(s.barcode || "")}</td>
+                <td>${safeHtml(s.uom || "PCS")}</td>
+                <td>${s.qty}</td>
+                <td>${formatMoney(unitPrice)}</td>
+                <td>${formatMoney(s.price || 0)}</td>
+                <td>${safeHtml(s.date || "")}</td>
+            </tr>
+        `;
+    }).join("");
 
     openReportWindow("Sales Report", `
         <table>
@@ -2228,6 +2237,7 @@ window.printSalesReport = async function () {
                     <th>ID</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Qty</th>
                     <th>Unit Price</th>
                     <th>Total</th>
@@ -2241,10 +2251,13 @@ window.printSalesReport = async function () {
 
 window.exportSalesExcel = async function () {
     const sales = await fetchJson("/sales-report");
-    let csv = "ID,Product,Barcode,Qty,Unit Price,Total,Date\n";
+
+    let csv = "ID,Product,Barcode,UOM,Qty,Unit Price,Total,Date\n";
 
     sales.forEach(s => {
-        csv += `${s.id},${s.product_name},${s.barcode},${s.qty},${money(Number(s.price) / Number(s.qty || 1))},${money(s.price)},${s.date}\n`;
+        const unitPrice = Number(s.price || 0) / Number(s.qty || 1);
+
+        csv += `${s.id},${s.product_name || ""},${s.barcode || ""},${s.uom || "PCS"},${s.qty},${unitPrice.toFixed(2)},${Number(s.price || 0).toFixed(2)},${s.date || ""}\n`;
     });
 
     downloadCsv(csv, "sales_report.csv");
@@ -2296,21 +2309,22 @@ window.printBranchSalesReport = async function () {
     const sales = await fetchJson("/branch-sales-report");
 
     const rows = sales.map(s => {
-        const unitPrice = Number(s.price) / Number(s.qty || 1);
+        const unitPrice = Number(s.price || 0) / Number(s.qty || 1);
 
         return `
             <tr>
                 <td>${s.id}</td>
-                <td>${safeHtml(s.branch_name)}</td>
+                <td>${safeHtml(s.branch_name || "")}</td>
                 <td>${safeHtml(s.customer_name || "Walk-in Customer")}</td>
                 <td>${safeHtml(s.customer_phone || "")}</td>
-                <td>${safeHtml(s.product_name)}</td>
-                <td>${safeHtml(s.barcode)}</td>
+                <td>${safeHtml(s.product_name || "")}</td>
+                <td>${safeHtml(s.barcode || "")}</td>
+                <td>${safeHtml(s.uom || "PCS")}</td>
                 <td>${s.qty}</td>
                 <td>${formatMoney(unitPrice)}</td>
-                <td>${formatMoney(s.price)}</td>
-                <td>${formatMoney(s.profit)}</td>
-                <td>${safeHtml(s.date)}</td>
+                <td>${formatMoney(s.price || 0)}</td>
+                <td>${formatMoney(s.profit || 0)}</td>
+                <td>${new Date(s.date).toLocaleString()}</td>
             </tr>
         `;
     }).join("");
@@ -2325,6 +2339,7 @@ window.printBranchSalesReport = async function () {
                     <th>Phone</th>
                     <th>Product</th>
                     <th>Barcode</th>
+                    <th>UOM</th>
                     <th>Qty</th>
                     <th>Unit Price</th>
                     <th>Total</th>
@@ -2339,14 +2354,15 @@ window.printBranchSalesReport = async function () {
 
 window.exportBranchSalesExcel = async function () {
     const sales = await fetchJson("/branch-sales-report");
-    let csv = "ID,Branch,Customer,Phone,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
+
+    let csv = "ID,Branch,Customer,Phone,Product,Barcode,UOM,Qty,Unit Price,Total,Profit,Date\n";
 
     sales.forEach(s => {
         const unitPrice = Number(s.price || 0) / Number(s.qty || 1);
         const total = Number(s.price || 0);
         const profit = Number(s.profit || 0);
 
-        csv += `${s.id},${s.branch_name},${s.customer_name || "Walk-in Customer"},${s.customer_phone || ""},${s.product_name},${s.barcode},${s.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${s.date}\n`;
+        csv += `${s.id},${s.branch_name || ""},${s.customer_name || "Walk-in Customer"},${s.customer_phone || ""},${s.product_name || ""},${s.barcode || ""},${s.uom || "PCS"},${s.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${new Date(s.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "branch_sales_report.csv");
@@ -2780,8 +2796,7 @@ window.loadCustomerHistory = async function () {
         return;
     }
 
-    const res = await fetch(API + "/customer-history/" + customerId);
-    const rows = await res.json();
+    const rows = await fetchJson("/customer-history/" + customerId);
 
     const table = document.getElementById("customerHistoryTable");
     if (!table) return;
@@ -2789,21 +2804,22 @@ window.loadCustomerHistory = async function () {
     table.innerHTML = "";
 
     rows.forEach(r => {
-        const unitPrice = Number(r.price) / Number(r.qty || 1);
-        const total = Number(r.price || 0);
-        const profit = Number(r.profit || 0);
+        const unitPrice = Number(r.price || 0) / Number(r.qty || 1);
 
         table.innerHTML += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.customer_name || "")}</td>
+                <td>${safeHtml(r.customer_phone || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(unitPrice)}</td>
-                <td>${formatMoney(total)}</td>
-                <td>${formatMoney(profit)}</td>
-                <td>${safeHtml(r.date)}</td>
+                <td>${formatMoney(r.price || 0)}</td>
+                <td>${formatMoney(r.profit || 0)}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
     });
@@ -2817,79 +2833,52 @@ window.printCustomerHistory = async function () {
         return;
     }
 
-    const res = await fetch(API + "/customer-history/" + customerId);
-    const rows = await res.json();
-
-    const selectedText = document.getElementById("historyCustomer")
-        .options[document.getElementById("historyCustomer").selectedIndex].text;
+    const rows = await fetchJson("/customer-history/" + customerId);
 
     let htmlRows = "";
 
     rows.forEach(r => {
-        const unitPrice = Number(r.price) / Number(r.qty || 1);
-        const total = Number(r.price || 0);
-        const profit = Number(r.profit || 0);
+        const unitPrice = Number(r.price || 0) / Number(r.qty || 1);
 
         htmlRows += `
             <tr>
                 <td>${r.id}</td>
-                <td>${safeHtml(r.branch_name)}</td>
-                <td>${safeHtml(r.product_name)}</td>
-                <td>${safeHtml(r.barcode)}</td>
+                <td>${safeHtml(r.branch_name || "")}</td>
+                <td>${safeHtml(r.customer_name || "")}</td>
+                <td>${safeHtml(r.customer_phone || "")}</td>
+                <td>${safeHtml(r.product_name || "")}</td>
+                <td>${safeHtml(r.barcode || "")}</td>
+                <td>${safeHtml(r.uom || "PCS")}</td>
                 <td>${r.qty}</td>
                 <td>${formatMoney(unitPrice)}</td>
-                <td>${formatMoney(total)}</td>
-                <td>${formatMoney(profit)}</td>
-                <td>${safeHtml(r.date)}</td>
+                <td>${formatMoney(r.price || 0)}</td>
+                <td>${formatMoney(r.profit || 0)}</td>
+                <td>${new Date(r.date).toLocaleString()}</td>
             </tr>
         `;
     });
 
-    const reportWindow = window.open("", "_blank");
-
-    const html = `
-        <html>
-        <head>
-            <title>Customer Purchase History</title>
-            <style>
-            ${reportHeaderCss()}
-                body { font-family: Arial; padding: 20px; }
-                h1 { text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-                th { background: #f2f2f2; }
-            </style>
-        </head>
-        <body>
-        ${reportHeaderHtml("Customer Purchase History")}
-            <p><strong>Customer:</strong> ${safeHtml(selectedText)}</p>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Currency:</strong> ${systemCurrency}</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Branch</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Qty</th>
-                        <th>Unit Price</th>
-                        <th>Total</th>
-                        <th>Profit</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>${htmlRows}</tbody>
-            </table>
-
-            <script>window.print();</script>
-        </body>
-        </html>
-    `;
-
-    reportWindow.document.write(html);
-    reportWindow.document.close();
+    openReportWindow("Customer Purchase History", `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Branch</th>
+                    <th>Customer</th>
+                    <th>Phone</th>
+                    <th>Product</th>
+                    <th>Barcode</th>
+                    <th>UOM</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                    <th>Profit</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+        </table>
+    `);
 };
 
 window.exportCustomerHistoryExcel = async function () {
@@ -2900,17 +2889,14 @@ window.exportCustomerHistoryExcel = async function () {
         return;
     }
 
-    const res = await fetch(API + "/customer-history/" + customerId);
-    const rows = await res.json();
+    const rows = await fetchJson("/customer-history/" + customerId);
 
-    let csv = "ID,Branch,Product,Barcode,Qty,Unit Price,Total,Profit,Date\n";
+    let csv = "ID,Branch,Customer,Phone,Product,Barcode,UOM,Qty,Unit Price,Total,Profit,Date\n";
 
     rows.forEach(r => {
-        const unitPrice = Number(r.price) / Number(r.qty || 1);
-        const total = Number(r.price || 0);
-        const profit = Number(r.profit || 0);
+        const unitPrice = Number(r.price || 0) / Number(r.qty || 1);
 
-        csv += `${r.id},${r.branch_name},${r.product_name},${r.barcode},${r.qty},${unitPrice.toFixed(2)},${total.toFixed(2)},${profit.toFixed(2)},${r.date}\n`;
+        csv += `${r.id},${r.branch_name || ""},${r.customer_name || ""},${r.customer_phone || ""},${r.product_name || ""},${r.barcode || ""},${r.uom || "PCS"},${r.qty},${unitPrice.toFixed(2)},${Number(r.price || 0).toFixed(2)},${Number(r.profit || 0).toFixed(2)},${new Date(r.date).toLocaleString()}\n`;
     });
 
     downloadCsv(csv, "customer_purchase_history.csv");
