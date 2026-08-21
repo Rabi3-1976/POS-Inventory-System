@@ -1,0 +1,8 @@
+# Uploads directory for POS System
+# This folder stores:
+# - Product images
+# - Invoice PDFs
+# - Receipt exports
+# - Temporary files
+
+# The .gitkeep file preserves this empty directory in Git
