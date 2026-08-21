@@ -1,78 +1,490 @@
-/**
- * Transaction Routes for POS Inventory System
- * Handles all business transaction operations
- */
-
+// routes/transactions.js
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../database');
+const pool = require('../database');
 
-/**
- * GET /api/transactions
- * Retrieve all transactions with filtering
- */
-router.get('/', async (req, res) => {
+// =====================================================
+// 1. SALE TRANSACTIONS (Your Existing Code)
+// =====================================================
+
+// Process a sale
+router.post('/sales', async (req, res) => {
+    const client = await pool.connect();
     try {
-        const { branch_id, start_date, end_date, type } = req.query;
+        const {
+            product_id,
+            qty,
+            price,
+            cost,
+            customer_id = null,
+            date = new Date().toISOString().split('T')[0]
+        } = req.body;
+
+        if (!product_id || !qty || !price || !cost) {
+            return res.status(400).json({
+                error: 'Missing required fields: product_id, qty, price, cost'
+            });
+        }
+
+        await client.query('BEGIN');
+        await client.query(
+            `CALL process_sale($1, $2, $3, $4, $5, $6)`,
+            [product_id, qty, price, cost, customer_id, date]
+        );
+        await client.query('COMMIT');
         
-        let query = `
-            SELECT 
-                t.*,
-                u.username as created_by_name,
-                b.name as branch_name
-            FROM transactions t
-            LEFT JOIN users u ON t.created_by = u.id
-            LEFT JOIN branches b ON t.branch_id = b.id
-            WHERE 1=1
-        `;
-        const params = [];
-        let paramIndex = 1;
-
-        if (branch_id) {
-            query += ` AND t.branch_id = $${paramIndex}`;
-            params.push(branch_id);
-            paramIndex++;
-        }
-
-        if (start_date) {
-            query += ` AND t.created_at >= $${paramIndex}`;
-            params.push(start_date);
-            paramIndex++;
-        }
-
-        if (end_date) {
-            query += ` AND t.created_at <= $${paramIndex}`;
-            params.push(end_date);
-            paramIndex++;
-        }
-
-        if (type) {
-            query += ` AND t.type = $${paramIndex}`;
-            params.push(type);
-            paramIndex++;
-        }
-
-        query += ` ORDER BY t.created_at DESC LIMIT 100`;
-
-        const result = await pool.query(query, params);
-        res.json({
-            success: true,
-            data: result.rows,
-            count: result.rowCount
+        res.status(201).json({
+            message: 'Sale processed successfully',
+            data: { product_id, qty, price, cost, customer_id, date }
         });
     } catch (error) {
-        console.error('Error fetching transactions:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch transactions'
-        });
+        await client.query('ROLLBACK');
+        console.error('Error processing sale:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
     }
 });
 
-/**
- * GET /api/transactions/:id
- * Get transaction by ID
- */
+// Process a branch sale
+router.post('/branch-sales', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const {
+            branch_id,
+            product_id,
+            qty,
+            price,
+            cost,
+            customer_id = null,
+            date = new Date().toISOString().split('T')[0]
+        } = req.body;
+
+        if (!branch_id || !product_id || !qty || !price || !cost) {
+            return res.status(400).json({
+                error: 'Missing required fields: branch_id, product_id, qty, price, cost'
+            });
+        }
+
+        await client.query('BEGIN');
+        await client.query(
+            `CALL process_branch_sale($1, $2, $3, $4, $5, $6, $7)`,
+            [branch_id, product_id, qty, price, cost, customer_id, date]
+        );
+        await client.query('COMMIT');
+        
+        res.status(201).json({
+            message: 'Branch sale processed successfully',
+            data: { branch_id, product_id, qty, price, cost, customer_id, date }
+        });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error processing branch sale:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// =====================================================
+// 2. PURCHASE ORDER TRANSACTIONS (NEW)
+// =====================================================
+
+// Create a purchase order
+router.post('/purchase-orders', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const {
+            supplier_id,
+            branch_id,
+            items,
+            expected_delivery,
+            created_by
+        } = req.body;
+
+        if (!supplier_id || !branch_id || !items || !items.length || !created_by) {
+            return res.status(400).json({
+                error: 'Missing required fields: supplier_id, branch_id, items, created_by'
+            });
+        }
+
+        await client.query('BEGIN');
+
+        let subtotal = 0;
+        const processedItems = [];
+
+        for (const item of items) {
+            const productQuery = `SELECT * FROM products WHERE id = $1`;
+            const productResult = await client.query(productQuery, [item.product_id]);
+            
+            if (productResult.rowCount === 0) {
+                throw new Error(`Product ${item.product_id} not found`);
+            }
+
+            const product = productResult.rows[0];
+            const itemTotal = item.quantity * item.unit_price;
+            
+            processedItems.push({
+                ...item,
+                total: itemTotal
+            });
+
+            subtotal += itemTotal;
+        }
+
+        const poQuery = `
+            INSERT INTO purchase_orders (
+                supplier_id, branch_id, order_date, expected_delivery,
+                subtotal, total_amount, status, created_by
+            ) VALUES ($1, $2, NOW(), $3, $4, $4, 'pending', $5)
+            RETURNING id, po_number
+        `;
+        const poResult = await client.query(poQuery, [
+            supplier_id,
+            branch_id,
+            expected_delivery,
+            subtotal,
+            created_by
+        ]);
+        const poId = poResult.rows[0].id;
+
+        for (const item of processedItems) {
+            const itemQuery = `
+                INSERT INTO purchase_order_items (
+                    purchase_order_id, product_id, quantity,
+                    unit_price, total
+                ) VALUES ($1, $2, $3, $4, $5)
+            `;
+            await client.query(itemQuery, [
+                poId,
+                item.product_id,
+                item.quantity,
+                item.unit_price,
+                item.total
+            ]);
+        }
+
+        await client.query('COMMIT');
+
+        res.status(201).json({
+            success: true,
+            data: {
+                purchase_order_id: poId,
+                po_number: poResult.rows[0].po_number,
+                total_amount: subtotal
+            }
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error creating purchase order:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// Receive purchase order (partial or full)
+router.put('/purchase-orders/:id/receive', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { id } = req.params;
+        const { items, received_by } = req.body;
+
+        if (!items || !items.length || !received_by) {
+            return res.status(400).json({
+                error: 'Missing required fields: items, received_by'
+            });
+        }
+
+        await client.query('BEGIN');
+
+        const poCheckQuery = `
+            SELECT * FROM purchase_orders 
+            WHERE id = $1 AND status IN ('pending', 'partial')
+        `;
+        const poCheck = await client.query(poCheckQuery, [id]);
+        
+        if (poCheck.rowCount === 0) {
+            throw new Error('Purchase order not found or already completed');
+        }
+
+        let totalReceived = 0;
+        let allReceived = true;
+
+        for (const item of items) {
+            const poItemQuery = `
+                SELECT * FROM purchase_order_items 
+                WHERE purchase_order_id = $1 AND product_id = $2
+            `;
+            const poItemResult = await client.query(poItemQuery, [id, item.product_id]);
+            
+            if (poItemResult.rowCount === 0) {
+                throw new Error(`Product ${item.product_id} not in purchase order`);
+            }
+
+            const poItem = poItemResult.rows[0];
+            const receivedQuantity = item.quantity_received || item.quantity;
+            const remainingQuantity = poItem.quantity - poItem.quantity_received;
+
+            if (receivedQuantity > remainingQuantity) {
+                throw new Error(`Cannot receive more than ordered. Remaining: ${remainingQuantity}`);
+            }
+
+            if (receivedQuantity < poItem.quantity) {
+                allReceived = false;
+            }
+
+            await client.query(`
+                UPDATE purchase_order_items 
+                SET quantity_received = quantity_received + $1,
+                    updated_at = NOW()
+                WHERE purchase_order_id = $2 AND product_id = $3
+            `, [receivedQuantity, id, item.product_id]);
+
+            const stockCheck = await client.query(`
+                SELECT * FROM branch_stock 
+                WHERE branch_id = $1 AND product_id = $2
+            `, [poCheck.rows[0].branch_id, item.product_id]);
+
+            if (stockCheck.rowCount === 0) {
+                await client.query(`
+                    INSERT INTO branch_stock (branch_id, product_id, quantity)
+                    VALUES ($1, $2, $3)
+                `, [poCheck.rows[0].branch_id, item.product_id, receivedQuantity]);
+            } else {
+                await client.query(`
+                    UPDATE branch_stock 
+                    SET quantity = quantity + $1, updated_at = NOW()
+                    WHERE branch_id = $2 AND product_id = $3
+                `, [receivedQuantity, poCheck.rows[0].branch_id, item.product_id]);
+            }
+
+            totalReceived += receivedQuantity;
+        }
+
+        const status = allReceived ? 'completed' : 'partial';
+        await client.query(`
+            UPDATE purchase_orders 
+            SET status = $1, received_at = NOW(), updated_at = NOW()
+            WHERE id = $2
+        `, [status, id]);
+
+        await client.query('COMMIT');
+
+        res.json({
+            success: true,
+            data: {
+                purchase_order_id: id,
+                status: status,
+                items_received: items.length,
+                total_received: totalReceived
+            }
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error receiving purchase order:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// =====================================================
+// 3. VIEWS - GET ENDPOINTS (Your Existing Code)
+// =====================================================
+
+// Get sales summary
+router.get('/sales-summary', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT * FROM v_sales_summary 
+            ORDER BY date DESC
+            LIMIT 100
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching sales summary:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get branch sales summary
+router.get('/branch-sales-summary', async (req, res) => {
+    try {
+        const { branch_id } = req.query;
+        let query = `SELECT * FROM v_branch_sales_summary ORDER BY date DESC`;
+        const params = [];
+        
+        if (branch_id) {
+            query = `SELECT * FROM v_branch_sales_summary WHERE branch_id = $1 ORDER BY date DESC`;
+            params.push(branch_id);
+        }
+        
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching branch sales summary:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get product sales performance
+router.get('/product-performance', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT * FROM v_product_sales_performance 
+            ORDER BY total_sold DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching product performance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get purchase order status
+router.get('/purchase-orders', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT * FROM v_purchase_order_status 
+            ORDER BY po_id DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching purchase orders:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get customer purchase history
+router.get('/customer-history', async (req, res) => {
+    try {
+        const { customer_id } = req.query;
+        let query = `SELECT * FROM v_customer_purchase_history`;
+        const params = [];
+        
+        if (customer_id) {
+            query = `SELECT * FROM v_customer_purchase_history WHERE customer_id = $1`;
+            params.push(customer_id);
+        }
+        
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching customer history:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get daily sales report
+router.get('/daily-report', async (req, res) => {
+    try {
+        const { start_date, end_date } = req.query;
+        let query = `SELECT * FROM v_daily_sales_report`;
+        const params = [];
+        let conditions = [];
+        
+        if (start_date) {
+            conditions.push(`sale_date >= $${params.length + 1}`);
+            params.push(start_date);
+        }
+        
+        if (end_date) {
+            conditions.push(`sale_date <= $${params.length + 1}`);
+            params.push(end_date);
+        }
+        
+        if (conditions.length > 0) {
+            query += ` WHERE ${conditions.join(' AND ')}`;
+        }
+        
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching daily report:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// 4. INVENTORY ENDPOINTS (Your Existing Code)
+// =====================================================
+
+// Get branch stock
+router.get('/branch-stock', async (req, res) => {
+    try {
+        const { branch_id, product_id } = req.query;
+        let query = `
+            SELECT 
+                bs.branch_id,
+                b.name AS branch_name,
+                bs.product_id,
+                p.name AS product_name,
+                p.barcode,
+                bs.stock,
+                bs.min_stock
+            FROM branch_stock bs
+            LEFT JOIN branches b ON bs.branch_id = b.id
+            LEFT JOIN products p ON bs.product_id = p.id
+        `;
+        const params = [];
+        const conditions = [];
+        
+        if (branch_id) {
+            conditions.push(`bs.branch_id = $${params.length + 1}`);
+            params.push(branch_id);
+        }
+        
+        if (product_id) {
+            conditions.push(`bs.product_id = $${params.length + 1}`);
+            params.push(product_id);
+        }
+        
+        if (conditions.length > 0) {
+            query += ` WHERE ${conditions.join(' AND ')}`;
+        }
+        
+        query += ` ORDER BY b.name, p.name`;
+        
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching branch stock:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// 5. DASHBOARD ENDPOINTS (Your Existing Code)
+// =====================================================
+
+// Get dashboard statistics
+router.get('/dashboard/stats', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                (SELECT COUNT(*) FROM products) AS total_products,
+                (SELECT COUNT(*) FROM customers) AS total_customers,
+                (SELECT COUNT(*) FROM suppliers) AS total_suppliers,
+                (SELECT COUNT(*) FROM branches) AS total_branches,
+                (SELECT COALESCE(SUM(profit), 0) FROM sales) AS total_profit,
+                (SELECT COUNT(*) FROM sales) AS total_sales,
+                (SELECT COUNT(*) FROM purchase_orders WHERE status = 'Pending') AS pending_orders
+        `);
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// 6. SINGLE TRANSACTION LOOKUP (NEW)
+// =====================================================
+
+// Get transaction by ID
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -103,498 +515,22 @@ router.get('/:id', async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching transaction:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch transaction'
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
-/**
- * POST /api/transactions/sale
- * Create a new sale transaction
- */
-router.post('/sale', async (req, res) => {
-    const client = await pool.connect();
-    
-    try {
-        const {
-            customer_id,
-            branch_id,
-            items,
-            payment_method,
-            discount_percent,
-            tax_rate,
-            created_by
-        } = req.body;
+// =====================================================
+// 7. TRANSACTION VOID (NEW)
+// =====================================================
 
-        // Validate required fields
-        if (!branch_id || !items || !items.length || !created_by) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing required fields: branch_id, items, created_by'
-            });
-        }
-
-        await client.query('BEGIN');
-
-        // Calculate totals
-        let subtotal = 0;
-        let total_tax = 0;
-        let total_discount = 0;
-
-        // Process each item
-        const processedItems = [];
-        for (const item of items) {
-            // Get product details and check stock
-            const productQuery = `
-                SELECT p.*, bs.quantity as stock_quantity
-                FROM products p
-                LEFT JOIN branch_stock bs ON p.id = bs.product_id AND bs.branch_id = $1
-                WHERE p.id = $2
-            `;
-            const productResult = await client.query(productQuery, [branch_id, item.product_id]);
-            
-            if (productResult.rowCount === 0) {
-                throw new Error(`Product ${item.product_id} not found`);
-            }
-
-            const product = productResult.rows[0];
-            
-            // Check stock
-            if (product.stock_quantity < item.quantity) {
-                throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock_quantity}`);
-            }
-
-            // Calculate item totals
-            const itemPrice = item.unit_price || product.unit_price;
-            const itemTotal = itemPrice * item.quantity;
-            const itemTax = itemTotal * (tax_rate || 0.15);
-            const itemDiscount = itemTotal * (discount_percent || 0);
-            
-            processedItems.push({
-                ...item,
-                unit_price: itemPrice,
-                total: itemTotal,
-                tax: itemTax,
-                discount: itemDiscount
-            });
-
-            subtotal += itemTotal;
-            total_tax += itemTax;
-            total_discount += itemDiscount;
-        }
-
-        const total_amount = subtotal + total_tax - total_discount;
-
-        // Create sale record
-        const saleQuery = `
-            INSERT INTO sales (
-                customer_id, branch_id, subtotal, tax_amount, 
-                discount_amount, total_amount, payment_method,
-                status, created_by, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', $8, NOW())
-            RETURNING id
-        `;
-        const saleResult = await client.query(saleQuery, [
-            customer_id || null,
-            branch_id,
-            subtotal,
-            total_tax,
-            total_discount,
-            total_amount,
-            payment_method || 'cash',
-            created_by
-        ]);
-        const saleId = saleResult.rows[0].id;
-
-        // Create invoice
-        const invoiceQuery = `
-            INSERT INTO invoices (
-                sale_id, invoice_number, issue_date, due_date,
-                total_amount, status, created_by
-            ) VALUES (
-                $1, 
-                'INV-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD($2::TEXT, 5, '0'),
-                NOW(),
-                NOW() + INTERVAL '30 days',
-                $3,
-                'pending',
-                $4
-            )
-            RETURNING id, invoice_number
-        `;
-        const invoiceResult = await client.query(invoiceQuery, [
-            saleId,
-            saleId,
-            total_amount,
-            created_by
-        ]);
-
-        // Create sale items
-        for (const item of processedItems) {
-            const itemQuery = `
-                INSERT INTO sale_items (
-                    sale_id, product_id, quantity, unit_price,
-                    total, tax_amount, discount_amount
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-            `;
-            await client.query(itemQuery, [
-                saleId,
-                item.product_id,
-                item.quantity,
-                item.unit_price,
-                item.total,
-                item.tax || 0,
-                item.discount || 0
-            ]);
-
-            // Update stock
-            const stockQuery = `
-                UPDATE branch_stock 
-                SET quantity = quantity - $1, updated_at = NOW()
-                WHERE branch_id = $2 AND product_id = $3
-            `;
-            await client.query(stockQuery, [item.quantity, branch_id, item.product_id]);
-        }
-
-        // Create transaction record
-        const transactionQuery = `
-            INSERT INTO transactions (
-                type, reference_id, branch_id, amount,
-                description, created_by, created_at
-            ) VALUES (
-                'sale', $1, $2, $3, 
-                'Sale completed with invoice ' || $4,
-                $5, NOW()
-            )
-        `;
-        await client.query(transactionQuery, [
-            saleId,
-            branch_id,
-            total_amount,
-            invoiceResult.rows[0].invoice_number,
-            created_by
-        ]);
-
-        await client.query('COMMIT');
-
-        res.status(201).json({
-            success: true,
-            data: {
-                sale_id: saleId,
-                invoice_id: invoiceResult.rows[0].id,
-                invoice_number: invoiceResult.rows[0].invoice_number,
-                total_amount: total_amount,
-                items: processedItems
-            }
-        });
-
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error creating sale:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to create sale'
-        });
-    } finally {
-        client.release();
-    }
-});
-
-/**
- * POST /api/transactions/purchase-order
- * Create purchase order
- */
-router.post('/purchase-order', async (req, res) => {
-    const client = await pool.connect();
-    
-    try {
-        const {
-            supplier_id,
-            branch_id,
-            items,
-            expected_delivery,
-            created_by
-        } = req.body;
-
-        if (!supplier_id || !branch_id || !items || !items.length || !created_by) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing required fields'
-            });
-        }
-
-        await client.query('BEGIN');
-
-        let subtotal = 0;
-        const processedItems = [];
-
-        for (const item of items) {
-            const productQuery = `SELECT * FROM products WHERE id = $1`;
-            const productResult = await client.query(productQuery, [item.product_id]);
-            
-            if (productResult.rowCount === 0) {
-                throw new Error(`Product ${item.product_id} not found`);
-            }
-
-            const product = productResult.rows[0];
-            const itemTotal = item.quantity * item.unit_price;
-            
-            processedItems.push({
-                ...item,
-                total: itemTotal
-            });
-
-            subtotal += itemTotal;
-        }
-
-        // Create purchase order
-        const poQuery = `
-            INSERT INTO purchase_orders (
-                supplier_id, branch_id, order_date, expected_delivery,
-                subtotal, total_amount, status, created_by
-            ) VALUES ($1, $2, NOW(), $3, $4, $4, 'pending', $5)
-            RETURNING id, po_number
-        `;
-        const poResult = await client.query(poQuery, [
-            supplier_id,
-            branch_id,
-            expected_delivery,
-            subtotal,
-            created_by
-        ]);
-        const poId = poResult.rows[0].id;
-
-        // Create PO items
-        for (const item of processedItems) {
-            const itemQuery = `
-                INSERT INTO purchase_order_items (
-                    purchase_order_id, product_id, quantity,
-                    unit_price, total
-                ) VALUES ($1, $2, $3, $4, $5)
-            `;
-            await client.query(itemQuery, [
-                poId,
-                item.product_id,
-                item.quantity,
-                item.unit_price,
-                item.total
-            ]);
-        }
-
-        // Create transaction record
-        const transactionQuery = `
-            INSERT INTO transactions (
-                type, reference_id, branch_id, amount,
-                description, created_by, created_at
-            ) VALUES (
-                'purchase_order', $1, $2, $3,
-                'Purchase order created: ' || $4,
-                $5, NOW()
-            )
-        `;
-        await client.query(transactionQuery, [
-            poId,
-            branch_id,
-            subtotal,
-            poResult.rows[0].po_number,
-            created_by
-        ]);
-
-        await client.query('COMMIT');
-
-        res.status(201).json({
-            success: true,
-            data: {
-                purchase_order_id: poId,
-                po_number: poResult.rows[0].po_number,
-                total_amount: subtotal
-            }
-        });
-
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error creating purchase order:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to create purchase order'
-        });
-    } finally {
-        client.release();
-    }
-});
-
-/**
- * PUT /api/transactions/purchase-order/:id/receive
- * Receive purchase order (partial or full)
- */
-router.put('/purchase-order/:id/receive', async (req, res) => {
-    const client = await pool.connect();
-    
-    try {
-        const { id } = req.params;
-        const { items, received_by } = req.body;
-
-        if (!items || !items.length || !received_by) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing required fields: items, received_by'
-            });
-        }
-
-        await client.query('BEGIN');
-
-        // Verify purchase order exists and is pending
-        const poCheckQuery = `
-            SELECT * FROM purchase_orders 
-            WHERE id = $1 AND status IN ('pending', 'partial')
-        `;
-        const poCheck = await client.query(poCheckQuery, [id]);
-        
-        if (poCheck.rowCount === 0) {
-            throw new Error('Purchase order not found or already completed');
-        }
-
-        let totalReceived = 0;
-        let allReceived = true;
-
-        for (const item of items) {
-            // Check if item exists in PO
-            const poItemQuery = `
-                SELECT * FROM purchase_order_items 
-                WHERE purchase_order_id = $1 AND product_id = $2
-            `;
-            const poItemResult = await client.query(poItemQuery, [id, item.product_id]);
-            
-            if (poItemResult.rowCount === 0) {
-                throw new Error(`Product ${item.product_id} not in purchase order`);
-            }
-
-            const poItem = poItemResult.rows[0];
-            const receivedQuantity = item.quantity_received || item.quantity;
-            const remainingQuantity = poItem.quantity - poItem.quantity_received;
-
-            if (receivedQuantity > remainingQuantity) {
-                throw new Error(`Cannot receive more than ordered. Remaining: ${remainingQuantity}`);
-            }
-
-            if (receivedQuantity < poItem.quantity) {
-                allReceived = false;
-            }
-
-            // Update PO item received quantity
-            const updateQuery = `
-                UPDATE purchase_order_items 
-                SET quantity_received = quantity_received + $1,
-                    updated_at = NOW()
-                WHERE purchase_order_id = $2 AND product_id = $3
-                RETURNING *
-            `;
-            await client.query(updateQuery, [receivedQuantity, id, item.product_id]);
-
-            // Update branch stock
-            const stockCheckQuery = `
-                SELECT * FROM branch_stock 
-                WHERE branch_id = $1 AND product_id = $2
-            `;
-            const stockCheck = await client.query(stockCheckQuery, [
-                poCheck.rows[0].branch_id,
-                item.product_id
-            ]);
-
-            if (stockCheck.rowCount === 0) {
-                // Insert new stock record
-                const insertStockQuery = `
-                    INSERT INTO branch_stock (branch_id, product_id, quantity)
-                    VALUES ($1, $2, $3)
-                `;
-                await client.query(insertStockQuery, [
-                    poCheck.rows[0].branch_id,
-                    item.product_id,
-                    receivedQuantity
-                ]);
-            } else {
-                // Update existing stock
-                const updateStockQuery = `
-                    UPDATE branch_stock 
-                    SET quantity = quantity + $1, updated_at = NOW()
-                    WHERE branch_id = $2 AND product_id = $3
-                `;
-                await client.query(updateStockQuery, [
-                    receivedQuantity,
-                    poCheck.rows[0].branch_id,
-                    item.product_id
-                ]);
-            }
-
-            totalReceived += receivedQuantity;
-        }
-
-        // Update PO status
-        const status = allReceived ? 'completed' : 'partial';
-        const updatePOQuery = `
-            UPDATE purchase_orders 
-            SET status = $1, received_at = NOW(), updated_at = NOW()
-            WHERE id = $2
-        `;
-        await client.query(updatePOQuery, [status, id]);
-
-        // Create receipt transaction
-        const transactionQuery = `
-            INSERT INTO transactions (
-                type, reference_id, branch_id, amount,
-                description, created_by, created_at
-            ) VALUES (
-                'receiving', $1, $2, $3,
-                'Received items from purchase order',
-                $4, NOW()
-            )
-        `;
-        await client.query(transactionQuery, [
-            id,
-            poCheck.rows[0].branch_id,
-            totalReceived,
-            received_by
-        ]);
-
-        await client.query('COMMIT');
-
-        res.json({
-            success: true,
-            data: {
-                purchase_order_id: id,
-                status: status,
-                items_received: items.length,
-                total_received: totalReceived
-            }
-        });
-
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error receiving purchase order:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to receive purchase order'
-        });
-    } finally {
-        client.release();
-    }
-});
-
-/**
- * DELETE /api/transactions/:id
- * Delete/rollback a transaction
- */
+// Void/delete a transaction
 router.delete('/:id', async (req, res) => {
     const client = await pool.connect();
-    
     try {
         const { id } = req.params;
 
         await client.query('BEGIN');
 
-        // Check if transaction exists
         const checkQuery = `SELECT * FROM transactions WHERE id = $1`;
         const checkResult = await client.query(checkQuery, [id]);
         
@@ -605,15 +541,11 @@ router.delete('/:id', async (req, res) => {
             });
         }
 
-        const transaction = checkResult.rows[0];
-
-        // Mark as voided instead of deleting
-        const voidQuery = `
+        await client.query(`
             UPDATE transactions 
             SET status = 'voided', updated_at = NOW()
             WHERE id = $1
-        `;
-        await client.query(voidQuery, [id]);
+        `, [id]);
 
         await client.query('COMMIT');
 
@@ -625,60 +557,9 @@ router.delete('/:id', async (req, res) => {
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Error voiding transaction:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to void transaction'
-        });
+        res.status(500).json({ error: error.message });
     } finally {
         client.release();
-    }
-});
-
-/**
- * GET /api/transactions/reports/daily
- * Get daily transaction report
- */
-router.get('/reports/daily', async (req, res) => {
-    try {
-        const { date, branch_id } = req.query;
-        const reportDate = date || new Date().toISOString().split('T')[0];
-
-        let query = `
-            SELECT 
-                DATE(t.created_at) as date,
-                t.type,
-                COUNT(*) as transaction_count,
-                SUM(t.amount) as total_amount
-            FROM transactions t
-            WHERE DATE(t.created_at) = $1
-        `;
-        const params = [reportDate];
-        let paramIndex = 2;
-
-        if (branch_id) {
-            query += ` AND t.branch_id = $${paramIndex}`;
-            params.push(branch_id);
-            paramIndex++;
-        }
-
-        query += ` GROUP BY DATE(t.created_at), t.type ORDER BY t.type`;
-
-        const result = await pool.query(query, params);
-
-        res.json({
-            success: true,
-            data: {
-                date: reportDate,
-                report: result.rows
-            }
-        });
-
-    } catch (error) {
-        console.error('Error generating daily report:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to generate report'
-        });
     }
 });
 
