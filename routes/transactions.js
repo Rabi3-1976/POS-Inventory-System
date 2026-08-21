@@ -184,12 +184,19 @@ router.post('/purchase-orders', async (req, res) => {
     }
 });
 
-// Receive purchase order (partial or full)
+// routes/transactions.js - FIXED VERSION
+
+/**
+ * RECEIVE PURCHASE ORDER (FIXED)
+ * PUT /api/transactions/purchase-orders/:id/receive
+ */
 router.put('/purchase-orders/:id/receive', async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;
         const { items, received_by } = req.body;
+
+        console.log(`📦 Receiving PO #${id}`, { items, received_by });
 
         if (!items || !items.length || !received_by) {
             return res.status(400).json({
@@ -199,93 +206,190 @@ router.put('/purchase-orders/:id/receive', async (req, res) => {
 
         await client.query('BEGIN');
 
+        // 1. Check if purchase order exists and is not completed
         const poCheckQuery = `
-            SELECT * FROM purchase_orders 
-            WHERE id = $1 AND status IN ('pending', 'partial')
+            SELECT id, branch_id, status, po_number 
+            FROM purchase_orders 
+            WHERE id = $1
         `;
         const poCheck = await client.query(poCheckQuery, [id]);
         
         if (poCheck.rowCount === 0) {
-            throw new Error('Purchase order not found or already completed');
+            throw new Error('Purchase order not found');
         }
 
+        const po = poCheck.rows[0];
+
+        if (po.status === 'completed') {
+            throw new Error('Purchase order already completed');
+        }
+
+        // 2. Get all items for this PO
+        const poItemsQuery = `
+            SELECT 
+                id,
+                product_id,
+                quantity,
+                COALESCE(quantity_received, 0) as quantity_received
+            FROM purchase_order_items 
+            WHERE purchase_order_id = $1
+        `;
+        const poItemsResult = await client.query(poItemsQuery, [id]);
+        
+        console.log('📋 PO Items:', poItemsResult.rows);
+
+        if (poItemsResult.rowCount === 0) {
+            throw new Error('No items found for this purchase order');
+        }
+
+        // 3. Create a map of PO items for easy lookup
+        const poItemsMap = {};
+        poItemsResult.rows.forEach(item => {
+            poItemsMap[item.product_id] = item;
+        });
+
+        // 4. Process each received item
         let totalReceived = 0;
         let allReceived = true;
+        const receivedItems = [];
 
-        for (const item of items) {
-            const poItemQuery = `
-                SELECT * FROM purchase_order_items 
-                WHERE purchase_order_id = $1 AND product_id = $2
-            `;
-            const poItemResult = await client.query(poItemQuery, [id, item.product_id]);
+        for (const receivedItem of items) {
+            const { product_id, quantity_received } = receivedItem;
             
-            if (poItemResult.rowCount === 0) {
-                throw new Error(`Product ${item.product_id} not in purchase order`);
+            // Check if product exists in PO
+            if (!poItemsMap[product_id]) {
+                throw new Error(`Product ${product_id} not found in purchase order`);
             }
 
-            const poItem = poItemResult.rows[0];
-            const receivedQuantity = item.quantity_received || item.quantity;
-            const remainingQuantity = poItem.quantity - poItem.quantity_received;
+            const poItem = poItemsMap[product_id];
+            const remaining = poItem.quantity - poItem.quantity_received;
+            
+            console.log(`📊 Product ${product_id}: Ordered=${poItem.quantity}, Received=${poItem.quantity_received}, Remaining=${remaining}, Receiving=${quantity_received}`);
 
-            if (receivedQuantity > remainingQuantity) {
-                throw new Error(`Cannot receive more than ordered. Remaining: ${remainingQuantity}`);
+            // Validate quantity
+            if (quantity_received > remaining) {
+                throw new Error(
+                    `Cannot receive ${quantity_received} units of product ${product_id}. ` +
+                    `Only ${remaining} units remaining to receive`
+                );
             }
 
-            if (receivedQuantity < poItem.quantity) {
-                allReceived = false;
+            if (quantity_received <= 0) {
+                throw new Error(`Quantity received must be greater than 0 for product ${product_id}`);
             }
 
-            await client.query(`
+            // Update PO item received quantity
+            const updateQuery = `
                 UPDATE purchase_order_items 
                 SET quantity_received = quantity_received + $1,
                     updated_at = NOW()
                 WHERE purchase_order_id = $2 AND product_id = $3
-            `, [receivedQuantity, id, item.product_id]);
+                RETURNING *
+            `;
+            const updateResult = await client.query(updateQuery, [
+                quantity_received,
+                id,
+                product_id
+            ]);
 
+            console.log('✅ Updated PO item:', updateResult.rows[0]);
+
+            // Update branch stock
+            const branchId = po.branch_id;
+            
+            // Check if stock record exists
             const stockCheck = await client.query(`
                 SELECT * FROM branch_stock 
                 WHERE branch_id = $1 AND product_id = $2
-            `, [poCheck.rows[0].branch_id, item.product_id]);
+            `, [branchId, product_id]);
 
             if (stockCheck.rowCount === 0) {
+                // Insert new stock record
                 await client.query(`
                     INSERT INTO branch_stock (branch_id, product_id, quantity)
                     VALUES ($1, $2, $3)
-                `, [poCheck.rows[0].branch_id, item.product_id, receivedQuantity]);
+                `, [branchId, product_id, quantity_received]);
+                console.log(`✅ Created new stock record for product ${product_id}`);
             } else {
+                // Update existing stock
                 await client.query(`
                     UPDATE branch_stock 
                     SET quantity = quantity + $1, updated_at = NOW()
                     WHERE branch_id = $2 AND product_id = $3
-                `, [receivedQuantity, poCheck.rows[0].branch_id, item.product_id]);
+                `, [quantity_received, branchId, product_id]);
+                console.log(`✅ Updated stock for product ${product_id}: +${quantity_received}`);
             }
 
-            totalReceived += receivedQuantity;
+            totalReceived += quantity_received;
+            receivedItems.push({
+                product_id,
+                quantity_received,
+                new_total_received: poItem.quantity_received + quantity_received
+            });
+
+            // Check if all items are fully received
+            const updatedPoItem = updateResult.rows[0];
+            if (updatedPoItem.quantity_received < updatedPoItem.quantity) {
+                allReceived = false;
+            }
         }
 
-        const status = allReceived ? 'completed' : 'partial';
+        // 5. Update PO status
+        const newStatus = allReceived ? 'completed' : 'partial';
         await client.query(`
             UPDATE purchase_orders 
-            SET status = $1, received_at = NOW(), updated_at = NOW()
+            SET status = $1, 
+                received_at = NOW(), 
+                updated_at = NOW()
             WHERE id = $2
-        `, [status, id]);
+        `, [newStatus, id]);
+
+        console.log(`📦 PO #${id} status updated to: ${newStatus}`);
+
+        // 6. Create transaction record
+        await client.query(`
+            INSERT INTO transactions (
+                type, 
+                reference_id, 
+                branch_id, 
+                amount,
+                description, 
+                created_by, 
+                created_at
+            ) VALUES (
+                'purchase_receiving', 
+                $1, 
+                $2, 
+                $3,
+                'Received items from PO #' || $4,
+                $5, 
+                NOW()
+            )
+        `, [id, po.branch_id, totalReceived, po.po_number, received_by]);
 
         await client.query('COMMIT');
+
+        console.log('✅ Receiving completed successfully!');
 
         res.json({
             success: true,
             data: {
                 purchase_order_id: id,
-                status: status,
-                items_received: items.length,
-                total_received: totalReceived
+                po_number: po.po_number,
+                status: newStatus,
+                items_received: receivedItems.length,
+                total_received: totalReceived,
+                all_received: allReceived
             }
         });
 
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error receiving purchase order:', error);
-        res.status(500).json({ error: error.message });
+        console.error('❌ Error receiving purchase order:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message || 'Failed to receive purchase order'
+        });
     } finally {
         client.release();
     }
