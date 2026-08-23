@@ -7,9 +7,10 @@ const path = require("path");
 const multer = require("multer");
 const XLSX = require("xlsx");
 const fs = require("fs");
-const pool = require("./database"); // ← This is correct
+const pool = require("./database");
 const productRoutes = require('./routes/products');
 const branchRoutes = require('./routes/branches');
+const missingRoutes = require('./routes/missing_routes');  // ✅ NEW LINE 1
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +25,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 app.use('/api/products', productRoutes);
 app.use('/api/branches', branchRoutes);
+app.use('/api', missingRoutes);  // ✅ NEW LINE 2
 
 // =====================================================
 // IMPORT ROUTES
