@@ -4,12 +4,41 @@ const router = express.Router();
 const pool = require('../database');
 
 // =====================================================
+// TEST ROUTE - Verify routes are working
+// =====================================================
+router.get('/test', (req, res) => {
+    res.json({ 
+        message: '✅ Missing routes are working!',
+        timestamp: new Date().toISOString(),
+        routes: [
+            '/pos/products',
+            '/pos/sale',
+            '/customers',
+            '/customers/:id',
+            '/returns',
+            '/daily-closing',
+            '/expenses',
+            '/invoices',
+            '/transfers',
+            '/reports/branch-sales',
+            '/reports/purchase-orders',
+            '/stock-control',
+            '/products/receive',
+            '/currency-settings',
+            '/branch-stock',
+            '/transfer-history'
+        ]
+    });
+});
+
+// =====================================================
 // 1. POS CASHIER ROUTES
 // =====================================================
 
 // Get POS products with stock
 router.get('/pos/products', async (req, res) => {
     try {
+        console.log('📦 POS Products endpoint called');
         const { branch_id } = req.query;
         
         let query = `
@@ -20,11 +49,11 @@ router.get('/pos/products', async (req, res) => {
             FROM products p
             LEFT JOIN branch_stock bs ON p.id = bs.product_id AND bs.branch_id = $1
             LEFT JOIN product_categories c ON p.category_id = c.id
-            WHERE p.stock > 0 OR p.stock IS NULL
             ORDER BY p.name
         `;
         
         const result = await pool.query(query, [branch_id || 1]);
+        console.log(`✅ Found ${result.rows.length} products`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching POS products:', error);
@@ -36,6 +65,7 @@ router.get('/pos/products', async (req, res) => {
 router.post('/pos/sale', async (req, res) => {
     const client = await pool.connect();
     try {
+        console.log('💰 POS Sale endpoint called', req.body);
         const { items, branch_id, customer_id, payment_method, created_by } = req.body;
 
         if (!items || !items.length || !branch_id || !created_by) {
@@ -94,6 +124,8 @@ router.post('/pos/sale', async (req, res) => {
 
         await client.query('COMMIT');
 
+        console.log(`✅ Sale created with ID: ${saleId}`);
+
         res.status(201).json({
             success: true,
             data: {
@@ -119,6 +151,7 @@ router.post('/pos/sale', async (req, res) => {
 // Get all customers
 router.get('/customers', async (req, res) => {
     try {
+        console.log('👥 Customers endpoint called');
         const result = await pool.query(`
             SELECT 
                 c.*,
@@ -129,6 +162,7 @@ router.get('/customers', async (req, res) => {
             GROUP BY c.id
             ORDER BY c.name
         `);
+        console.log(`✅ Found ${result.rows.length} customers`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching customers:', error);
@@ -139,6 +173,7 @@ router.get('/customers', async (req, res) => {
 // Get single customer
 router.get('/customers/:id', async (req, res) => {
     try {
+        console.log(`👤 Customer endpoint called for ID: ${req.params.id}`);
         const { id } = req.params;
         const result = await pool.query(`
             SELECT 
@@ -165,6 +200,7 @@ router.get('/customers/:id', async (req, res) => {
 // Add customer
 router.post('/customers', async (req, res) => {
     try {
+        console.log('➕ Adding customer:', req.body);
         const { name, phone, email, address, notes } = req.body;
         
         const result = await pool.query(`
@@ -173,6 +209,7 @@ router.post('/customers', async (req, res) => {
             RETURNING *
         `, [name, phone, email, address, notes]);
         
+        console.log(`✅ Customer added with ID: ${result.rows[0].id}`);
         res.status(201).json(result.rows[0]);
     } catch (error) {
         console.error('Error adding customer:', error);
@@ -183,6 +220,7 @@ router.post('/customers', async (req, res) => {
 // Update customer
 router.put('/customers/:id', async (req, res) => {
     try {
+        console.log(`✏️ Updating customer ID: ${req.params.id}`);
         const { id } = req.params;
         const { name, phone, email, address, notes } = req.body;
         
@@ -213,6 +251,7 @@ router.put('/customers/:id', async (req, res) => {
 // Delete customer
 router.delete('/customers/:id', async (req, res) => {
     try {
+        console.log(`🗑️ Deleting customer ID: ${req.params.id}`);
         const { id } = req.params;
         
         const check = await pool.query(
@@ -249,6 +288,7 @@ router.delete('/customers/:id', async (req, res) => {
 // Get returns
 router.get('/returns', async (req, res) => {
     try {
+        console.log('🔄 Returns endpoint called');
         const result = await pool.query(`
             SELECT 
                 r.*,
@@ -259,6 +299,7 @@ router.get('/returns', async (req, res) => {
             LEFT JOIN products p ON r.product_id = p.id
             ORDER BY r.created_at DESC
         `);
+        console.log(`✅ Found ${result.rows.length} returns`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching returns:', error);
@@ -270,6 +311,7 @@ router.get('/returns', async (req, res) => {
 router.post('/returns', async (req, res) => {
     const client = await pool.connect();
     try {
+        console.log('🔄 Processing return:', req.body);
         const { customer_id, sale_id, product_id, quantity, reason, return_amount, processed_by } = req.body;
 
         if (!customer_id || !product_id || !quantity) {
@@ -290,6 +332,7 @@ router.post('/returns', async (req, res) => {
 
         await client.query('COMMIT');
 
+        console.log(`✅ Return processed with ID: ${result.rows[0].id}`);
         res.status(201).json(result.rows[0]);
     } catch (error) {
         await client.query('ROLLBACK');
@@ -307,6 +350,7 @@ router.post('/returns', async (req, res) => {
 // Get daily closing data
 router.get('/daily-closing', async (req, res) => {
     try {
+        console.log('📊 Daily closing endpoint called');
         const { date, branch_id } = req.query;
         const closingDate = date || new Date().toISOString().split('T')[0];
 
@@ -331,6 +375,7 @@ router.get('/daily-closing', async (req, res) => {
 
         const result = await pool.query(query, params);
         
+        console.log(`✅ Daily closing data found for ${closingDate}`);
         res.json({
             date: closingDate,
             data: result.rows
@@ -341,24 +386,32 @@ router.get('/daily-closing', async (req, res) => {
     }
 });
 
-// =====================================================
-// 5. EXPENSES
+/// =====================================================
+// 5. EXPENSES - WITH DATE FIELD
 // =====================================================
 
-// Get expenses
+// Get all expenses
 router.get('/expenses', async (req, res) => {
     try {
-        const { start_date, end_date, branch_id } = req.query;
+        console.log('💸 GET Expenses endpoint called');
+        const { start_date, end_date, category } = req.query;
         
         let query = `
             SELECT 
-                e.*,
-                b.name as branch_name
+                e.id,
+                e.category,
+                e.amount,
+                e.notes,
+                e.date
             FROM expenses e
-            LEFT JOIN branches b ON e.branch_id = b.id
             WHERE 1=1
         `;
         const params = [];
+
+        if (category) {
+            query += ` AND LOWER(e.category) = LOWER($${params.length + 1})`;
+            params.push(category);
+        }
 
         if (start_date) {
             query += ` AND e.date >= $${params.length + 1}`;
@@ -370,44 +423,276 @@ router.get('/expenses', async (req, res) => {
             params.push(end_date);
         }
 
-        if (branch_id) {
-            query += ` AND e.branch_id = $${params.length + 1}`;
-            params.push(branch_id);
-        }
-
         query += ` ORDER BY e.date DESC`;
 
+        console.log('📝 Query:', query);
+        console.log('📝 Params:', params);
+
         const result = await pool.query(query, params);
+        console.log(`✅ Found ${result.rows.length} expenses`);
         res.json(result.rows);
     } catch (error) {
-        console.error('Error fetching expenses:', error);
+        console.error('❌ Error fetching expenses:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch expenses', 
+            details: error.message 
+        });
+    }
+});
+
+// Add a new expense
+router.post('/expenses', async (req, res) => {
+    try {
+        console.log('💸 POST Expenses endpoint called with body:', req.body);
+        
+        const { category, amount, notes, date } = req.body;
+
+        // Validate required fields
+        if (!category || !amount) {
+            console.log('❌ Missing required fields:', { category, amount });
+            return res.status(400).json({
+                error: 'Missing required fields: category and amount are required'
+            });
+        }
+
+        // Ensure amount is a number
+        const numericAmount = parseFloat(amount);
+        if (isNaN(numericAmount) || numericAmount <= 0) {
+            return res.status(400).json({
+                error: 'Amount must be a positive number'
+            });
+        }
+
+        // Use provided date or today's date
+        const expenseDate = date || new Date().toISOString().split('T')[0];
+
+        // Insert expense
+        const result = await pool.query(`
+            INSERT INTO expenses (
+                category, 
+                amount, 
+                notes,
+                date
+            ) VALUES ($1, $2, $3, $4)
+            RETURNING *
+        `, [category.trim(), numericAmount, notes || null, expenseDate]);
+
+        console.log(`✅ Expense created with ID: ${result.rows[0].id}`);
+        res.status(201).json({
+            success: true,
+            message: 'Expense added successfully',
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Error adding expense:', error);
+        res.status(500).json({ 
+            error: 'Failed to add expense', 
+            details: error.message 
+        });
+    }
+});
+
+// Get expense by ID
+router.get('/expenses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`👀 Getting expense ID: ${id}`);
+        
+        const result = await pool.query(`
+            SELECT 
+                id,
+                category,
+                amount,
+                notes,
+                date
+            FROM expenses 
+            WHERE id = $1
+        `, [id]);
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Expense not found' });
+        }
+        
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching expense:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Add expense
-router.post('/expenses', async (req, res) => {
+// Update expense
+router.put('/expenses/:id', async (req, res) => {
     try {
-        const { description, amount, category, date, branch_id, payment_method, reference, created_by } = req.body;
+        const { id } = req.params;
+        const { category, amount, notes, date } = req.body;
+        console.log(`✏️ Updating expense ID: ${id}`, req.body);
+        
+        const result = await pool.query(`
+            UPDATE expenses 
+            SET 
+                category = COALESCE($1, category),
+                amount = COALESCE($2, amount),
+                notes = COALESCE($3, notes),
+                date = COALESCE($4, date)
+            WHERE id = $5
+            RETURNING *
+        `, [category, amount, notes, date, id]);
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Expense not found' });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Expense updated successfully',
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Error updating expense:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
-        if (!description || !amount || !category) {
-            return res.status(400).json({
-                error: 'Missing required fields: description, amount, category'
-            });
+// Delete expense
+router.delete('/expenses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`🗑️ Deleting expense ID: ${id}`);
+        
+        const result = await pool.query(
+            'DELETE FROM expenses WHERE id = $1 RETURNING id',
+            [id]
+        );
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Expense not found' });
+        }
+        
+        res.json({ 
+            success: true,
+            message: 'Expense deleted successfully' 
+        });
+    } catch (error) {
+        console.error('Error deleting expense:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get expense summary by category
+router.get('/expenses/summary/categories', async (req, res) => {
+    try {
+        console.log('📊 Expense summary by category');
+        
+        const result = await pool.query(`
+            SELECT 
+                category,
+                COUNT(*) as count,
+                COALESCE(SUM(amount), 0) as total_amount,
+                COALESCE(AVG(amount), 0) as avg_amount,
+                MIN(amount) as min_amount,
+                MAX(amount) as max_amount
+            FROM expenses
+            GROUP BY category
+            ORDER BY total_amount DESC
+        `);
+        
+        res.json({
+            success: true,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('Error fetching expense summary:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get expense summary by date
+router.get('/expenses/summary/daily', async (req, res) => {
+    try {
+        const { start_date, end_date } = req.query;
+        console.log('📊 Daily expense summary');
+        
+        let query = `
+            SELECT 
+                date,
+                COUNT(*) as count,
+                COALESCE(SUM(amount), 0) as total_amount
+            FROM expenses
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (start_date) {
+            query += ` AND date >= $${params.length + 1}`;
+            params.push(start_date);
         }
 
-        const result = await pool.query(`
-            INSERT INTO expenses (
-                description, amount, category, date,
-                branch_id, payment_method, reference,
-                created_by, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-            RETURNING *
-        `, [description, amount, category, date || new Date(), branch_id, payment_method, reference, created_by]);
+        if (end_date) {
+            query += ` AND date <= $${params.length + 1}`;
+            params.push(end_date);
+        }
 
-        res.status(201).json(result.rows[0]);
+        query += ` GROUP BY date ORDER BY date DESC`;
+
+        const result = await pool.query(query, params);
+        
+        res.json({
+            success: true,
+            data: result.rows
+        });
     } catch (error) {
-        console.error('Error adding expense:', error);
+        console.error('Error fetching daily expense summary:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get expense summary by date range with categories
+router.get('/expenses/summary/range', async (req, res) => {
+    try {
+        const { start_date, end_date } = req.query;
+        console.log('📊 Expense summary by date range');
+        
+        if (!start_date || !end_date) {
+            return res.status(400).json({
+                error: 'start_date and end_date are required'
+            });
+        }
+        
+        const result = await pool.query(`
+            SELECT 
+                category,
+                COUNT(*) as count,
+                COALESCE(SUM(amount), 0) as total_amount,
+                MIN(date) as first_date,
+                MAX(date) as last_date
+            FROM expenses
+            WHERE date >= $1 AND date <= $2
+            GROUP BY category
+            ORDER BY total_amount DESC
+        `, [start_date, end_date]);
+        
+        // Get total for the period
+        const totalResult = await pool.query(`
+            SELECT 
+                COALESCE(SUM(amount), 0) as grand_total,
+                COUNT(*) as total_count
+            FROM expenses
+            WHERE date >= $1 AND date <= $2
+        `, [start_date, end_date]);
+        
+        res.json({
+            success: true,
+            period: {
+                start_date,
+                end_date
+            },
+            summary: {
+                categories: result.rows,
+                total: totalResult.rows[0]
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching expense range summary:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -419,6 +704,7 @@ router.post('/expenses', async (req, res) => {
 // Get invoices
 router.get('/invoices', async (req, res) => {
     try {
+        console.log('📄 Invoices endpoint called');
         const { start_date, end_date, customer_id, status } = req.query;
         
         let query = `
@@ -456,6 +742,7 @@ router.get('/invoices', async (req, res) => {
         query += ` ORDER BY i.issue_date DESC`;
 
         const result = await pool.query(query, params);
+        console.log(`✅ Found ${result.rows.length} invoices`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching invoices:', error);
@@ -470,6 +757,7 @@ router.get('/invoices', async (req, res) => {
 // Get transfer history
 router.get('/transfers', async (req, res) => {
     try {
+        console.log('🚚 Transfers endpoint called');
         const { from_branch, to_branch, start_date, end_date } = req.query;
         
         let query = `
@@ -509,6 +797,7 @@ router.get('/transfers', async (req, res) => {
         query += ` ORDER BY st.transfer_date DESC`;
 
         const result = await pool.query(query, params);
+        console.log(`✅ Found ${result.rows.length} transfers`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching transfers:', error);
@@ -520,6 +809,7 @@ router.get('/transfers', async (req, res) => {
 router.post('/transfers', async (req, res) => {
     const client = await pool.connect();
     try {
+        console.log('🚚 Creating transfer:', req.body);
         const { from_branch_id, to_branch_id, product_id, quantity, notes, transferred_by } = req.body;
 
         if (!from_branch_id || !to_branch_id || !product_id || !quantity) {
@@ -550,6 +840,7 @@ router.post('/transfers', async (req, res) => {
 
         await client.query('COMMIT');
 
+        console.log(`✅ Transfer created with ID: ${result.rows[0].id}`);
         res.status(201).json(result.rows[0]);
     } catch (error) {
         await client.query('ROLLBACK');
@@ -567,6 +858,7 @@ router.post('/transfers', async (req, res) => {
 // Branch sales report
 router.get('/reports/branch-sales', async (req, res) => {
     try {
+        console.log('📊 Branch sales report endpoint called');
         const { start_date, end_date, branch_id } = req.query;
         
         let query = `
@@ -600,6 +892,7 @@ router.get('/reports/branch-sales', async (req, res) => {
         query += ` GROUP BY b.name, DATE(s.date) ORDER BY sale_date DESC, b.name`;
 
         const result = await pool.query(query, params);
+        console.log(`✅ Found ${result.rows.length} branch sales records`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error generating branch sales report:', error);
@@ -610,6 +903,7 @@ router.get('/reports/branch-sales', async (req, res) => {
 // Purchase Order report
 router.get('/reports/purchase-orders', async (req, res) => {
     try {
+        console.log('📄 PO report endpoint called');
         const { start_date, end_date, supplier_id, status } = req.query;
         
         let query = `
@@ -647,6 +941,7 @@ router.get('/reports/purchase-orders', async (req, res) => {
         query += ` ORDER BY po.order_date DESC`;
 
         const result = await pool.query(query, params);
+        console.log(`✅ Found ${result.rows.length} PO records`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error generating PO report:', error);
@@ -661,6 +956,7 @@ router.get('/reports/purchase-orders', async (req, res) => {
 // Get stock control data
 router.get('/stock-control', async (req, res) => {
     try {
+        console.log('📦 Stock control endpoint called');
         const { branch_id, low_stock_only } = req.query;
         
         let query = `
@@ -691,6 +987,7 @@ router.get('/stock-control', async (req, res) => {
         query += ` ORDER BY b.name, p.name`;
 
         const result = await pool.query(query, params);
+        console.log(`✅ Found ${result.rows.length} stock records`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching stock control data:', error);
@@ -701,6 +998,7 @@ router.get('/stock-control', async (req, res) => {
 // Update stock levels
 router.put('/stock-control', async (req, res) => {
     try {
+        console.log('✏️ Updating stock control:', req.body);
         const { branch_id, product_id, quantity, min_stock } = req.body;
 
         if (!branch_id || !product_id) {
@@ -749,6 +1047,7 @@ router.put('/stock-control', async (req, res) => {
             });
         }
 
+        console.log(`✅ Stock updated for product ${product_id}`);
         res.json(result.rows[0]);
     } catch (error) {
         console.error('Error updating stock:', error);
@@ -764,6 +1063,7 @@ router.put('/stock-control', async (req, res) => {
 router.post('/products/receive', async (req, res) => {
     const client = await pool.connect();
     try {
+        console.log('📥 Receiving products:', req.body);
         const { product_id, branch_id, quantity, unit_cost, supplier_id, received_by, notes } = req.body;
 
         if (!product_id || !branch_id || !quantity || quantity <= 0) {
@@ -812,6 +1112,7 @@ router.post('/products/receive', async (req, res) => {
 
         await client.query('COMMIT');
 
+        console.log(`✅ Products received: ${quantity} of product ${product_id}`);
         res.status(201).json({
             success: true,
             message: 'Products received successfully',
@@ -834,11 +1135,13 @@ router.post('/products/receive', async (req, res) => {
 // Get currency settings
 router.get('/currency-settings', async (req, res) => {
     try {
+        console.log('💰 Currency settings endpoint called');
         const result = await pool.query(`
             SELECT * FROM system_settings 
             WHERE key LIKE 'currency_%'
             OR key = 'default_currency'
         `);
+        console.log(`✅ Found ${result.rows.length} currency settings`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching currency settings:', error);
@@ -849,6 +1152,7 @@ router.get('/currency-settings', async (req, res) => {
 // Update currency settings
 router.put('/currency-settings', async (req, res) => {
     try {
+        console.log('✏️ Updating currency settings:', req.body);
         const { currency_code, currency_symbol, decimal_places, exchange_rate } = req.body;
         
         const updates = [];
@@ -883,6 +1187,7 @@ router.put('/currency-settings', async (req, res) => {
 
         await Promise.all(updates);
         
+        console.log('✅ Currency settings updated');
         res.json({ message: 'Currency settings updated successfully' });
     } catch (error) {
         console.error('Error updating currency settings:', error);
@@ -897,6 +1202,7 @@ router.put('/currency-settings', async (req, res) => {
 // Save/Update branch stock
 router.put('/branch-stock', async (req, res) => {
     try {
+        console.log('💾 Saving branch stock:', req.body);
         const { branch_id, product_id, quantity, min_stock } = req.body;
 
         if (!branch_id || !product_id) {
@@ -911,15 +1217,16 @@ router.put('/branch-stock', async (req, res) => {
             [branch_id, product_id]
         );
 
+        let result;
         if (check.rowCount === 0) {
             // Insert new record
-            const result = await pool.query(`
+            result = await pool.query(`
                 INSERT INTO branch_stock (branch_id, product_id, quantity, min_stock)
                 VALUES ($1, $2, $3, $4)
                 RETURNING *
             `, [branch_id, product_id, quantity || 0, min_stock || 0]);
             
-            res.status(201).json(result.rows[0]);
+            console.log(`✅ New stock record created for product ${product_id}`);
         } else {
             // Update existing record
             const updates = [];
@@ -954,9 +1261,11 @@ router.put('/branch-stock', async (req, res) => {
                 RETURNING *
             `;
 
-            const result = await pool.query(query, values);
-            res.json(result.rows[0]);
+            result = await pool.query(query, values);
+            console.log(`✅ Stock updated for product ${product_id}`);
         }
+
+        res.json(result.rows[0]);
     } catch (error) {
         console.error('Error saving branch stock:', error);
         res.status(500).json({ error: error.message });
@@ -970,6 +1279,7 @@ router.put('/branch-stock', async (req, res) => {
 // Get transfer history (detailed)
 router.get('/transfer-history', async (req, res) => {
     try {
+        console.log('📋 Transfer history endpoint called');
         const { branch_id, start_date, end_date } = req.query;
         
         let query = `
@@ -1009,6 +1319,7 @@ router.get('/transfer-history', async (req, res) => {
         query += ` ORDER BY st.transfer_date DESC`;
 
         const result = await pool.query(query, params);
+        console.log(`✅ Found ${result.rows.length} transfer records`);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching transfer history:', error);
