@@ -8,6 +8,8 @@ const multer = require("multer");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const pool = require("./database"); // ← This is correct
+const productRoutes = require('./routes/products');
+const branchRoutes = require('./routes/branches');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +22,8 @@ const upload = multer({ dest: "uploads/" });
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+app.use('/api/products', productRoutes);
+app.use('/api/branches', branchRoutes);
 
 // =====================================================
 // IMPORT ROUTES
@@ -82,7 +86,7 @@ app.get('/api', (req, res) => {
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
-        message: 'Server is running',
+        uptime: process.uptime(),
         timestamp: new Date().toISOString()
     });
 });
