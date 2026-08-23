@@ -8,9 +8,26 @@ const multer = require("multer");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const pool = require("./database");
+
+console.log('🚀 Starting POS Inventory System...');
+
+// Import routes
 const productRoutes = require('./routes/products');
 const branchRoutes = require('./routes/branches');
-const missingRoutes = require('./routes/missing_routes');  // ✅ NEW LINE 1
+const transactionRoutes = require('./routes/transactions');
+
+// Import missing routes with error handling
+let missingRoutes;
+try {
+    missingRoutes = require('./routes/missing_routes');
+    console.log('✅ Missing routes loaded successfully');
+} catch (err) {
+    console.error('❌ Failed to load missing routes:', err.message);
+    missingRoutes = express.Router();
+    missingRoutes.get('/error', (req, res) => {
+        res.status(500).json({ error: 'Missing routes module failed to load' });
+    });
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,14 +40,39 @@ const upload = multer({ dest: "uploads/" });
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
-app.use('/api/products', productRoutes);
-app.use('/api/branches', branchRoutes);
-app.use('/api', missingRoutes);  // ✅ NEW LINE 2
 
-// =====================================================
-// IMPORT ROUTES
-// =====================================================
-const transactionRoutes = require('./routes/transactions');
+// Register routes with debug logging
+console.log('📋 Registering routes...');
+
+app.use('/api/products', productRoutes);
+console.log('✅ /api/products registered');
+
+app.use('/api/branches', branchRoutes);
+console.log('✅ /api/branches registered');
+
+app.use('/api/transactions', transactionRoutes);
+console.log('✅ /api/transactions registered');
+
+app.use('/api', missingRoutes);
+console.log('✅ /api (missing routes) registered');
+
+// Log all registered routes at startup
+console.log('\n📋 All registered routes:');
+console.log('  - /api/products/*');
+console.log('  - /api/branches/*');
+console.log('  - /api/transactions/*');
+console.log('  - /api/pos/*');
+console.log('  - /api/customers/*');
+console.log('  - /api/expenses');
+console.log('  - /api/invoices');
+console.log('  - /api/transfers/*');
+console.log('  - /api/reports/*');
+console.log('  - /api/stock-control');
+console.log('  - /api/products/receive');
+console.log('  - /api/currency-settings');
+console.log('  - /api/branch-stock');
+console.log('  - /api/transfer-history');
+console.log('  - /api/test');
 
 // =====================================================
 // ROOT ENDPOINTS
@@ -41,19 +83,14 @@ app.get('/', (req, res) => {
     res.json({
         message: 'Welcome to POS Inventory System API',
         version: '1.0.0',
+        status: 'running',
         endpoints: {
-            '/api': 'API information',
-            '/api/transactions/sales': 'POST - Process a sale',
-            '/api/transactions/branch-sales': 'POST - Process a branch sale',
-            '/api/transactions/sales-summary': 'GET - Get sales summary',
-            '/api/transactions/branch-sales-summary': 'GET - Get branch sales summary',
-            '/api/transactions/product-performance': 'GET - Get product performance',
-            '/api/transactions/purchase-orders': 'GET - Get purchase orders',
-            '/api/transactions/customer-history': 'GET - Get customer history',
-            '/api/transactions/daily-report': 'GET - Get daily sales report',
-            '/api/transactions/branch-stock': 'GET - Get branch stock',
-            '/api/transactions/dashboard/stats': 'GET - Get dashboard statistics',
-            '/health': 'GET - Health check'
+            '/api/test': 'Test missing routes',
+            '/api/expenses': 'Expense management',
+            '/api/customers': 'Customer management',
+            '/api/pos': 'POS operations',
+            '/api/transactions': 'Transaction operations',
+            '/health': 'Health check'
         }
     });
 });
@@ -64,23 +101,25 @@ app.get('/api', (req, res) => {
         name: 'POS Inventory System API',
         version: '1.0.0',
         description: 'API for managing sales, inventory, and transactions',
-        endpoints: {
-            'transactions': {
-                'POST /api/transactions/sales': 'Process a sale',
-                'POST /api/transactions/branch-sales': 'Process a branch sale',
-                'GET /api/transactions/sales-summary': 'Get sales summary',
-                'GET /api/transactions/branch-sales-summary': 'Get branch sales summary',
-                'GET /api/transactions/product-performance': 'Get product performance',
-                'GET /api/transactions/purchase-orders': 'Get purchase orders',
-                'GET /api/transactions/customer-history': 'Get customer history',
-                'GET /api/transactions/daily-report': 'Get daily sales report',
-                'GET /api/transactions/branch-stock': 'Get branch stock',
-                'GET /api/transactions/dashboard/stats': 'Get dashboard statistics'
-            },
-            'health': {
-                'GET /health': 'Health check'
-            }
-        }
+        registered_routes: [
+            '/api/products',
+            '/api/branches', 
+            '/api/transactions',
+            '/api/pos/products',
+            '/api/pos/sale',
+            '/api/customers',
+            '/api/expenses',
+            '/api/invoices',
+            '/api/transfers',
+            '/api/reports/branch-sales',
+            '/api/reports/purchase-orders',
+            '/api/stock-control',
+            '/api/products/receive',
+            '/api/currency-settings',
+            '/api/branch-stock',
+            '/api/transfer-history',
+            '/api/test'
+        ]
     });
 });
 
@@ -92,9 +131,6 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-
-// Use transaction routes
-app.use('/api/transactions', transactionRoutes);
 
 // =====================================================
 // AUTH MIDDLEWARE
@@ -590,9 +626,20 @@ app.get("/branches", async (req, res) => {
 // =====================================================
 
 app.use((req, res) => {
+    console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
     res.status(404).json({
         error: 'Route not found',
-        message: `Cannot ${req.method} ${req.originalUrl}`
+        message: `Cannot ${req.method} ${req.originalUrl}`,
+        available_routes: [
+            '/api/test',
+            '/api/expenses',
+            '/api/customers',
+            '/api/pos/products',
+            '/api/pos/sale',
+            '/api/transactions/*',
+            '/api/products/*',
+            '/api/branches/*'
+        ]
     });
 });
 
@@ -601,7 +648,7 @@ app.use((req, res) => {
 // =====================================================
 
 app.use((err, req, res, next) => {
-    console.error('Error:', err);
+    console.error('❌ Error:', err);
     res.status(500).json({
         error: 'Internal Server Error',
         message: err.message
@@ -612,18 +659,18 @@ app.use((err, req, res, next) => {
 // START SERVER
 // =====================================================
 
-// Wait for database to be ready before starting server
 const startServer = async () => {
     try {
-        // Wait for database initialization to complete
         await pool.databaseReady;
         
         app.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-            console.log(`Visit http://localhost:${PORT} for API information`);
+            console.log(`\n✅ Server running on port ${PORT}`);
+            console.log(`🌐 Visit http://localhost:${PORT} for API information`);
+            console.log(`🧪 Test missing routes: http://localhost:${PORT}/api/test`);
+            console.log(`💰 Test expenses: http://localhost:${PORT}/api/expenses`);
         });
     } catch (error) {
-        console.error('Failed to start server:', error);
+        console.error('❌ Failed to start server:', error);
         process.exit(1);
     }
 };
