@@ -430,6 +430,117 @@ app.get("/receiving-report", async (req, res) => {
     }
 });
 
+
+// =====================================================
+// ADD ALL OTHER ROOT-LEVEL ROUTES YOUR FRONTEND NEEDS
+// =====================================================
+
+// Example: Root-level routes for other features
+app.get('/customers', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                c.*,
+                COUNT(s.id) as total_purchases,
+                COALESCE(SUM(s.total_amount), 0) as total_spent
+            FROM customers c
+            LEFT JOIN sales s ON c.id = s.customer_id
+            GROUP BY c.id
+            ORDER BY c.name
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching customers (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/customers', async (req, res) => {
+    try {
+        const { name, phone, email, address, notes } = req.body;
+        
+        const result = await pool.query(`
+            INSERT INTO customers (name, phone, email, address, notes, created_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            RETURNING *
+        `, [name, phone, email, address, notes]);
+        
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error adding customer (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/invoices', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                i.*,
+                c.name as customer_name,
+                b.name as branch_name
+            FROM invoices i
+            LEFT JOIN customers c ON i.customer_id = c.id
+            LEFT JOIN branches b ON i.branch_id = b.id
+            ORDER BY i.issue_date DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching invoices (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/branches', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                b.*,
+                COUNT(DISTINCT bs.product_id) as total_products,
+                COALESCE(SUM(bs.quantity), 0) as total_stock
+            FROM branches b
+            LEFT JOIN branch_stock bs ON b.id = bs.branch_id
+            GROUP BY b.id
+            ORDER BY b.name
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching branches (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/suppliers', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM suppliers ORDER BY id DESC");
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching suppliers (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/dashboard', async (req, res) => {
+    try {
+        const products = await pool.query("SELECT COUNT(*) AS total_products FROM products");
+        const stock = await pool.query("SELECT COALESCE(SUM(stock),0) AS total_stock FROM products");
+        const sales = await pool.query("SELECT COALESCE(SUM(price),0) AS total_sales FROM sales");
+        const profit = await pool.query("SELECT COALESCE(SUM(profit),0) AS total_profit FROM sales");
+        const lowStock = await pool.query("SELECT COUNT(*) AS low_stock FROM products WHERE stock <= 5");
+
+        res.json({
+            totalProducts: Number(products.rows[0].total_products),
+            totalStock: Number(stock.rows[0].total_stock),
+            totalSales: Number(sales.rows[0].total_sales),
+            totalProfit: Number(profit.rows[0].total_profit),
+            lowStock: Number(lowStock.rows[0].low_stock)
+        });
+    } catch (error) {
+        console.error('Dashboard error (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // =====================================================
 // SALES ENDPOINTS
 // =====================================================
@@ -653,6 +764,269 @@ app.use((err, req, res, next) => {
         error: 'Internal Server Error',
         message: err.message
     });
+});
+
+// =====================================================
+// ROOT-LEVEL ROUTES (For frontend compatibility)
+// =====================================================
+
+// Expenses - Root level
+app.get('/expenses', async (req, res) => {
+    try {
+        console.log('💸 GET /expenses (root) called');
+        const { start_date, end_date, category } = req.query;
+        
+        let query = `
+            SELECT 
+                e.id,
+                e.category,
+                e.amount,
+                e.notes,
+                e.date
+            FROM expenses e
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (category) {
+            query += ` AND LOWER(e.category) = LOWER($${params.length + 1})`;
+            params.push(category);
+        }
+
+        if (start_date) {
+            query += ` AND e.date >= $${params.length + 1}`;
+            params.push(start_date);
+        }
+
+        if (end_date) {
+            query += ` AND e.date <= $${params.length + 1}`;
+            params.push(end_date);
+        }
+
+        query += ` ORDER BY e.date DESC`;
+
+        const result = await pool.query(query, params);
+        console.log(`✅ Found ${result.rows.length} expenses (root)`);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('❌ Error fetching expenses (root):', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch expenses', 
+            details: error.message 
+        });
+    }
+});
+
+app.post('/expenses', async (req, res) => {
+    try {
+        console.log('💸 POST /expenses (root) called with body:', req.body);
+        
+        const { category, amount, notes, date } = req.body;
+
+        if (!category || !amount) {
+            return res.status(400).json({
+                error: 'Missing required fields: category and amount are required'
+            });
+        }
+
+        const numericAmount = parseFloat(amount);
+        if (isNaN(numericAmount) || numericAmount <= 0) {
+            return res.status(400).json({
+                error: 'Amount must be a positive number'
+            });
+        }
+
+        const expenseDate = date || new Date().toISOString().split('T')[0];
+
+        const result = await pool.query(`
+            INSERT INTO expenses (
+                category, 
+                amount, 
+                notes,
+                date
+            ) VALUES ($1, $2, $3, $4)
+            RETURNING *
+        `, [category.trim(), numericAmount, notes || null, expenseDate]);
+
+        console.log(`✅ Expense created (root) with ID: ${result.rows[0].id}`);
+        res.status(201).json({
+            success: true,
+            message: 'Expense added successfully',
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Error adding expense (root):', error);
+        res.status(500).json({ 
+            error: 'Failed to add expense', 
+            details: error.message 
+        });
+    }
+});
+
+app.put('/expenses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { category, amount, notes, date } = req.body;
+        console.log(`✏️ Updating expense (root) ID: ${id}`, req.body);
+        
+        const result = await pool.query(`
+            UPDATE expenses 
+            SET 
+                category = COALESCE($1, category),
+                amount = COALESCE($2, amount),
+                notes = COALESCE($3, notes),
+                date = COALESCE($4, date)
+            WHERE id = $5
+            RETURNING *
+        `, [category, amount, notes, date, id]);
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Expense not found' });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Expense updated successfully',
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Error updating expense (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/expenses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`🗑️ Deleting expense (root) ID: ${id}`);
+        
+        const result = await pool.query(
+            'DELETE FROM expenses WHERE id = $1 RETURNING id',
+            [id]
+        );
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Expense not found' });
+        }
+        
+        res.json({ 
+            success: true,
+            message: 'Expense deleted successfully' 
+        });
+    } catch (error) {
+        console.error('Error deleting expense (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// ADD ALL OTHER ROOT-LEVEL ROUTES YOUR FRONTEND NEEDS
+// =====================================================
+
+// Example: Root-level routes for other features
+app.get('/customers', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                c.*,
+                COUNT(s.id) as total_purchases,
+                COALESCE(SUM(s.total_amount), 0) as total_spent
+            FROM customers c
+            LEFT JOIN sales s ON c.id = s.customer_id
+            GROUP BY c.id
+            ORDER BY c.name
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching customers (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/customers', async (req, res) => {
+    try {
+        const { name, phone, email, address, notes } = req.body;
+        
+        const result = await pool.query(`
+            INSERT INTO customers (name, phone, email, address, notes, created_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            RETURNING *
+        `, [name, phone, email, address, notes]);
+        
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error adding customer (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/invoices', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                i.*,
+                c.name as customer_name,
+                b.name as branch_name
+            FROM invoices i
+            LEFT JOIN customers c ON i.customer_id = c.id
+            LEFT JOIN branches b ON i.branch_id = b.id
+            ORDER BY i.issue_date DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching invoices (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/branches', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                b.*,
+                COUNT(DISTINCT bs.product_id) as total_products,
+                COALESCE(SUM(bs.quantity), 0) as total_stock
+            FROM branches b
+            LEFT JOIN branch_stock bs ON b.id = bs.branch_id
+            GROUP BY b.id
+            ORDER BY b.name
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching branches (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/suppliers', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM suppliers ORDER BY id DESC");
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching suppliers (root):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/dashboard', async (req, res) => {
+    try {
+        const products = await pool.query("SELECT COUNT(*) AS total_products FROM products");
+        const stock = await pool.query("SELECT COALESCE(SUM(stock),0) AS total_stock FROM products");
+        const sales = await pool.query("SELECT COALESCE(SUM(price),0) AS total_sales FROM sales");
+        const profit = await pool.query("SELECT COALESCE(SUM(profit),0) AS total_profit FROM sales");
+        const lowStock = await pool.query("SELECT COUNT(*) AS low_stock FROM products WHERE stock <= 5");
+
+        res.json({
+            totalProducts: Number(products.rows[0].total_products),
+            totalStock: Number(stock.rows[0].total_stock),
+            totalSales: Number(sales.rows[0].total_sales),
+            totalProfit: Number(profit.rows[0].total_profit),
+            lowStock: Number(lowStock.rows[0].low_stock)
+        });
+    } catch (error) {
+        console.error('Dashboard error (root):', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // =====================================================
