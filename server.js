@@ -37,11 +37,16 @@ if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
 
 const upload = multer({ dest: "uploads/" });
 
+// =====================================================
+// MIDDLEWARE
+// =====================================================
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Register routes with debug logging
+// =====================================================
+// API ROUTES (with /api prefix)
+// =====================================================
 console.log('📋 Registering routes...');
 
 app.use('/api/products', productRoutes);
@@ -56,29 +61,10 @@ console.log('✅ /api/transactions registered');
 app.use('/api', missingRoutes);
 console.log('✅ /api (missing routes) registered');
 
-// Log all registered routes at startup
-console.log('\n📋 All registered routes:');
-console.log('  - /api/products/*');
-console.log('  - /api/branches/*');
-console.log('  - /api/transactions/*');
-console.log('  - /api/pos/*');
-console.log('  - /api/customers/*');
-console.log('  - /api/expenses');
-console.log('  - /api/invoices');
-console.log('  - /api/transfers/*');
-console.log('  - /api/reports/*');
-console.log('  - /api/stock-control');
-console.log('  - /api/products/receive');
-console.log('  - /api/currency-settings');
-console.log('  - /api/branch-stock');
-console.log('  - /api/transfer-history');
-console.log('  - /api/test');
-
 // =====================================================
 // ROOT ENDPOINTS
 // =====================================================
 
-// Welcome route
 app.get('/', (req, res) => {
     res.json({
         message: 'Welcome to POS Inventory System API',
@@ -95,7 +81,6 @@ app.get('/', (req, res) => {
     });
 });
 
-// API information route
 app.get('/api', (req, res) => {
     res.json({
         name: 'POS Inventory System API',
@@ -123,7 +108,6 @@ app.get('/api', (req, res) => {
     });
 });
 
-// Health check
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
@@ -160,7 +144,6 @@ function adminOnly(req, res, next) {
 // AUTH ENDPOINTS
 // =====================================================
 
-// LOGIN
 app.post("/login", async (req, res) => {
     const { username, password } = req.body;
 
@@ -187,7 +170,6 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// USERS
 app.post("/create-user", verifyToken, adminOnly, async (req, res) => {
     const { username, password, role } = req.body;
 
@@ -430,117 +412,6 @@ app.get("/receiving-report", async (req, res) => {
     }
 });
 
-
-// =====================================================
-// ADD ALL OTHER ROOT-LEVEL ROUTES YOUR FRONTEND NEEDS
-// =====================================================
-
-// Example: Root-level routes for other features
-app.get('/customers', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                c.*,
-                COUNT(s.id) as total_purchases,
-                COALESCE(SUM(s.total_amount), 0) as total_spent
-            FROM customers c
-            LEFT JOIN sales s ON c.id = s.customer_id
-            GROUP BY c.id
-            ORDER BY c.name
-        `);
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching customers (root):', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/customers', async (req, res) => {
-    try {
-        const { name, phone, email, address, notes } = req.body;
-        
-        const result = await pool.query(`
-            INSERT INTO customers (name, phone, email, address, notes, created_at)
-            VALUES ($1, $2, $3, $4, $5, NOW())
-            RETURNING *
-        `, [name, phone, email, address, notes]);
-        
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error adding customer (root):', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/invoices', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                i.*,
-                c.name as customer_name,
-                b.name as branch_name
-            FROM invoices i
-            LEFT JOIN customers c ON i.customer_id = c.id
-            LEFT JOIN branches b ON i.branch_id = b.id
-            ORDER BY i.issue_date DESC
-        `);
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching invoices (root):', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/branches', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                b.*,
-                COUNT(DISTINCT bs.product_id) as total_products,
-                COALESCE(SUM(bs.quantity), 0) as total_stock
-            FROM branches b
-            LEFT JOIN branch_stock bs ON b.id = bs.branch_id
-            GROUP BY b.id
-            ORDER BY b.name
-        `);
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching branches (root):', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/suppliers', async (req, res) => {
-    try {
-        const result = await pool.query("SELECT * FROM suppliers ORDER BY id DESC");
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching suppliers (root):', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/dashboard', async (req, res) => {
-    try {
-        const products = await pool.query("SELECT COUNT(*) AS total_products FROM products");
-        const stock = await pool.query("SELECT COALESCE(SUM(stock),0) AS total_stock FROM products");
-        const sales = await pool.query("SELECT COALESCE(SUM(price),0) AS total_sales FROM sales");
-        const profit = await pool.query("SELECT COALESCE(SUM(profit),0) AS total_profit FROM sales");
-        const lowStock = await pool.query("SELECT COUNT(*) AS low_stock FROM products WHERE stock <= 5");
-
-        res.json({
-            totalProducts: Number(products.rows[0].total_products),
-            totalStock: Number(stock.rows[0].total_stock),
-            totalSales: Number(sales.rows[0].total_sales),
-            totalProfit: Number(profit.rows[0].total_profit),
-            lowStock: Number(lowStock.rows[0].low_stock)
-        });
-    } catch (error) {
-        console.error('Dashboard error (root):', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // =====================================================
 // SALES ENDPOINTS
 // =====================================================
@@ -610,25 +481,11 @@ app.get("/sales-report", async (req, res) => {
 
 app.get("/dashboard", async (req, res) => {
     try {
-        const products = await pool.query(
-            "SELECT COUNT(*) AS total_products FROM products"
-        );
-
-        const stock = await pool.query(
-            "SELECT COALESCE(SUM(stock),0) AS total_stock FROM products"
-        );
-
-        const sales = await pool.query(
-            "SELECT COALESCE(SUM(price),0) AS total_sales FROM sales"
-        );
-
-        const profit = await pool.query(
-            "SELECT COALESCE(SUM(profit),0) AS total_profit FROM sales"
-        );
-
-        const lowStock = await pool.query(
-            "SELECT COUNT(*) AS low_stock FROM products WHERE stock <= 5"
-        );
+        const products = await pool.query("SELECT COUNT(*) AS total_products FROM products");
+        const stock = await pool.query("SELECT COALESCE(SUM(stock),0) AS total_stock FROM products");
+        const sales = await pool.query("SELECT COALESCE(SUM(price),0) AS total_sales FROM sales");
+        const profit = await pool.query("SELECT COALESCE(SUM(profit),0) AS total_profit FROM sales");
+        const lowStock = await pool.query("SELECT COUNT(*) AS low_stock FROM products WHERE stock <= 5");
 
         res.json({
             totalProducts: Number(products.rows[0].total_products),
@@ -637,7 +494,6 @@ app.get("/dashboard", async (req, res) => {
             totalProfit: Number(profit.rows[0].total_profit),
             lowStock: Number(lowStock.rows[0].low_stock)
         });
-
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Dashboard failed" });
@@ -733,44 +589,11 @@ app.get("/branches", async (req, res) => {
 });
 
 // =====================================================
-// 404 HANDLER
-// =====================================================
-
-app.use((req, res) => {
-    console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
-    res.status(404).json({
-        error: 'Route not found',
-        message: `Cannot ${req.method} ${req.originalUrl}`,
-        available_routes: [
-            '/api/test',
-            '/api/expenses',
-            '/api/customers',
-            '/api/pos/products',
-            '/api/pos/sale',
-            '/api/transactions/*',
-            '/api/products/*',
-            '/api/branches/*'
-        ]
-    });
-});
-
-// =====================================================
-// ERROR HANDLER
-// =====================================================
-
-app.use((err, req, res, next) => {
-    console.error('❌ Error:', err);
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: err.message
-    });
-});
-
-// =====================================================
 // ROOT-LEVEL ROUTES (For frontend compatibility)
+// MUST BE BEFORE THE 404 HANDLER!
 // =====================================================
 
-// Expenses - Root level
+// Expenses CRUD - Root level
 app.get('/expenses', async (req, res) => {
     try {
         console.log('💸 GET /expenses (root) called');
@@ -810,10 +633,7 @@ app.get('/expenses', async (req, res) => {
         res.json(result.rows);
     } catch (error) {
         console.error('❌ Error fetching expenses (root):', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch expenses', 
-            details: error.message 
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -856,10 +676,7 @@ app.post('/expenses', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error adding expense (root):', error);
-        res.status(500).json({ 
-            error: 'Failed to add expense', 
-            details: error.message 
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -867,7 +684,7 @@ app.put('/expenses/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { category, amount, notes, date } = req.body;
-        console.log(`✏️ Updating expense (root) ID: ${id}`, req.body);
+        console.log(`✏️ Updating expense (root) ID: ${id}`);
         
         const result = await pool.query(`
             UPDATE expenses 
@@ -919,11 +736,7 @@ app.delete('/expenses/:id', async (req, res) => {
     }
 });
 
-// =====================================================
-// ADD ALL OTHER ROOT-LEVEL ROUTES YOUR FRONTEND NEEDS
-// =====================================================
-
-// Example: Root-level routes for other features
+// Customer routes - Root level
 app.get('/customers', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -960,6 +773,7 @@ app.post('/customers', async (req, res) => {
     }
 });
 
+// Invoice routes - Root level
 app.get('/invoices', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -979,54 +793,28 @@ app.get('/invoices', async (req, res) => {
     }
 });
 
-app.get('/branches', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                b.*,
-                COUNT(DISTINCT bs.product_id) as total_products,
-                COALESCE(SUM(bs.quantity), 0) as total_stock
-            FROM branches b
-            LEFT JOIN branch_stock bs ON b.id = bs.branch_id
-            GROUP BY b.id
-            ORDER BY b.name
-        `);
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching branches (root):', error);
-        res.status(500).json({ error: error.message });
-    }
+// =====================================================
+// 404 HANDLER - MUST BE LAST!
+// =====================================================
+
+app.use((req, res) => {
+    console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({
+        error: 'Route not found',
+        message: `Cannot ${req.method} ${req.originalUrl}`
+    });
 });
 
-app.get('/suppliers', async (req, res) => {
-    try {
-        const result = await pool.query("SELECT * FROM suppliers ORDER BY id DESC");
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching suppliers (root):', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+// =====================================================
+// ERROR HANDLER
+// =====================================================
 
-app.get('/dashboard', async (req, res) => {
-    try {
-        const products = await pool.query("SELECT COUNT(*) AS total_products FROM products");
-        const stock = await pool.query("SELECT COALESCE(SUM(stock),0) AS total_stock FROM products");
-        const sales = await pool.query("SELECT COALESCE(SUM(price),0) AS total_sales FROM sales");
-        const profit = await pool.query("SELECT COALESCE(SUM(profit),0) AS total_profit FROM sales");
-        const lowStock = await pool.query("SELECT COUNT(*) AS low_stock FROM products WHERE stock <= 5");
-
-        res.json({
-            totalProducts: Number(products.rows[0].total_products),
-            totalStock: Number(stock.rows[0].total_stock),
-            totalSales: Number(sales.rows[0].total_sales),
-            totalProfit: Number(profit.rows[0].total_profit),
-            lowStock: Number(lowStock.rows[0].low_stock)
-        });
-    } catch (error) {
-        console.error('Dashboard error (root):', error);
-        res.status(500).json({ error: error.message });
-    }
+app.use((err, req, res, next) => {
+    console.error('❌ Error:', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message
+    });
 });
 
 // =====================================================
@@ -1041,7 +829,8 @@ const startServer = async () => {
             console.log(`\n✅ Server running on port ${PORT}`);
             console.log(`🌐 Visit http://localhost:${PORT} for API information`);
             console.log(`🧪 Test missing routes: http://localhost:${PORT}/api/test`);
-            console.log(`💰 Test expenses: http://localhost:${PORT}/api/expenses`);
+            console.log(`💰 Test expenses: http://localhost:${PORT}/expenses`);
+            console.log(`💰 Test API expenses: http://localhost:${PORT}/api/expenses`);
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);
